@@ -158,7 +158,7 @@ class MyDataset(Dataset):
         return allgraphs#, cifs
 
     def get_cifs(self):
-        return np.asarray(self.cifs , dtype=object)   
+        return np.asarray(self.cifs , dtype=object)
 
 class HNet(Model):
     def __init__(self, task, num_classes, return_s=False):
@@ -170,6 +170,12 @@ class HNet(Model):
         self.conv1= CrystalConv()
         self.conv2= CrystalConv()
         self.conv3= CrystalConv()
+
+        self.assign_embedding= Dense(64)
+        self.assign_conv1= CrystalConv()
+        self.assign_conv2= CrystalConv()
+        self.assign_conv3= CrystalConv()
+
         #self.disjoint2batch= Disjoint2Batch()
         self.pool= DiffPool(k=3, return_selection=True)
         self.conv4= CrystalConv()
@@ -182,19 +188,33 @@ class HNet(Model):
 
     def call(self, inputs):
         x, a, e, i = inputs
+
+        x_assign= self.assign_embedding(x)
+        x_assign= self.assign_conv1([x_assign, a, e])
+        x_assign= self.assign_conv2([x_assign, a, e])
+        x_assign= self.assign_conv3([x_assign, a, e])
+
         x= self.embedding(x)
         x= self.conv1([x, a, e])
         x= self.conv2([x, a, e])
         x= self.conv3([x, a, e])
 
         batch_X = ops.disjoint_signal_to_batch(x, i)
+        batch_assignfeats= ops.disjoint_signal_to_batch(x_assign, i)
         batch_A, batch_E = self.local_disjoint_adjacency_to_batch(e, a, i)#had to rewrite
         #print(batch_A[0])
-        x, a, s= self.pool([batch_X, batch_A])
-        #print(s[0])
+        x_assign, a, s= self.pool([batch_assignfeats, batch_A])
+        #print(x_assign.shape)
+        #print(batch_X.shape)
+        #print(s.shape)
+        x_temp=tf.einsum('bij,bmn->bjn',s,batch_X)
+        #print('----')
+        #print(x_temp.shape)
+        #print('----')
+        i=tf.convert_to_tensor([k for k in range(0,x_temp.shape[0]) for j in range(0,3)])
+        x= tf.reshape(x_temp, (x_temp.shape[0]*x_temp.shape[1],x_temp.shape[2]))
+        #print(x.shape)
 
-        i=tf.convert_to_tensor([k for k in range(0,x.shape[0]) for j in range(0,3)])
-        x= tf.reshape(x, (x.shape[0]*x.shape[1],x.shape[2]))
 
         temp=tf.einsum('bijk,bil->bilk',batch_E,s)
         e_new=tf.einsum('bmn,bilk->bnlk',s,temp)
@@ -229,6 +249,8 @@ class HNet(Model):
         a_new= tf.sparse.from_dense(adj_empty)
 
         x=self.conv4([x, a_new, e])
+        #print(x)
+        #print(i)
         x=self.maxpool([x, i])
         x=self.out_layer(x)
         if self.return_s:

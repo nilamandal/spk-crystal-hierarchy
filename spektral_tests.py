@@ -75,7 +75,7 @@ def evaluate(loader):
 
         outs = (
             loss_fn(target, pred),
-            tf.reduce_mean(sparse_categorical_accuracy(target, pred)),
+            tf.reduce_mean(sparse_categorical_accuracy(target, pred)/len(target)),
             len(target),  # Keep track of batch size
         )
 
