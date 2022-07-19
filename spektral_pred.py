@@ -47,13 +47,13 @@ parser.add_argument('--batch-size', dest='batch_size', type=int,
 parser.add_argument('--epochs', default=30, type=int, metavar='N',
                     help='number of total epochs to run (default: 30)')
 
-parser.add_argument('--lr', dest='learning_rate', type=float,
-                    help='Learning rate.', default=1e-3)
+#parser.add_argument('--lr', dest='learning_rate', type=float,
+#                    help='Learning rate.', default=1e-3)
 parser.add_argument('--task', choices=['r', 'c'],
                     default='c', help='complete a regression or '
                         'classification task (default: regression)')
-parser.add_argument('--patience', dest='patience',default=10, type=int,
-                    help='num epochs for early stopping')
+#parser.add_argument('--patience', dest='patience',default=10, type=int,
+#                    help='num epochs for early stopping')
 
 def evaluate(loader, model):
     output = []
@@ -77,7 +77,7 @@ def evaluate(loader, model):
             #print(np.average(output[:, :-1], 0, weights=output[:, -1]))
             return np.average(output[:, :-1], 0, weights=output[:, -1]), all_s
 
-checkpoint_path = "../results19/spk8/lr1e-2/lr1e-2.cpkt"
+checkpoint_path = "../results19/spk10-spenalty/lr1e-3/lr1e-3.cpkt"
 checkpoint_dir = os.path.dirname(checkpoint_path)
 
 args = parser.parse_args(sys.argv[1:])

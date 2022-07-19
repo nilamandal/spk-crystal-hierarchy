@@ -126,13 +126,14 @@ def train_step(inputs, target):
         predictions, s = model(inputs, training=True)
         #print(s)
 
-        s_penalty= tf.einsum('bij,bnm->bjm', s, s)
+        s_penalty= tf.norm(tf.linalg.diag_part(tf.einsum('bij,bnm->bjm', s, s)), ord=np.inf)
+        print('s penalty')
         print(s_penalty)
         #print(target)
         #print(predictions)
         print('here is t, p, and train loss')
         print(loss_fn(target, predictions))
-        loss = loss_fn(target, predictions) + sum(model.losses)
+        loss = loss_fn(target, predictions) + sum(model.losses) +s_penalty
 
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
