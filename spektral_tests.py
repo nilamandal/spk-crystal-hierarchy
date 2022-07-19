@@ -24,18 +24,18 @@ parser.add_argument('--datadir', dest='datadir',
         help='Directory where dataset is located', default='../crystalhierarchydata/icsd-zintl-search')
 
 parser.add_argument('--filename', dest='filename',
-                    help='csv where data is located', default='corrected_sym.csv')
+                    help='csv where data is located', default='id_prop.csv')
 parser.add_argument('--file-out', dest='file_out',
-                    help='output file name', default='sysout')
+                    help='output file name', default='sysout2')
 parser.add_argument('--path-out', dest='path',
-                    help='output path', default='./spektraltest_8atom/')
+                    help='output path', default='./correctedspk8/')
 parser.add_argument('--num-atoms', dest='num_atoms', type=int,
                     help='Maximum number of nodes', default=8)
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
                     help='num neighbors per atom', default=12)
 
 parser.add_argument('--num-classes', dest='num_classes', type=int,
-                    help='Number of label classes', default=3)
+                    help='Number of label classes', default=4)
 
 parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
                     help='search radius for neighbors', default=8)
@@ -71,14 +71,15 @@ def evaluate(loader):
     while step < loader.steps_per_epoch:
         step += 1
         inputs, target = loader.__next__()
-        pred = model(inputs, training=False)
-
-        outs = (
-            loss_fn(target, pred),
-            tf.reduce_mean(sparse_categorical_accuracy(target, pred)/len(target)),
-            len(target),  # Keep track of batch size
-        )
-
+        pred, s = model(inputs, training=False)
+        if args.task=='c':
+            outs = (
+                loss_fn(target, pred),
+                tf.reduce_mean(sparse_categorical_accuracy(target, pred)),
+                len(target),  # Keep track of batch size
+            )
+        elif args.task=='r':
+            pass
         output.append(outs)
         if step == loader.steps_per_epoch:
             output = np.array(output)
@@ -110,7 +111,7 @@ elif args.task=='r':
 else:
     print(args.task, ' is not c or r.')
 
-model= HNet(args.task, args.num_classes)
+model= HNet(args.task, args.num_classes, return_s=True)
 #model.compile(optimizer, loss_fn)
 epoch = step = 0
 best_val_loss = np.inf
@@ -122,26 +123,45 @@ print('model initialized, time=', str(init_time))
 
 def train_step(inputs, target):
     with tf.GradientTape() as tape:
-        predictions = model(inputs, training=True)
-        print('here is t, p, and train loss')
+        predictions, s = model(inputs, training=True)
+        #print(s)
+
+        s_penalty= tf.einsum('bij,bnm->bjm', s, s)
+        print(s_penalty)
         #print(target)
         #print(predictions)
+        print('here is t, p, and train loss')
         print(loss_fn(target, predictions))
         loss = loss_fn(target, predictions) + sum(model.losses)
 
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-    mse = tf.reduce_mean((target-predictions)**2)
-    return loss, mse
-
+    if args.task=='r':
+        mse = tf.reduce_mean((target-predictions)**2)
+        return loss, mse
+    if args.task=='c':
+        sca= tf.reduce_mean(sparse_categorical_accuracy(target, predictions))
+        #print('tra loss and acc')
+        #print(loss_fn(target, predictions), sca)
+        return loss, sca
+what=0
 for batch in loader_tr:
     step += 1
-    loss, mse = train_step(*batch)
+    print('step num', step)
+    print('batch num ', what)
+    what+=1
+    loss, metric = train_step(*batch)
     if step == loader_tr.steps_per_epoch:
         step = 0
         print("Loss: {}".format(loss / loader_tr.steps_per_epoch))
+        if args.task=='r':
+            print('train mse=', metric)
+        elif args.task=='c':
+            print('train accuracy=',metric)
         loss = 0
+        #tra_loss, tra_acc= evaluate(loader_tr)
         val_loss, val_acc = evaluate(loader_va)
+        #print(tra_loss, tra_acc)
         print('val loss and acc')
         print(val_loss, val_acc)
 

@@ -77,7 +77,7 @@ def evaluate(loader, model):
             #print(np.average(output[:, :-1], 0, weights=output[:, -1]))
             return np.average(output[:, :-1], 0, weights=output[:, -1]), all_s
 
-checkpoint_path = "../results-18/spk16/lr1e-3/lr1e-3.cpkt"
+checkpoint_path = "../results19/spk8/lr1e-2/lr1e-2.cpkt"
 checkpoint_dir = os.path.dirname(checkpoint_path)
 
 args = parser.parse_args(sys.argv[1:])
