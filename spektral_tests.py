@@ -95,11 +95,11 @@ def evaluate(loader):
 data= MyDataset(args.datadir,args.filename, args.radius_angstroms, args.num_atoms, args.num_nbrs, args.task)
 datasettime=time.time()-begin_time
 
-#print(data.all_atomic_numbers)
-#for i in data.all_atomic_numbers:
-#    for d in data:
-#        if i in d.atomlist:
-#            print(d)
+print(data.all_atomic_numbers)
+for i in data.all_atomic_numbers:
+    for d in data:
+        if i in d.atomlist:
+            print(d)
 
 print('datset generated: time=', str(datasettime))
 #data = QM9(amount=1000)
