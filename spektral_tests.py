@@ -6,7 +6,7 @@ from tensorflow.keras import Model
 from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.losses import MeanSquaredError, SparseCategoricalCrossentropy
-from tensorflow.keras.metrics import sparse_categorical_accuracy
+from tensorflow.keras.metrics import sparse_categorical_accuracy, mean_squared_error
 import numpy as np
 import pandas as pd
 import os
@@ -21,16 +21,16 @@ begin_time = time.time()
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 
 parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='../crystalhierarchydata/icsd-zintl-search')
+        help='Directory where dataset is located', default='../crystalhierarchydata/formationcifs')
 
 parser.add_argument('--filename', dest='filename',
-                    help='csv where data is located', default='id_prop.csv')
+                    help='csv where data is located', default='id_prop_10.csv')
 parser.add_argument('--file-out', dest='file_out',
-                    help='output file name', default='sysout2')
+                    help='output file name', default='debugging')
 parser.add_argument('--path-out', dest='path',
-                    help='output path', default='./correctedspk8/')
+                    help='output path', default='./debugging/')
 parser.add_argument('--num-atoms', dest='num_atoms', type=int,
-                    help='Maximum number of nodes', default=8)
+                    help='Maximum number of nodes', default=200)
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
                     help='num neighbors per atom', default=12)
 
@@ -50,10 +50,13 @@ parser.add_argument('--epochs', default=30, type=int, metavar='N',
 parser.add_argument('--lr', dest='learning_rate', type=float,
                     help='Learning rate.', default=1e-3)
 parser.add_argument('--task', choices=['r', 'c'],
-                    default='c', help='complete a regression or '
+                    default='r', help='complete a regression or '
                         'classification task (default: regression)')
 parser.add_argument('--patience', dest='patience',default=10, type=int,
                     help='num epochs for early stopping')
+parser.add_argument('--lam', dest='lam',default=0, type=float,
+                    help='lambda param for s penalty')
+
 
 args = parser.parse_args(sys.argv[1:])
 
@@ -61,7 +64,7 @@ np.random.seed(args.random_seed)
 #path = './spektraltest_8atom/'
 if not os.path.exists(args.path+'/'+args.file_out):
     os.makedirs(args.path+'/'+args.file_out)
-sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
+#sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
 
 print(args)
 
@@ -79,7 +82,11 @@ def evaluate(loader):
                 len(target),  # Keep track of batch size
             )
         elif args.task=='r':
-            pass
+            outs = (
+                loss_fn(target, pred),
+                tf.reduce_mean(mean_squared_error(target, pred)),
+                len(target),  # Keep track of batch size
+            )
         output.append(outs)
         if step == loader.steps_per_epoch:
             output = np.array(output)
@@ -87,6 +94,13 @@ def evaluate(loader):
 
 data= MyDataset(args.datadir,args.filename, args.radius_angstroms, args.num_atoms, args.num_nbrs, args.task)
 datasettime=time.time()-begin_time
+
+#print(data.all_atomic_numbers)
+#for i in data.all_atomic_numbers:
+#    for d in data:
+#        if i in d.atomlist:
+#            print(d)
+
 print('datset generated: time=', str(datasettime))
 #data = QM9(amount=1000)
 
@@ -124,16 +138,18 @@ print('model initialized, time=', str(init_time))
 def train_step(inputs, target):
     with tf.GradientTape() as tape:
         predictions, s = model(inputs, training=True)
+        print('predictions v target:')
+        print(predictions)
+        print(target)
         #print(s)
 
-        s_penalty= tf.norm(tf.linalg.diag_part(tf.einsum('bij,bnm->bjm', s, s)), ord=np.inf)
-        print('s penalty')
-        print(s_penalty)
-        #print(target)
-        #print(predictions)
-        print('here is t, p, and train loss')
+        #s_penalty= tf.norm(tf.linalg.diag_part(tf.einsum('bij,bnm->bjm', s, s)), ord=np.inf)
+        #print(args.lam)
+        print('here is train loss')
+        loss = loss_fn(target, predictions)
+        #+ sum(model.losses) # + args.lam * s_penalty
         print(loss_fn(target, predictions))
-        loss = loss_fn(target, predictions) + sum(model.losses) +s_penalty
+        #print(sum(model.losses))
 
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -142,15 +158,12 @@ def train_step(inputs, target):
         return loss, mse
     if args.task=='c':
         sca= tf.reduce_mean(sparse_categorical_accuracy(target, predictions))
-        #print('tra loss and acc')
-        #print(loss_fn(target, predictions), sca)
         return loss, sca
-what=0
+epoch=0
 for batch in loader_tr:
     step += 1
     print('step num', step)
-    print('batch num ', what)
-    what+=1
+
     loss, metric = train_step(*batch)
     if step == loader_tr.steps_per_epoch:
         step = 0
@@ -160,11 +173,16 @@ for batch in loader_tr:
         elif args.task=='c':
             print('train accuracy=',metric)
         loss = 0
-        #tra_loss, tra_acc= evaluate(loader_tr)
         val_loss, val_acc = evaluate(loader_va)
-        #print(tra_loss, tra_acc)
         print('val loss and acc')
         print(val_loss, val_acc)
+        checkpoint_path = args.path+"/"+args.file_out+"/"+args.file_out+".ckpt"
+        checkpoint_dir = os.path.dirname(checkpoint_path)
+        print(epoch)
+        # Create a callback that saves the model's weights
+        model.save_weights(checkpoint_path.format(epoch=epoch))
+        epoch+=1
+
 
 print('training time=', time.time()-init_time)
 

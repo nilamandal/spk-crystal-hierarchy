@@ -1,6 +1,6 @@
 from spektral.data import Graph, Dataset, DisjointLoader
 from spektral.data.utils import to_batch
-from spektral.layers import CrystalConv, DiffPool, ops, GlobalMaxPool#, Disjoint2Batch
+from spektral.layers import CrystalConv, DiffPool, ops, GlobalMaxPool, GlobalAvgPool#, Disjoint2Batch
 import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import SGD, Adam
@@ -15,6 +15,7 @@ from pymatgen.core.structure import Structure
 import json
 import argparse
 import time
+from keras import backend as BK
 
 class AtomInitializer(object):
     """
@@ -92,7 +93,7 @@ class MyDataset(Dataset):
         self.datadir=datadir
         self.filename=filename
         self.radius_angstroms= r_a
-        self.num_atoms= num_atoms
+        #self.num_atoms= num_atoms
         self.num_nbrs= num_nbrs
         self.task= task
 
@@ -103,14 +104,21 @@ class MyDataset(Dataset):
         allgraphs=[]
         cifs=list(df['id'])
         self.cifs=cifs
+        all_atomic_numbers=[]
         for c in cifs:
             c=str(c)
+
             try:
-                crystal= Structure.from_file(os.path.join(self.datadir,c,'.cif'))
+                crystal= Structure.from_file(os.path.join(self.datadir,c+'.cif'))
             except:
                 crystal= Structure.from_file(os.path.join(self.datadir,c))
+            num_atoms=len(crystal)
+
             ari = AtomCustomJSONInitializer(os.path.join(self.datadir,'atom_init.json'))#check atom initializer
             atomic_numbers=[crystal[i].specie.number for i in range(len(crystal))]
+            all_atomic_numbers= all_atomic_numbers + atomic_numbers
+            #print('ATOMIC NUMBERS')
+            #print(atomic_numbers)
             atom_fea = np.vstack([ari.get_atom_fea(crystal[i].specie.number) for i in range(len(crystal))]) #the features of each element in the atom, in no particular order
             all_nbrs = crystal.get_all_neighbors(self.radius_angstroms, include_index=True)
             all_nbrs = [sorted(nbrs, key=lambda x: x[1]) for nbrs in all_nbrs]
@@ -133,8 +141,8 @@ class MyDataset(Dataset):
             df_MG=df[df['id'].astype(str)==c]
             gdf = GaussianDistance(dmin=0, dmax=8, step=0.2)
             nbr_fea = gdf.expand(np.array(nbr_fea))
-            adj = np.zeros((self.num_atoms, self.num_atoms))
-            edges= np.zeros((self.num_atoms, self.num_atoms, 41))
+            adj = np.zeros((num_atoms, num_atoms))
+            edges= np.zeros((num_atoms, num_atoms, 41))
 
             for i in range(len(nbr_fea_idx)):
                 for j in range(len(nbr_fea_idx[i])):
@@ -142,19 +150,19 @@ class MyDataset(Dataset):
                     adj[i,k]+=1
 
                     edges[i,k]= nbr_fea[i][j]
-            #if np.array_equal(adj, np.transpose(adj))==False:
-            #    print(c, df_MG['target'].values[0])
-            #    for i in range(len(nbr_fea_idx)):
-            #        print(nbr_fea_idx[i])
 
             if self.task=='c':
                 MG=Graph(x=atom_fea, a=adj, e=edges, y=int(df_MG['target'].values[0]))
+                MG.atomlist=set(atomic_numbers)
             elif self.task=='r':
                 MG=Graph(x=atom_fea, a=adj, e=edges, y=float(df_MG['target'].values[0]))
+                MG.atomlist=set(atomic_numbers)
             else:
                 print(self.task, ' is not c or r.')
 
             allgraphs.append(MG)
+        self.all_atomic_numbers= set(all_atomic_numbers)
+
         return allgraphs#, cifs
 
     def get_cifs(self):
@@ -179,17 +187,26 @@ class HNet(Model):
         #self.disjoint2batch= Disjoint2Batch()
         self.pool= DiffPool(k=3, return_selection=True)
         self.conv4= CrystalConv()
-        self.maxpool= GlobalMaxPool()
+        self.maxpool= GlobalAvgPool()
         self.maxpool.data_mode='disjoint'
         if self.task=='c':
             self.out_layer= Dense(self.num_classes, activation='softmax')
         elif self.task=='r':
-            self.out_layer= Dense(1, activation='softmax')
+            #initializer = tf.keras.initializers.HeUniform()
+            #reg= tf.keras.regularizers.L2(1)
+
+            #self.out_layer= Dense(1, activation=self.scaled_sigmoid, kernel_initializer= initializer, kernel_regularizer=reg)
+            self.out_layer= Dense(1)
+
+    def scaled_sigmoid(self, x):
+        return 20/(1+np.e**(-.25*x)) -10
+    #    return 10*BK.tanh(x)
 
     def call(self, inputs):
         x, a, e, i = inputs
 
         x_assign= self.assign_embedding(x)
+
         x_assign= self.assign_conv1([x_assign, a, e])
         x_assign= self.assign_conv2([x_assign, a, e])
         x_assign= self.assign_conv3([x_assign, a, e])
@@ -202,19 +219,13 @@ class HNet(Model):
         batch_X = ops.disjoint_signal_to_batch(x, i)
         batch_assignfeats= ops.disjoint_signal_to_batch(x_assign, i)
         batch_A, batch_E = self.local_disjoint_adjacency_to_batch(e, a, i)#had to rewrite
-        #print(batch_A[0])
+
         x_assign, a, s= self.pool([batch_assignfeats, batch_A])
-        #print(x_assign.shape)
-        #print(batch_X.shape)
-        #print(s.shape)
+
         x_temp=tf.einsum('bij,bmn->bjn',s,batch_X)
-        #print('----')
-        #print(x_temp.shape)
-        #print('----')
+
         i=tf.convert_to_tensor([k for k in range(0,x_temp.shape[0]) for j in range(0,3)])
         x= tf.reshape(x_temp, (x_temp.shape[0]*x_temp.shape[1],x_temp.shape[2]))
-        #print(x.shape)
-
 
         temp=tf.einsum('bijk,bil->bilk',batch_E,s)
         e_new=tf.einsum('bmn,bilk->bnlk',s,temp)
@@ -249,10 +260,12 @@ class HNet(Model):
         a_new= tf.sparse.from_dense(adj_empty)
 
         x=self.conv4([x, a_new, e])
-        #print(x)
-        #print(i)
+
         x=self.maxpool([x, i])
+        print('after maxpool')
+        print(x)
         x=self.out_layer(x)
+        print(x)
         if self.return_s:
             return x, s
         else:

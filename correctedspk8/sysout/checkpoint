@@ -1,2 +1,0 @@
-model_checkpoint_path: "sysout.ckpt"
-all_model_checkpoint_paths: "sysout.ckpt"

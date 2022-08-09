@@ -15,27 +15,27 @@ from pymatgen.core.structure import Structure
 import json
 import argparse
 import time
-from spektral_essential_objects import AtomInitializer, GaussianDistance,AtomCustomJSONInitializer,MyDataset,HNet
+from loeo_objects import AtomInitializer, GaussianDistance,AtomCustomJSONInitializer,MyDataset,HNet
 
 begin_time = time.time()
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 
 parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='../crystalhierarchydata/icsd-zintl-search')
+        help='Directory where dataset is located', default='../crystalhierarchydata/sc24')
 
 parser.add_argument('--filename', dest='filename',
-                    help='csv where data is located', default='id_prop.csv')
+                    help='csv where data is located', default='id_prop24_test_noleakage_corrected.csv')
 parser.add_argument('--file-out', dest='file_out',
-                    help='output txt file name', default='sysout.txt')
+                    help='output txt file name', default='predscriptout.txt')
 parser.add_argument('--path-out', dest='path',
-                    help='output path', default='./spektraltest_8atom/')
+                    help='output path', default='./debugging_loeo/sc24-lr1e-3/sc24-lr1e-3/')
 parser.add_argument('--num-atoms', dest='num_atoms', type=int,
-                    help='Maximum number of nodes', default=8)
+                    help='Maximum number of nodes', default=24)
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
                     help='num neighbors per atom', default=12)
 
 parser.add_argument('--num-classes', dest='num_classes', type=int,
-                    help='Number of label classes', default=4)
+                    help='Number of label classes', default=12)
 
 parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
                     help='search radius for neighbors', default=8)
@@ -62,22 +62,23 @@ def evaluate(loader, model):
     while step < loader.steps_per_epoch:
         step += 1
         inputs, target = loader.__next__()
-        print('hello???')
+        #print('hello???')
         #print(inputs, target)
         pred, s_tensor = model(inputs, training=False)
         all_s.append(s_tensor)
 
-        outs = (tf.reduce_mean(sparse_categorical_accuracy(target, pred)),
-            len(target),  # Keep track of batch size
-        )
+        if args.task=='c':
+            outs = tf.reduce_mean(sparse_categorical_accuracy(target, pred))
+
+        elif args.task=='r':
+            outs = tf.reduce_mean(mean_squared_error(target, pred)),
 
         output.append(outs)
         if step == loader.steps_per_epoch:
             output = np.array(output)
-            #print(np.average(output[:, :-1], 0, weights=output[:, -1]))
-            return np.average(output[:, :-1], 0, weights=output[:, -1]), all_s
+            return np.average(output), all_s
 
-checkpoint_path = "../results19/spk10-spenalty/lr1e-3/lr1e-3.cpkt"
+checkpoint_path = "./debugging_loeo/sc24-lr1e-3/sc24-lr1e-3.cpkt"
 checkpoint_dir = os.path.dirname(checkpoint_path)
 
 args = parser.parse_args(sys.argv[1:])
@@ -85,42 +86,46 @@ args = parser.parse_args(sys.argv[1:])
 
 data = MyDataset(args.datadir,args.filename, args.radius_angstroms, args.num_atoms, args.num_nbrs, args.task)
 cifs=data.get_cifs()
+print(len(data))
+print(len(cifs))
 #print(data, cifs)
 datasettime=time.time()-begin_time
 #print('datset generated: time=', str(datasettime))
 #data = QM9(amount=1000)
 #print(data)
 
-idxs = np.random.permutation(len(data))
-split_va, split_te = int(0.8 * len(data)), int(0.9 * len(data))
-idx_tr, idx_va, idx_te = np.split(idxs, [split_va, split_te])
-#print(idx_tr)
-data_tr = data[idx_tr]
-cifs_tr = cifs[list(idx_tr)]
-data_va = data[idx_va]
-cifs_va = cifs[idx_va]
-data_te = data[idx_te]
-cifs_te = cifs[idx_te]
-print('train size, va size, test size:')
-print(len(cifs_tr), len(cifs_va), len(cifs_te))
+# idxs = np.random.permutation(len(data))
+# split_va, split_te = int(0.8 * len(data)), int(0.9 * len(data))
+# idx_tr, idx_va, idx_te = np.split(idxs, [split_va, split_te])
+# #print(idx_tr)
+# data_tr = data[idx_tr]
+# cifs_tr = cifs[list(idx_tr)]
+# data_va = data[idx_va]
+# cifs_va = cifs[idx_va]
+# data_te = data[idx_te]
+# cifs_te = cifs[idx_te]
+# print('train size, va size, test size:')
+# print(len(cifs_tr), len(cifs_va), len(cifs_te))
 
-loader_tr = DisjointLoader(data_tr, batch_size=args.batch_size)
-loader_va = DisjointLoader(data_va, batch_size=args.batch_size)
-loader_te = DisjointLoader(data_te, batch_size=args.batch_size)
+loader = DisjointLoader(data, batch_size=args.batch_size)
+#loader_va = DisjointLoader(data_va, batch_size=args.batch_size)
+#loader_te = DisjointLoader(data_te, batch_size=args.batch_size)
 
 model= HNet(args.task, args.num_classes, return_s=True)
 
 latest = tf.train.latest_checkpoint(checkpoint_dir)
 model.load_weights(latest)
 
-result, s_tensors=evaluate(loader_tr,model)
-#print(s_tensors)
-i=0
-for j in s_tensors:
-    #print(j)
-    for k in j:
-        print(cifs_tr[i])
-        print(k)
-        i+=1
-        print('...')
-print('ok')
+print(model)
+
+result, s_tensors=evaluate(loader,model)
+print(result, s_tensors)
+# i=0
+# for j in s_tensors:
+#     print(j)
+#     for k in j:
+#         print(cifs[i])
+#         print(k)
+#         i+=1
+#         print('...')
+# print('ok')
