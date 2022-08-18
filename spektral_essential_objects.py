@@ -85,10 +85,18 @@ class AtomCustomJSONInitializer(AtomInitializer):
         for key, value in elem_embedding.items():
             self._embedding[key] = np.array(value, dtype=float)
 
+class PartitionedData(Dataset):
+    def __init__(self, datalist):
+        self.datalist=datalist
+        super().__init__()
+
+
+    def read(self):
+        return self.datalist
+
+
 class MyDataset(Dataset):
-    """
-    A dataset of 8-atom crystals.
-    """
+
     def __init__(self, datadir, filename, r_a, num_atoms, num_nbrs, task):
         self.datadir=datadir
         self.filename=filename
@@ -153,10 +161,10 @@ class MyDataset(Dataset):
 
             if self.task=='c':
                 MG=Graph(x=atom_fea, a=adj, e=edges, y=int(df_MG['target'].values[0]))
-                MG.atomlist=set(atomic_numbers)
+                MG._atomlist=set(atomic_numbers)
             elif self.task=='r':
                 MG=Graph(x=atom_fea, a=adj, e=edges, y=float(df_MG['target'].values[0]))
-                MG.atomlist=set(atomic_numbers)
+                MG._atomlist=set(atomic_numbers)
             else:
                 print(self.task, ' is not c or r.')
 
@@ -198,8 +206,8 @@ class HNet(Model):
             #self.out_layer= Dense(1, activation=self.scaled_sigmoid, kernel_initializer= initializer, kernel_regularizer=reg)
             self.out_layer= Dense(1)
 
-    def scaled_sigmoid(self, x):
-        return 20/(1+np.e**(-.25*x)) -10
+    #def scaled_sigmoid(self, x):
+    #    return 20/(1+np.e**(-.25*x)) -10
     #    return 10*BK.tanh(x)
 
     def call(self, inputs):
@@ -260,12 +268,16 @@ class HNet(Model):
         a_new= tf.sparse.from_dense(adj_empty)
 
         x=self.conv4([x, a_new, e])
+        #print('look here')
+        #print(x)
+        #print(x.shape)
 
-        x=self.maxpool([x, i])
-        print('after maxpool')
-        print(x)
-        x=self.out_layer(x)
-        print(x)
+
+        #x=self.maxpool([x, i])
+        #print('after maxpool')
+        #print(x)
+        x=self.out_layer(tf.reshape(x,(len(a),192)))
+        #print(x)
         if self.return_s:
             return x, s
         else:

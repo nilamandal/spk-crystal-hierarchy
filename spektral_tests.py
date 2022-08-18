@@ -7,6 +7,8 @@ from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.losses import MeanSquaredError, SparseCategoricalCrossentropy
 from tensorflow.keras.metrics import sparse_categorical_accuracy, mean_squared_error
+from sklearn.metrics import confusion_matrix
+
 import numpy as np
 import pandas as pd
 import os
@@ -15,7 +17,7 @@ from pymatgen.core.structure import Structure
 import json
 import argparse
 import time
-from spektral_essential_objects import AtomInitializer, GaussianDistance,AtomCustomJSONInitializer,MyDataset,HNet
+from spektral_essential_objects import AtomInitializer, GaussianDistance,AtomCustomJSONInitializer,MyDataset,HNet, PartitionedData
 #from spektral.datasets import QM9
 begin_time = time.time()
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
@@ -54,8 +56,8 @@ parser.add_argument('--task', choices=['r', 'c'],
                         'classification task (default: regression)')
 parser.add_argument('--patience', dest='patience',default=10, type=int,
                     help='num epochs for early stopping')
-parser.add_argument('--lam', dest='lam',default=0, type=float,
-                    help='lambda param for s penalty')
+#parser.add_argument('--lam', dest='lam',default=0, type=float,
+#                    help='lambda param for s penalty')
 
 
 args = parser.parse_args(sys.argv[1:])
@@ -92,55 +94,12 @@ def evaluate(loader):
             output = np.array(output)
             return np.average(output[:, :-1], 0, weights=output[:, -1])
 
-data= MyDataset(args.datadir,args.filename, args.radius_angstroms, args.num_atoms, args.num_nbrs, args.task)
-datasettime=time.time()-begin_time
-
-print(data.all_atomic_numbers)
-for i in data.all_atomic_numbers:
-    for d in data:
-        if i in d.atomlist:
-            print(d)
-
-print('datset generated: time=', str(datasettime))
-#data = QM9(amount=1000)
-
-idxs = np.random.permutation(len(data))
-split_va, split_te = int(0.8 * len(data)), int(0.9 * len(data))
-idx_tr, idx_va, idx_te = np.split(idxs, [split_va, split_te])
-data_tr = data[idx_tr]
-data_va = data[idx_va]
-data_te = data[idx_te]
-print('train size, va size, test size:')
-print(data_tr, data_va, data_te)
-
-loader_tr = DisjointLoader(data_tr, batch_size=args.batch_size, epochs=args.epochs)
-loader_va = DisjointLoader(data_va, batch_size=args.batch_size)
-loader_te = DisjointLoader(data_te, batch_size=args.batch_size)
-
-optimizer = Adam(learning_rate=args.learning_rate)
-if args.task=='c':
-    loss_fn= SparseCategoricalCrossentropy()
-elif args.task=='r':
-    loss_fn = MeanSquaredError()
-else:
-    print(args.task, ' is not c or r.')
-
-model= HNet(args.task, args.num_classes, return_s=True)
-#model.compile(optimizer, loss_fn)
-epoch = step = 0
-best_val_loss = np.inf
-best_weights = None
-results = []
-
-init_time=time.time()-datasettime
-print('model initialized, time=', str(init_time))
-
 def train_step(inputs, target):
     with tf.GradientTape() as tape:
         predictions, s = model(inputs, training=True)
-        print('predictions v target:')
-        print(predictions)
-        print(target)
+        #print('predictions v target:')
+        #print(predictions)
+        #print(target)
         #print(s)
 
         #s_penalty= tf.norm(tf.linalg.diag_part(tf.einsum('bij,bnm->bjm', s, s)), ord=np.inf)
@@ -158,41 +117,105 @@ def train_step(inputs, target):
         return loss, mse
     if args.task=='c':
         sca= tf.reduce_mean(sparse_categorical_accuracy(target, predictions))
-        return loss, sca
-epoch=0
-for batch in loader_tr:
-    step += 1
-    print('step num', step)
 
-    loss, metric = train_step(*batch)
-    if step == loader_tr.steps_per_epoch:
-        step = 0
-        print("Loss: {}".format(loss / loader_tr.steps_per_epoch))
-        if args.task=='r':
-            print('train mse=', metric)
-        elif args.task=='c':
-            print('train accuracy=',metric)
-        loss = 0
-        val_loss, val_acc = evaluate(loader_va)
-        print('val loss and acc')
-        print(val_loss, val_acc)
+        print(confusion_matrix(target,np.argmax(predictions, axis=1)))
+
+        return loss, sca
+
+data= MyDataset(args.datadir,args.filename, args.radius_angstroms, args.num_atoms, args.num_nbrs, args.task)
+datasettime=time.time()-begin_time
+print('datset generated: time=', str(datasettime))
+
+#print(data.all_atomic_numbers)
+for i in data.all_atomic_numbers:
+    test_element=i
+    tr_va= [j for j in data.all_atomic_numbers if j!=i]
+    for j in tr_va:
+        data_tr = []
+        data_va = []
+        data_te = []
+        val_element=j
+        for d in data:
+            #print(data_te)
+            #print(d,d.atomlist)
+            if i in d._atomlist:
+                data_te.append(d)
+            elif j in d._atomlist:
+                data_va.append(d)
+            else:
+                data_tr.append(d)
+        print(data_tr)
+        print('test element=',i,len(data_te))
+        print('val element=',j,len(data_va))
+        print('train,',len(data_tr), type(data_tr))
+
+        loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=args.batch_size, epochs=args.epochs)
+        print(loader_tr)
+        loader_va = DisjointLoader(PartitionedData(data_va), batch_size=args.batch_size)
+        loader_te = DisjointLoader(PartitionedData(data_te), batch_size=args.batch_size)
+
+        optimizer = Adam(learning_rate=args.learning_rate)
+        if args.task=='c':
+            loss_fn= SparseCategoricalCrossentropy()
+        elif args.task=='r':
+            loss_fn = MeanSquaredError()
+        else:
+            print(args.task, ' is not c or r.')
+
+        model= HNet(args.task, args.num_classes, return_s=True)
+        #model.compile(optimizer, loss_fn)
+        epoch = step = 0
+        best_val_loss = np.inf
+        best_weights = None
+        results = []
+
+        init_time=time.time()-datasettime
+        print('model initialized, time=', str(init_time))
+
+        for batch in loader_tr:
+            step += 1
+            print('epoch, step num:', epoch, step)
+
+            loss, metric = train_step(*batch)
+            if step == loader_tr.steps_per_epoch:
+                step = 0
+                print("Loss: {}".format(loss / loader_tr.steps_per_epoch))
+                if args.task=='r':
+                    print('train mse=', metric)
+                elif args.task=='c':
+                    print('train accuracy=',metric)
+                loss = 0
+                val_loss, val_acc = evaluate(loader_va)
+                print('val loss and acc')
+                print(val_loss, val_acc)
+                checkpoint_path = args.path+"/"+args.file_out+"/"+args.file_out+".ckpt"
+                checkpoint_dir = os.path.dirname(checkpoint_path)
+                #print(epoch)
+                # Create a callback that saves the model's weights
+                model.save_weights(checkpoint_path.format(epoch=epoch))
+                epoch+=1
+
+
+        print('training time=', time.time()-init_time)
+
+        print('it worked?')
+        test_loss, test_acc = evaluate(loader_te)
+        print("Done. Test loss: {}".format(test_loss))
+        print('test_acc=', test_acc)
+
         checkpoint_path = args.path+"/"+args.file_out+"/"+args.file_out+".ckpt"
         checkpoint_dir = os.path.dirname(checkpoint_path)
-        print(epoch)
+
         # Create a callback that saves the model's weights
-        model.save_weights(checkpoint_path.format(epoch=epoch))
-        epoch+=1
+        model.save_weights(checkpoint_path.format(epoch=args.epochs))
 
 
-print('training time=', time.time()-init_time)
 
-print('it worked?')
-test_loss, test_acc = evaluate(loader_te)
-print("Done. Test loss: {}".format(test_loss))
-print('test_acc=', test_acc)
-
-checkpoint_path = args.path+"/"+args.file_out+"/"+args.file_out+".ckpt"
-checkpoint_dir = os.path.dirname(checkpoint_path)
-
-# Create a callback that saves the model's weights
-model.save_weights(checkpoint_path.format(epoch=args.epochs))
+#idxs = np.random.permutation(len(data))
+#split_va, split_te = int(0.8 * len(data)), int(0.9 * len(data))
+#idx_tr, idx_va, idx_te = np.split(idxs, [split_va, split_te])
+#data_tr = data[idx_tr]
+#data_va = data[idx_va]
+#data_te = data[idx_te]
+#print('train size, va size, test size:')
+#rint(data_tr, data_va, data_te)

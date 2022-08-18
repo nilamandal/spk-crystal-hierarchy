@@ -15,7 +15,7 @@ from pymatgen.core.structure import Structure
 import json
 import argparse
 import time
-from loeo_objects import AtomInitializer, GaussianDistance,AtomCustomJSONInitializer,MyDataset,HNet
+from spektral_essential_objects import AtomInitializer, GaussianDistance,AtomCustomJSONInitializer,MyDataset,HNet
 
 begin_time = time.time()
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
@@ -35,7 +35,7 @@ parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
                     help='num neighbors per atom', default=12)
 
 parser.add_argument('--num-classes', dest='num_classes', type=int,
-                    help='Number of label classes', default=12)
+                    help='Number of label classes', default=4)
 
 parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
                     help='search radius for neighbors', default=8)
@@ -76,9 +76,9 @@ def evaluate(loader, model):
         output.append(outs)
         if step == loader.steps_per_epoch:
             output = np.array(output)
-            return np.average(output), all_s
+            return np.average(output), all_s, pred
 
-checkpoint_path = "./debugging_loeo/sc24-lr1e-3/sc24-lr1e-3.cpkt"
+checkpoint_path = "../sc8/concatfeats/concatfeats.cpkt"
 checkpoint_dir = os.path.dirname(checkpoint_path)
 
 args = parser.parse_args(sys.argv[1:])
@@ -118,14 +118,22 @@ model.load_weights(latest)
 
 print(model)
 
-result, s_tensors=evaluate(loader,model)
-print(result, s_tensors)
-# i=0
-# for j in s_tensors:
-#     print(j)
-#     for k in j:
-#         print(cifs[i])
-#         print(k)
-#         i+=1
+result, s_tensors, pred=evaluate(loader,model)
+#f=open('meetingoutput.txt', 'w')
+#f.write(str(s_tensors))
+#for i in s_tensors:
+#    for j in i:
+#        print(j)
+#    print('-')
+i=0
+for j in s_tensors:
+     #print(j)
+    for k in j:
+         print(cifs[i])
+         print(pred[i])
+         print(k)
+         i+=1
+    print('-')
+
 #         print('...')
 # print('ok')
