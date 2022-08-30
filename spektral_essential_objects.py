@@ -162,9 +162,11 @@ class MyDataset(Dataset):
             if self.task=='c':
                 MG=Graph(x=atom_fea, a=adj, e=edges, y=int(df_MG['target'].values[0]))
                 MG._atomlist=set(atomic_numbers)
+                MG._cif=c
             elif self.task=='r':
                 MG=Graph(x=atom_fea, a=adj, e=edges, y=float(df_MG['target'].values[0]))
                 MG._atomlist=set(atomic_numbers)
+                MG._cif=c
             else:
                 print(self.task, ' is not c or r.')
 

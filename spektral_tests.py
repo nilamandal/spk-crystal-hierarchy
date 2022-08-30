@@ -8,7 +8,6 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.losses import MeanSquaredError, SparseCategoricalCrossentropy
 from tensorflow.keras.metrics import sparse_categorical_accuracy, mean_squared_error
 from sklearn.metrics import confusion_matrix
-
 import numpy as np
 import pandas as pd
 import os
@@ -18,6 +17,10 @@ import json
 import argparse
 import time
 from spektral_essential_objects import AtomInitializer, GaussianDistance,AtomCustomJSONInitializer,MyDataset,HNet, PartitionedData
+import threading
+import concurrent.futures
+
+
 #from spektral.datasets import QM9
 begin_time = time.time()
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
@@ -54,23 +57,15 @@ parser.add_argument('--lr', dest='learning_rate', type=float,
 parser.add_argument('--task', choices=['r', 'c'],
                     default='r', help='complete a regression or '
                         'classification task (default: regression)')
-parser.add_argument('--patience', dest='patience',default=10, type=int,
+parser.add_argument('--patience', dest='patience',default=5, type=int,
                     help='num epochs for early stopping')
 #parser.add_argument('--lam', dest='lam',default=0, type=float,
 #                    help='lambda param for s penalty')
 
 
-args = parser.parse_args(sys.argv[1:])
-
-np.random.seed(args.random_seed)
-#path = './spektraltest_8atom/'
-if not os.path.exists(args.path+'/'+args.file_out):
-    os.makedirs(args.path+'/'+args.file_out)
-#sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
-
-print(args)
-
-def evaluate(loader):
+def evaluate(loader, model, loss_fn):
+    #print('WE HAVE ENTERED THE FUNCTION')
+    #print(args.task)
     output = []
     step = 0
     while step < loader.steps_per_epoch:
@@ -83,6 +78,8 @@ def evaluate(loader):
                 tf.reduce_mean(sparse_categorical_accuracy(target, pred)),
                 len(target),  # Keep track of batch size
             )
+            #print(step)
+            #print(outs)
         elif args.task=='r':
             outs = (
                 loss_fn(target, pred),
@@ -92,130 +89,171 @@ def evaluate(loader):
         output.append(outs)
         if step == loader.steps_per_epoch:
             output = np.array(output)
+            #print(output)
             return np.average(output[:, :-1], 0, weights=output[:, -1])
 
-def train_step(inputs, target):
+def train_step(inputs, target, model, loss_fn, optimizer):
+    outputtxt=[]
     with tf.GradientTape() as tape:
         predictions, s = model(inputs, training=True)
-        #print('predictions v target:')
-        #print(predictions)
-        #print(target)
-        #print(s)
-
         #s_penalty= tf.norm(tf.linalg.diag_part(tf.einsum('bij,bnm->bjm', s, s)), ord=np.inf)
-        #print(args.lam)
-        print('here is train loss')
         loss = loss_fn(target, predictions)
         #+ sum(model.losses) # + args.lam * s_penalty
-        print(loss_fn(target, predictions))
-        #print(sum(model.losses))
 
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     if args.task=='r':
         mse = tf.reduce_mean((target-predictions)**2)
-        return loss, mse
+        return loss, mse, outputtxt
     if args.task=='c':
         sca= tf.reduce_mean(sparse_categorical_accuracy(target, predictions))
+        outputtxt.append(confusion_matrix(target,np.argmax(predictions, axis=1)))
 
-        print(confusion_matrix(target,np.argmax(predictions, axis=1)))
+        return loss, sca, outputtxt
 
-        return loss, sca
+def full_training_loop(load_tr, load_va, load_te, textlist, testelement, valelement):
+    init_time= time.time()
+    checkpoint_path = args.path+"/"+args.file_out+"/"+args.file_out+str(testelement)+'-'+str(valelement)+".ckpt"
+    optimizer = Adam(learning_rate=args.learning_rate)
+    if args.task=='c':
+        loss_fn= SparseCategoricalCrossentropy()
+    elif args.task=='r':
+        loss_fn = MeanSquaredError()
+    else:
+        print(args.task, ' is not c or r.')
+
+    model= HNet(args.task, args.num_classes, return_s=True)
+
+    early_stop_counter= 0
+
+    epoch = step = 0
+    best_val_loss = np.inf
+    best_weights = None
+    results = []
+
+    for batch in loader_tr:
+        step += 1
+        textlist.append('epoch, step num:'+str(epoch)+','+str(step))
+
+        loss, metric, outputtxt = train_step(*batch, model, loss_fn, optimizer)
+        textlist= textlist + outputtxt
+        if step == loader_tr.steps_per_epoch:
+            step = 0
+            loss_str="Loss: {}".format(loss / loader_tr.steps_per_epoch)
+            textlist.append(loss_str)
+
+            loss = 0
+            val_loss, val_metric = evaluate(loader_va, model, loss_fn)
+            #print('WE ARE OUT OF THE FUNCTION')
+            #print(val_loss)
+            if val_loss<best_val_loss:
+                best_val_loss= val_loss
+                early_stop_counter=0
+            else:
+                early_stop_counter+=1
+            if args.task=='r':
+                textlist.append('train mse='+str(metric))
+                textlist.append('val loss and mse')
+            elif args.task=='c':
+                textlist.append('train accuracy='+str(metric))
+                textlist.append('val loss and acc')
+            textlist.append(str(val_loss))
+            textlist.append(str(val_metric))
+
+            #checkpoint_path = args.path+"/"+args.file_out+"/"+args.file_out+str(testelement)+".ckpt"
+            checkpoint_dir = os.path.dirname(checkpoint_path)
+            #print(epoch)
+            # Create a callback that saves the model's weights
+            model.save_weights(checkpoint_path.format(epoch=epoch))
+            epoch+=1
+
+            if early_stop_counter>5:
+                test_loss, test_metric = evaluate(loader_te, model, loss_fn)
+                textlist.append("Done. Test loss: {}".format(test_loss))
+                if args.task=='r':
+                    textlist.append('test mse=')
+                elif args.task=='c':
+                    textlist.append('test_acc=')
+                textlist.append(test_metric)
+
+                return model, textlist
+
+
+    textlist.append('training time=')
+    textlist.append(str(time.time()-init_time))
+
+    test_loss, test_metric = evaluate(loader_te, model, loss_fn)
+    textlist.append("Done. Test loss: {}".format(test_loss))
+    if args.task=='r':
+        textlist.append('test mse=')
+    elif args.task=='c':
+        textlist.append('test_acc=')
+    textlist.append(test_metric)
+
+
+    checkpoint_dir = os.path.dirname(checkpoint_path)
+
+    # Create a callback that saves the model's weights
+    model.save_weights(checkpoint_path.format(epoch=args.epochs))
+    return model, textlist
+
+
+args = parser.parse_args(sys.argv[1:])
+
+np.random.seed(args.random_seed)
+if not os.path.exists(args.path+'/'+args.file_out):
+    os.makedirs(args.path+'/'+args.file_out)
+sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
+
+print(args)
+
 
 data= MyDataset(args.datadir,args.filename, args.radius_angstroms, args.num_atoms, args.num_nbrs, args.task)
 datasettime=time.time()-begin_time
 print('datset generated: time=', str(datasettime))
+atomic_num_list=list(data.all_atomic_numbers)
+np.random.shuffle(atomic_num_list)
+#print('HELLO')
 
-#print(data.all_atomic_numbers)
-for i in data.all_atomic_numbers:
-    test_element=i
-    tr_va= [j for j in data.all_atomic_numbers if j!=i]
-    for j in tr_va:
-        data_tr = []
-        data_va = []
-        data_te = []
-        val_element=j
-        for d in data:
-            #print(data_te)
-            #print(d,d.atomlist)
-            if i in d._atomlist:
-                data_te.append(d)
-            elif j in d._atomlist:
-                data_va.append(d)
-            else:
-                data_tr.append(d)
-        print(data_tr)
-        print('test element=',i,len(data_te))
-        print('val element=',j,len(data_va))
-        print('train,',len(data_tr), type(data_tr))
 
-        loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=args.batch_size, epochs=args.epochs)
-        print(loader_tr)
-        loader_va = DisjointLoader(PartitionedData(data_va), batch_size=args.batch_size)
-        loader_te = DisjointLoader(PartitionedData(data_te), batch_size=args.batch_size)
-
-        optimizer = Adam(learning_rate=args.learning_rate)
-        if args.task=='c':
-            loss_fn= SparseCategoricalCrossentropy()
-        elif args.task=='r':
-            loss_fn = MeanSquaredError()
+for i in range(len(atomic_num_list)):
+    test_element=atomic_num_list[i]
+    try:
+        val_element=atomic_num_list[i+1]
+    except:
+        val_element=atomic_num_list[0]
+    #print(test_element, val_element)
+    data_tr = []
+    data_va = []
+    data_te = []
+    data_ex= []
+    for d in data:
+        if test_element in d._atomlist and val_element in d._atomlist:
+            data_ex.append(d._cif)
+        elif test_element in d._atomlist:
+             data_te.append(d)
+        elif val_element in d._atomlist:
+            data_va.append(d)
         else:
-            print(args.task, ' is not c or r.')
-
-        model= HNet(args.task, args.num_classes, return_s=True)
-        #model.compile(optimizer, loss_fn)
-        epoch = step = 0
-        best_val_loss = np.inf
-        best_weights = None
-        results = []
-
-        init_time=time.time()-datasettime
-        print('model initialized, time=', str(init_time))
-
-        for batch in loader_tr:
-            step += 1
-            print('epoch, step num:', epoch, step)
-
-            loss, metric = train_step(*batch)
-            if step == loader_tr.steps_per_epoch:
-                step = 0
-                print("Loss: {}".format(loss / loader_tr.steps_per_epoch))
-                if args.task=='r':
-                    print('train mse=', metric)
-                elif args.task=='c':
-                    print('train accuracy=',metric)
-                loss = 0
-                val_loss, val_acc = evaluate(loader_va)
-                print('val loss and acc')
-                print(val_loss, val_acc)
-                checkpoint_path = args.path+"/"+args.file_out+"/"+args.file_out+".ckpt"
-                checkpoint_dir = os.path.dirname(checkpoint_path)
-                #print(epoch)
-                # Create a callback that saves the model's weights
-                model.save_weights(checkpoint_path.format(epoch=epoch))
-                epoch+=1
+            data_tr.append(d)
 
 
-        print('training time=', time.time()-init_time)
-
-        print('it worked?')
-        test_loss, test_acc = evaluate(loader_te)
-        print("Done. Test loss: {}".format(test_loss))
-        print('test_acc=', test_acc)
-
-        checkpoint_path = args.path+"/"+args.file_out+"/"+args.file_out+".ckpt"
-        checkpoint_dir = os.path.dirname(checkpoint_path)
-
-        # Create a callback that saves the model's weights
-        model.save_weights(checkpoint_path.format(epoch=args.epochs))
-
-
-
-#idxs = np.random.permutation(len(data))
-#split_va, split_te = int(0.8 * len(data)), int(0.9 * len(data))
-#idx_tr, idx_va, idx_te = np.split(idxs, [split_va, split_te])
-#data_tr = data[idx_tr]
-#data_va = data[idx_va]
-#data_te = data[idx_te]
-#print('train size, va size, test size:')
-#rint(data_tr, data_va, data_te)
+    textlist=[]
+    textlist.append('test element='+str(test_element))
+    textlist.append('test size='+str(len(data_te)))
+    textlist.append('val element='+str(val_element))
+    textlist.append('val size='+str(len(data_va)))
+    textlist.append('train size='+str(len(data_tr)))
+    textlist.append('excluded to prevent data leakage:')
+    textlist.append(data_ex)
+    print(textlist)
+        #
+    loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=args.batch_size, epochs=args.epochs)
+    loader_va = DisjointLoader(PartitionedData(data_va), batch_size=args.batch_size)
+    loader_te = DisjointLoader(PartitionedData(data_te), batch_size=args.batch_size)
+    #print(textlist)
+        #
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(full_training_loop, loader_tr, loader_va, loader_te, textlist, test_element, val_element)
+        model_result = future.result()
+    print(model_result)
