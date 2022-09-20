@@ -31,7 +31,7 @@ dls_vol_predictor = DLSVolumePredictor()
 def scale_dls_only(c):
     c=str(c)
     try:
-        crystal= Structure.from_file(os.path.join(data_path,c+'.cif'))
+        from pymatgen.core.structure import Structure
     except:
         crystal= Structure.from_file(os.path.join(data_path,c))
     structure= dls_vol_predictor.get_predicted_structure(crystal)

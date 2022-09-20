@@ -125,8 +125,7 @@ class MyDataset(Dataset):
             ari = AtomCustomJSONInitializer(os.path.join(self.datadir,'atom_init.json'))#check atom initializer
             atomic_numbers=[crystal[i].specie.number for i in range(len(crystal))]
             all_atomic_numbers= all_atomic_numbers + atomic_numbers
-            #print('ATOMIC NUMBERS')
-            #print(atomic_numbers)
+
             atom_fea = np.vstack([ari.get_atom_fea(crystal[i].specie.number) for i in range(len(crystal))]) #the features of each element in the atom, in no particular order
             all_nbrs = crystal.get_all_neighbors(self.radius_angstroms, include_index=True)
             all_nbrs = [sorted(nbrs, key=lambda x: x[1]) for nbrs in all_nbrs]
@@ -178,6 +177,10 @@ class MyDataset(Dataset):
     def get_cifs(self):
         return np.asarray(self.cifs , dtype=object)
 
+
+
+
+
 class HNet(Model):
     def __init__(self, task, num_classes, return_s=False):
         super().__init__()
@@ -197,8 +200,8 @@ class HNet(Model):
         #self.disjoint2batch= Disjoint2Batch()
         self.pool= DiffPool(k=3, return_selection=True)
         self.conv4= CrystalConv()
-        self.maxpool= GlobalAvgPool()
-        self.maxpool.data_mode='disjoint'
+        self.avgpool= GlobalAvgPool()
+        self.avgpool.data_mode='disjoint'
         if self.task=='c':
             self.out_layer= Dense(self.num_classes, activation='softmax')
         elif self.task=='r':
@@ -270,31 +273,16 @@ class HNet(Model):
         a_new= tf.sparse.from_dense(adj_empty)
 
         x=self.conv4([x, a_new, e])
-        #print('look here')
-        #print(x)
-        #print(x.shape)
 
+        #x=self.out_layer(tf.reshape(x,(len(a),192)))
+        x=self.avgpool([x, i])
 
-        #x=self.maxpool([x, i])
-        #print('after maxpool')
-        #print(x)
-        x=self.out_layer(tf.reshape(x,(len(a),192)))
-        #print(x)
+        x=self.out_layer(x)
+
         if self.return_s:
             return x, s
         else:
             return x
-
-    #def my_tf_round(self, x, decimals = 0):
-        #print('runding function')
-        #print(x)
-    #    multiplier = tf.constant(10**decimals, dtype=x.dtype)
-        #print(x.dtype)
-        #print(multiplier.dtype)
-        #temp=x * multiplier
-        #temp=tf.round(tf.math.multiply(x, multiplier))
-        #print(temp.dtype)
-    #    return tf.round(x * multiplier) / multiplier
 
 
     def batch_to_disjoint(self, X, A, E):
@@ -359,3 +347,93 @@ class HNet(Model):
             return tf.cumsum(graph_sizes, exclusive=True)[graph_id]
 
         return tf.map_fn(get_cum_graph_size, nodes)
+
+class HNetSingle(HNet):
+    def __init__(self, task, num_classes, return_s=False):
+        super().__init__(task, num_classes, return_s=False)
+        self.return_s=return_s
+        self.task=task
+        self.num_classes=num_classes
+        self.embedding= Dense(64)
+        self.conv1= CrystalConv()
+        self.conv2= CrystalConv()
+        self.conv3= CrystalConv()
+
+        #self.disjoint2batch= Disjoint2Batch()
+        self.pool= DiffPool(k=3, return_selection=True)
+        self.conv4= CrystalConv()
+        self.avgpool= GlobalAvgPool()
+        self.avgpool.data_mode='disjoint'
+        if self.task=='c':
+            self.out_layer= Dense(self.num_classes, activation='softmax')
+        elif self.task=='r':
+            self.out_layer= Dense(1)
+
+    def call(self, inputs):
+        x, a, e, i = inputs
+
+        #x_assign= self.assign_embedding(x)
+
+        #x_assign= self.assign_conv1([x_assign, a, e])
+        #x_assign= self.assign_conv2([x_assign, a, e])
+        #x_assign= self.assign_conv3([x_assign, a, e])
+
+        x= self.embedding(x)
+        x= self.conv1([x, a, e])
+        x= self.conv2([x, a, e])
+        x= self.conv3([x, a, e])
+
+        batch_X = ops.disjoint_signal_to_batch(x, i)
+        #batch_assignfeats= ops.disjoint_signal_to_batch(x_assign, i)
+        batch_A, batch_E = self.local_disjoint_adjacency_to_batch(e, a, i)#had to rewrite
+
+        x_temp, a, s= self.pool([batch_X, batch_A])
+
+        #x_temp=tf.einsum('bij,bmn->bjn',s,batch_X)
+
+        i=tf.convert_to_tensor([k for k in range(0,x_temp.shape[0]) for j in range(0,3)])
+        x= tf.reshape(x_temp, (x_temp.shape[0]*x_temp.shape[1],x_temp.shape[2]))
+
+        temp=tf.einsum('bijk,bil->bilk',batch_E,s)
+        e_new=tf.einsum('bmn,bilk->bnlk',s,temp)
+
+        temp_e=tf.math.reduce_max(e_new, axis=3)
+        a_count=tf.math.count_nonzero(a)
+        e_count=tf.math.count_nonzero(temp_e)
+        zero = tf.constant(0, dtype=tf.float32)
+
+        if a_count!=e_count:
+            where2=tf.not_equal(a, zero)
+            indices_a= tf.where(where2)
+            e=tf.gather_nd(e_new, indices_a)
+
+        else:
+            e= tf.reshape(e_new, (e_new.shape[0]*e_new.shape[1]*e_new.shape[2],e_new.shape[3]))
+
+            temp2=tf.math.reduce_max(e, axis=1)
+            where = tf.not_equal(temp2, zero)
+            indices = tf.where(where)
+
+            temp3=tf.gather(e, indices, axis=0)
+            e=tf.reshape(temp3, (temp3.shape[0],temp3.shape[2]))
+
+        #need to turn adj. back to disjoing mode.
+        adj_empty = np.zeros((x.shape[0], x.shape[0]))
+        idx=0
+        for j in a:
+            adj_empty[idx:idx+3, idx:idx+3]=j
+            idx+=3
+
+        a_new= tf.sparse.from_dense(adj_empty)
+
+        x=self.conv4([x, a_new, e])
+
+        #x=self.out_layer(tf.reshape(x,(len(a),192)))
+        x=self.avgpool([x, i])
+
+        x=self.out_layer(x)
+
+        if self.return_s:
+            return x, s
+        else:
+            return x

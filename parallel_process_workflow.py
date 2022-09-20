@@ -19,6 +19,10 @@ import time
 from spektral_essential_objects import AtomInitializer, GaussianDistance,AtomCustomJSONInitializer,MyDataset,HNet, PartitionedData
 import threading
 import concurrent.futures
+from multiprocessing import Process, Lock, Value, Manager
+
+#model_list= [None] * 96
+#performance_list= [None] * 96
 
 #from spektral.datasets import QM9
 begin_time = time.time()
@@ -112,9 +116,11 @@ def train_step(inputs, target, model, loss_fn, optimizer):
 
         return loss, sca, outputtxt
 
-def full_training_loop(load_tr, load_va, load_te, textlist, testelement, valelement, lr):
+def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testelement, valelement, lr, specialindex, model_list, performance_list):
+    #global model_list
+    #global performance_list
     init_time= time.time()
-    checkpoint_path = args.path+"/"+args.file_out+"/"+args.file_out+str(testelement)+'-'+str(valelement)+".ckpt"
+    checkpoint_path = args.path+"/"+args.file_out+"/"+args.file_out+str(testelement)+'-'+str(valelement)+'idx'+str(specialindex)+".ckpt"
     optimizer = Adam(learning_rate=lr)
     if args.task=='c':
         loss_fn= SparseCategoricalCrossentropy()
@@ -178,101 +184,133 @@ def full_training_loop(load_tr, load_va, load_te, textlist, testelement, valelem
 
     # Create a callback that saves the model's weights
     model.save_weights(checkpoint_path.format(epoch=args.epochs))
-    print(textlist)
-    return model, textlist, best_val_loss
-
-
-args = parser.parse_args(sys.argv[1:])
-
-np.random.seed(args.random_seed)
-if not os.path.exists(args.path+'/'+args.file_out):
-    os.makedirs(args.path+'/'+args.file_out)
-sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
-
-print(args)
-
-data= MyDataset(args.datadir,args.filename, args.radius_angstroms, args.num_atoms, args.num_nbrs, args.task)
-datasettime=time.time()-begin_time
-print('datset generated: time=', str(datasettime))
-#atomic_num_list=list(data.all_atomic_numbers)
-#np.random.shuffle(atomic_num_list)
-atomic_num_list=[33, 83, 51, 15]
-lr_candidates=[1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7]
-batch_size_candidates=[32, 64, 128, 256]
-
-parameter_sets= []
-model_list= [None] * 96
-performance_list= [None] * 96
-
-for i in range(len(atomic_num_list)):
-    test_element=atomic_num_list[i]
+    #model_placeholder.value= model
+    #val_loss_placeholder.value= best_val_loss
+    model_list[specialindex]= str(checkpoint_path)
+    performance_list[specialindex] = best_val_loss
+    printlock.acquire()
     try:
-        val_element=atomic_num_list[i+1]
-    except:
-        val_element=atomic_num_list[0]
-    for lr in lr_candidates:
-        for bs in batch_size_candidates:
-            parameter_sets.append([test_element, val_element, lr, bs])
+        print(textlist, flush=True)
+    finally:
+        printlock.release()
 
-print('!!!!')
-print(parameter_sets)
 
-with concurrent.futures.ThreadPoolExecutor() as executor:
+if __name__ == '__main__':
+    printlock= Lock()
+    processlist=[]
+    args = parser.parse_args(sys.argv[1:])
 
+    np.random.seed(args.random_seed)
+    if not os.path.exists(args.path+'/'+args.file_out):
+        os.makedirs(args.path+'/'+args.file_out)
+    sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
+
+    print(args)
+
+    data= MyDataset(args.datadir,args.filename, args.radius_angstroms, args.num_atoms, args.num_nbrs, args.task)
+    datasettime=time.time()-begin_time
+    print('datset generated: time=', str(datasettime))
+    #atomic_num_list=list(data.all_atomic_numbers)
+    #np.random.shuffle(atomic_num_list)
+    atomic_num_list=[33, 83, 51, 15]
+    lr_candidates=[1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7]
+    batch_size_candidates=[32, 64, 128, 256]
+
+    parameter_sets= []
+
+
+    for i in range(len(atomic_num_list)):
+        test_element=atomic_num_list[i]
+        try:
+            val_element=atomic_num_list[i+1]
+        except:
+            val_element=atomic_num_list[0]
+        for lr in lr_candidates:
+            for bs in batch_size_candidates:
+                parameter_sets.append([test_element, val_element, lr, bs])
+
+    print('!!!!')
+    print(parameter_sets)
+
+    #with concurrent.futures.ThreadPoolExecutor() as executor:
+    manager = Manager()
+
+    performance_dict= manager.dict()
+    model_dict = manager.dict()
     for i in range(len(parameter_sets)):
+            current_params=parameter_sets[i]
+            test_element= current_params[0]
+            val_element= current_params[1]
+            lr= current_params[2]
+            bs= current_params[3]
+            data_tr = []
+            data_va = []
+            data_te = []
+            data_ex= []
+            for d in data:
+                if test_element in d._atomlist and val_element in d._atomlist:
+                    data_ex.append(d._cif)
+                elif test_element in d._atomlist:
+                     data_te.append(d)
+                elif val_element in d._atomlist:
+                    data_va.append(d)
+                else:
+                    data_tr.append(d)
+
+            textlist=[]
+            textlist.append('model # '+str(i))
+            textlist.append('test element='+str(test_element))
+            textlist.append('test size='+str(len(data_te)))
+            textlist.append('val element='+str(val_element))
+            textlist.append('val size='+str(len(data_va)))
+            textlist.append('train size='+str(len(data_tr)))
+            textlist.append('excluded to prevent data leakage:')
+            textlist.append(data_ex)
+            textlist.append('lr='+str(lr))
+            textlist.append('bs='+str(bs))
+
+            loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=bs, epochs=args.epochs)
+            loader_va = DisjointLoader(PartitionedData(data_va), batch_size=bs)
+            loader_te = DisjointLoader(PartitionedData(data_te), batch_size=bs)
+
+            #model_list[i], textlist, performance_list[i]=full_training_loop()
+            #model_placeholder= Value('spektral_essential_objects.HNet', )
+            #val_loss_placeholder= Value('f', 0.0)
+            p= Process(target=full_training_loop, args=(printlock, loader_tr, loader_va, loader_te, textlist, test_element, val_element, lr, i, model_dict, performance_dict))
+
+            p.start()
+            print(i, ' started', flush=True)
+            processlist.append(p)
+            #p.join()
+            #future = executor.submit(full_training_loop, )
+            #model_list[i]=model_placeholder.value
+            #performance_list[i] = val_loss_placeholder.value
+        #print(textlist)
+    for pr in processlist:
+        pr.join()
+
+
+    print(model_dict)
+    print(performance_dict)
+    #grahams suggestion: create empty arrays for model, textlist, bestbvalloss with 96 indexes and then fill asynchronously then you can do the analysis based on indicees after
+    chunks=[0,24,48,72]
+    for i in chunks:
         current_params=parameter_sets[i]
         test_element= current_params[0]
         val_element= current_params[1]
-        lr= current_params[2]
-        bs= current_params[3]
-        data_tr = []
-        data_va = []
-        data_te = []
-        data_ex= []
-        for d in data:
-            if test_element in d._atomlist and val_element in d._atomlist:
-                data_ex.append(d._cif)
-            elif test_element in d._atomlist:
-                 data_te.append(d)
-            elif val_element in d._atomlist:
-                data_va.append(d)
-            else:
-                data_tr.append(d)
-
         textlist=[]
-        textlist.append('model # '+str(i))
-        textlist.append('test element='+str(test_element))
-        textlist.append('test size='+str(len(data_te)))
-        textlist.append('val element='+str(val_element))
-        textlist.append('val size='+str(len(data_va)))
-        textlist.append('train size='+str(len(data_tr)))
-        textlist.append('excluded to prevent data leakage:')
-        textlist.append(data_ex)
-        textlist.append('lr='+str(lr))
-        textlist.append('bs='+str(bs))
+        textlist.append('for test element='+str(test_element))
+        temp_dict={k: performance_dict[k] if k in performance_dict.keys() for k in range(i,i+24)}
+        bestmodelindex= min(temp_dict, key=temp_dict.get)
 
-        loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=bs, epochs=args.epochs)
-        loader_va = DisjointLoader(PartitionedData(data_va), batch_size=bs)
-        loader_te = DisjointLoader(PartitionedData(data_te), batch_size=bs)
+        checkpoint_dir = os.path.dirname(model_dict[bestmodelindex])
 
-        #model_list[i], textlist, performance_list[i]=full_training_loop()
+        bestmodel= HNet(args.task, args.num_classes, return_s=True)
 
-        future = executor.submit(full_training_loop, loader_tr, loader_va, loader_te, textlist, test_element, val_element, lr)
-        model_list[i], textlist, performance_list[i] = future.result()
-    #print(textlist)
+        latest = tf.train.latest_checkpoint(checkpoint_dir)
+        bestmodel.load_weights(latest)
 
-
-#grahams suggestion: create empty arrays for model, textlist, bestbvalloss with 96 indexes and then fill asynchronously then you can do the analysis based on indicees after
-chunks=[0,24,48,72]
-for i in chunks:
-    current_params=parameter_sets[i]
-    test_element= current_params[0]
-    val_element= current_params[1]
-    textlist=[]
-    textlist.append('for test element='+str(test_element))
-    bestmodelindex= np.argmin(performance_list[i:i+24])
-    bestmodel= model_list[bestmodelindex]
-    print('model #', bestmodelindex, ' is the best model')
-    print('EVAL ON TEST SET')
-    textlist=test_eval(loader_te,bestmodel,SparseCategoricalCrossentropy(),[])
-    print(textlist)
+        print('model #', bestmodelindex, ' is the best model')
+        print('EVAL ON TEST SET')
+        textlist=test_eval(loader_te,bestmodel,SparseCategoricalCrossentropy(),[])
+        print(textlist)
