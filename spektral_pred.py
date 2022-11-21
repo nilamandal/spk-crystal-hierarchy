@@ -15,27 +15,31 @@ from pymatgen.core.structure import Structure
 import json
 import argparse
 import time
-from spektral_essential_objects import AtomInitializer, GaussianDistance,AtomCustomJSONInitializer,MyDataset,HNet
+from spektral_essential_objects import AtomInitializer, GaussianDistance,AtomCustomJSONInitializer,MyDataset,HNetSimple
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+#from scipy.special import softmax
 
 begin_time = time.time()
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 
 parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='../crystalhierarchydata/sc24')
+        help='Directory where dataset is located', default='../crystalhierarchydata/sc10_scaled')
 
 parser.add_argument('--filename', dest='filename',
-                    help='csv where data is located', default='id_prop24_test_noleakage_corrected.csv')
+                    help='csv where data is located', default='id_prop_500.csv')
 parser.add_argument('--file-out', dest='file_out',
                     help='output txt file name', default='predscriptout.txt')
-parser.add_argument('--path-out', dest='path',
-                    help='output path', default='./debugging_loeo/sc24-lr1e-3/sc24-lr1e-3/')
+#parser.add_argument('--path-out', dest='path',
+#                    help='output path', default='./debugging_loeo/sc24-lr1e-3/sc24-lr1e-3/')
 parser.add_argument('--num-atoms', dest='num_atoms', type=int,
-                    help='Maximum number of nodes', default=24)
+                    help='Maximum number of nodes', default=10)
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
                     help='num neighbors per atom', default=12)
 
 parser.add_argument('--num-classes', dest='num_classes', type=int,
-                    help='Number of label classes', default=4)
+                    help='Number of label classes', default=3)
 
 parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
                     help='search radius for neighbors', default=8)
@@ -44,8 +48,8 @@ parser.add_argument('--random-seed', dest='random_seed', type=int,
 parser.add_argument('--batch-size', dest='batch_size', type=int,
                     help='Batch size.', default=256)
 
-parser.add_argument('--epochs', default=30, type=int, metavar='N',
-                    help='number of total epochs to run (default: 30)')
+#parser.add_argument('--epochs', default=30, type=int, metavar='N',
+#                    help='number of total epochs to run (default: 30)')
 
 #parser.add_argument('--lr', dest='learning_rate', type=float,
 #                    help='Learning rate.', default=1e-3)
@@ -59,13 +63,15 @@ def evaluate(loader, model):
     output = []
     step = 0
     all_s=[]
+    all_pre_feats=[]
     while step < loader.steps_per_epoch:
         step += 1
         inputs, target = loader.__next__()
-        #print('hello???')
-        #print(inputs, target)
-        pred, s_tensor = model(inputs, training=False)
+
+        pred, s_tensor, prepool_feats = model(inputs, training=False)
+
         all_s.append(s_tensor)
+        all_pre_feats.append(prepool_feats)
 
         if args.task=='c':
             outs = tf.reduce_mean(sparse_categorical_accuracy(target, pred))
@@ -75,65 +81,49 @@ def evaluate(loader, model):
 
         output.append(outs)
         if step == loader.steps_per_epoch:
+            b= tf.concat(all_pre_feats, axis=0)
+            s= tf.concat(all_s, axis=0)
             output = np.array(output)
-            return np.average(output), all_s, pred
+            return np.average(output), s, pred, b
 
-checkpoint_path = "../sc8/concatfeats/concatfeats.cpkt"
+checkpoint_path = "../hnet2pool/sc10_3class_2pl_dropboth/debugging/1/debugging33-83idx1.ckpt"
+
 checkpoint_dir = os.path.dirname(checkpoint_path)
 
 args = parser.parse_args(sys.argv[1:])
 
-
 data = MyDataset(args.datadir,args.filename, args.radius_angstroms, args.num_atoms, args.num_nbrs, args.task)
 cifs=data.get_cifs()
-print(len(data))
-print(len(cifs))
-#print(data, cifs)
-datasettime=time.time()-begin_time
-#print('datset generated: time=', str(datasettime))
-#data = QM9(amount=1000)
-#print(data)
 
-# idxs = np.random.permutation(len(data))
-# split_va, split_te = int(0.8 * len(data)), int(0.9 * len(data))
-# idx_tr, idx_va, idx_te = np.split(idxs, [split_va, split_te])
-# #print(idx_tr)
-# data_tr = data[idx_tr]
-# cifs_tr = cifs[list(idx_tr)]
-# data_va = data[idx_va]
-# cifs_va = cifs[idx_va]
-# data_te = data[idx_te]
-# cifs_te = cifs[idx_te]
-# print('train size, va size, test size:')
-# print(len(cifs_tr), len(cifs_va), len(cifs_te))
+datasettime=time.time()-begin_time
 
 loader = DisjointLoader(data, batch_size=args.batch_size)
-#loader_va = DisjointLoader(data_va, batch_size=args.batch_size)
-#loader_te = DisjointLoader(data_te, batch_size=args.batch_size)
 
-model= HNet(args.task, args.num_classes, return_s=True)
+model= HNetSimple(args.task, args.num_classes, return_s=True)
 
 latest = tf.train.latest_checkpoint(checkpoint_dir)
 model.load_weights(latest)
 
-print(model)
+result, s_tensors, pred, prepool_feats=evaluate(loader,model)
 
-result, s_tensors, pred=evaluate(loader,model)
-#f=open('meetingoutput.txt', 'w')
-#f.write(str(s_tensors))
-#for i in s_tensors:
-#    for j in i:
-#        print(j)
-#    print('-')
-i=0
-for j in s_tensors:
-     #print(j)
-    for k in j:
-         print(cifs[i])
-         print(pred[i])
-         print(k)
-         i+=1
-    print('-')
-
-#         print('...')
-# print('ok')
+print(s_tensors.shape)
+for i in range(len(prepool_feats)):
+    pools=np.argmax(s_tensors[i], axis=1)
+    # kmeans = KMeans(n_clusters=3, random_state=0).fit_predict(prepool_feats[i])
+    pca = PCA(n_components=2)
+    x = pca.fit_transform(prepool_feats[i])
+    id= cifs[i]
+    crystal= Structure.from_file(os.path.join(args.datadir,id))
+    # #print(id, kmeans, x)
+    #
+    plt.figure()
+    plt.xlabel('PCA dim 1')
+    plt.ylabel('PCA dim 2')
+    plt.scatter(x[:,0], x[:,1], c=pools)
+    for j, txt in enumerate(crystal.species):
+        name=str(txt)+' '+str(j)
+        plt.annotate(name, (x[j,0], x[j,1]))
+    plt.title(id)
+    filename='../hnet2pool/sc10_3class_2pl_dropboth/debugging/1/'+id[:-4]+'diffpools.png'
+    plt.savefig(filename)
+#print(kmeans.labels_)

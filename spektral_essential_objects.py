@@ -1,10 +1,11 @@
 from spektral.data import Graph, Dataset, DisjointLoader
 from spektral.data.utils import to_batch
-from spektral.layers import CrystalConv, DiffPool, ops, GlobalMaxPool, GlobalAvgPool#, Disjoint2Batch
+from spektral.utils import reorder
+from spektral.layers import CrystalConv, DiffPool, ops, GlobalMaxPool, GlobalAvgPool, Disjoint2Batch
 import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import SGD, Adam
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Dense, BatchNormalization, Dropout
 from tensorflow.keras.losses import MeanSquaredError, SparseCategoricalCrossentropy
 from tensorflow.keras.metrics import sparse_categorical_accuracy
 import numpy as np
@@ -16,6 +17,7 @@ import json
 import argparse
 import time
 from keras import backend as BK
+import scipy.sparse as sp
 
 class AtomInitializer(object):
     """
@@ -90,18 +92,15 @@ class PartitionedData(Dataset):
         self.datalist=datalist
         super().__init__()
 
-
     def read(self):
         return self.datalist
 
-
 class MyDataset(Dataset):
 
-    def __init__(self, datadir, filename, r_a, num_atoms, num_nbrs, task):
+    def __init__(self, datadir, filename, r_a, num_nbrs, task):
         self.datadir=datadir
         self.filename=filename
         self.radius_angstroms= r_a
-        #self.num_atoms= num_atoms
         self.num_nbrs= num_nbrs
         self.task= task
 
@@ -109,13 +108,13 @@ class MyDataset(Dataset):
 
     def read(self):
         df = pd.read_csv(os.path.join(self.datadir,self.filename), names=['id','target'], header=0)
+        df = df.sample(frac=1).reset_index(drop=True)
         allgraphs=[]
         cifs=list(df['id'])
         self.cifs=cifs
         all_atomic_numbers=[]
         for c in cifs:
             c=str(c)
-
             try:
                 crystal= Structure.from_file(os.path.join(self.datadir,c+'.cif'))
             except:
@@ -150,13 +149,17 @@ class MyDataset(Dataset):
             nbr_fea = gdf.expand(np.array(nbr_fea))
             adj = np.zeros((num_atoms, num_atoms))
             edges= np.zeros((num_atoms, num_atoms, 41))
-
+            edgeidxtemp=[]
+            edgefeat=[]
             for i in range(len(nbr_fea_idx)):
                 for j in range(len(nbr_fea_idx[i])):
                     k=nbr_fea_idx[i][j]
                     adj[i,k]+=1
-
-                    edges[i,k]= nbr_fea[i][j]
+                    if adj[i,k]==1:
+                        edgeidxtemp.append((i,k))
+                        edgefeat.append(nbr_fea[i][j])
+            adj=sp.csr_matrix(adj)
+            edge_idx, edges= reorder(edge_index=np.array(edgeidxtemp), edge_features=np.array(edgefeat))
 
             if self.task=='c':
                 MG=Graph(x=atom_fea, a=adj, e=edges, y=int(df_MG['target'].values[0]))
@@ -168,17 +171,13 @@ class MyDataset(Dataset):
                 MG._cif=c
             else:
                 print(self.task, ' is not c or r.')
-
             allgraphs.append(MG)
+            np.savez('./formation_npz/'+c,x=MG.x, a=MG.a, e=MG.e, y=MG.y, s=MG._atomlist, c=c)
         self.all_atomic_numbers= set(all_atomic_numbers)
-
         return allgraphs#, cifs
 
     def get_cifs(self):
         return np.asarray(self.cifs , dtype=object)
-
-
-
 
 
 class HNet(Model):
@@ -197,7 +196,6 @@ class HNet(Model):
         self.assign_conv2= CrystalConv()
         self.assign_conv3= CrystalConv()
 
-        #self.disjoint2batch= Disjoint2Batch()
         self.pool= DiffPool(k=3, return_selection=True)
         self.conv4= CrystalConv()
         self.avgpool= GlobalAvgPool()
@@ -205,15 +203,9 @@ class HNet(Model):
         if self.task=='c':
             self.out_layer= Dense(self.num_classes, activation='softmax')
         elif self.task=='r':
-            #initializer = tf.keras.initializers.HeUniform()
-            #reg= tf.keras.regularizers.L2(1)
-
-            #self.out_layer= Dense(1, activation=self.scaled_sigmoid, kernel_initializer= initializer, kernel_regularizer=reg)
             self.out_layer= Dense(1)
 
-    #def scaled_sigmoid(self, x):
-    #    return 20/(1+np.e**(-.25*x)) -10
-    #    return 10*BK.tanh(x)
+
 
     def call(self, inputs):
         x, a, e, i = inputs
@@ -274,19 +266,13 @@ class HNet(Model):
 
         x=self.conv4([x, a_new, e])
 
-        #x=self.out_layer(tf.reshape(x,(len(a),192)))
         x=self.avgpool([x, i])
-
         x=self.out_layer(x)
 
         if self.return_s:
             return x, s
         else:
             return x
-
-
-    def batch_to_disjoint(self, X, A, E):
-        pass
 
     def local_disjoint_adjacency_to_batch(self, E, A, I):
         I = tf.cast(I, tf.int64)
@@ -348,22 +334,27 @@ class HNet(Model):
 
         return tf.map_fn(get_cum_graph_size, nodes)
 
-class HNetSingle(HNet):
-    def __init__(self, task, num_classes, return_s=False):
-        super().__init__(task, num_classes, return_s=False)
+class HNetSimple(Model):
+    def __init__(self, task, num_classes, d1=0, d2=0, d3=0, return_s=False):
+        super().__init__()
+        tf.keras.backend.set_floatx('float64')
         self.return_s=return_s
         self.task=task
         self.num_classes=num_classes
         self.embedding= Dense(64)
+
         self.conv1= CrystalConv()
         self.conv2= CrystalConv()
         self.conv3= CrystalConv()
 
-        #self.disjoint2batch= Disjoint2Batch()
+        self.disjoint2batch= Disjoint2Batch()
+        self.dropout1= Dropout(d1)
         self.pool= DiffPool(k=3, return_selection=True)
-        self.conv4= CrystalConv()
-        self.avgpool= GlobalAvgPool()
-        self.avgpool.data_mode='disjoint'
+        self.dropout2= Dropout(d2)
+        self.finalpool= DiffPool(k=1)
+        self.dropout3= Dropout(d3)
+
+        #we should have a dropout after aggregating crystal features
         if self.task=='c':
             self.out_layer= Dense(self.num_classes, activation='softmax')
         elif self.task=='r':
@@ -372,66 +363,19 @@ class HNetSingle(HNet):
     def call(self, inputs):
         x, a, e, i = inputs
 
-        #x_assign= self.assign_embedding(x)
-
-        #x_assign= self.assign_conv1([x_assign, a, e])
-        #x_assign= self.assign_conv2([x_assign, a, e])
-        #x_assign= self.assign_conv3([x_assign, a, e])
-
         x= self.embedding(x)
         x= self.conv1([x, a, e])
         x= self.conv2([x, a, e])
         x= self.conv3([x, a, e])
 
-        batch_X = ops.disjoint_signal_to_batch(x, i)
-        #batch_assignfeats= ops.disjoint_signal_to_batch(x_assign, i)
-        batch_A, batch_E = self.local_disjoint_adjacency_to_batch(e, a, i)#had to rewrite
+        batch_X, batch_A= self.disjoint2batch([x, a, i])
+        x= self.dropout1(x,training=True)
+        x, a, s= self.pool([batch_X, batch_A])
+        x= self.dropout2(x,training=True)
+        x, a = self.finalpool([x, a])
+        x= self.dropout3(x,training=True)
 
-        x_temp, a, s= self.pool([batch_X, batch_A])
-
-        #x_temp=tf.einsum('bij,bmn->bjn',s,batch_X)
-
-        i=tf.convert_to_tensor([k for k in range(0,x_temp.shape[0]) for j in range(0,3)])
-        x= tf.reshape(x_temp, (x_temp.shape[0]*x_temp.shape[1],x_temp.shape[2]))
-
-        temp=tf.einsum('bijk,bil->bilk',batch_E,s)
-        e_new=tf.einsum('bmn,bilk->bnlk',s,temp)
-
-        temp_e=tf.math.reduce_max(e_new, axis=3)
-        a_count=tf.math.count_nonzero(a)
-        e_count=tf.math.count_nonzero(temp_e)
-        zero = tf.constant(0, dtype=tf.float32)
-
-        if a_count!=e_count:
-            where2=tf.not_equal(a, zero)
-            indices_a= tf.where(where2)
-            e=tf.gather_nd(e_new, indices_a)
-
-        else:
-            e= tf.reshape(e_new, (e_new.shape[0]*e_new.shape[1]*e_new.shape[2],e_new.shape[3]))
-
-            temp2=tf.math.reduce_max(e, axis=1)
-            where = tf.not_equal(temp2, zero)
-            indices = tf.where(where)
-
-            temp3=tf.gather(e, indices, axis=0)
-            e=tf.reshape(temp3, (temp3.shape[0],temp3.shape[2]))
-
-        #need to turn adj. back to disjoing mode.
-        adj_empty = np.zeros((x.shape[0], x.shape[0]))
-        idx=0
-        for j in a:
-            adj_empty[idx:idx+3, idx:idx+3]=j
-            idx+=3
-
-        a_new= tf.sparse.from_dense(adj_empty)
-
-        x=self.conv4([x, a_new, e])
-
-        #x=self.out_layer(tf.reshape(x,(len(a),192)))
-        x=self.avgpool([x, i])
-
-        x=self.out_layer(x)
+        x=self.out_layer(tf.reshape(x,(x.shape[0],x.shape[2])))
 
         if self.return_s:
             return x, s
