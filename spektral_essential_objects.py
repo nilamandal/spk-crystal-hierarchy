@@ -8,6 +8,7 @@ from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.layers import Dense, BatchNormalization, Dropout
 from tensorflow.keras.losses import MeanSquaredError, SparseCategoricalCrossentropy
 from tensorflow.keras.metrics import sparse_categorical_accuracy
+from tensorflow.keras.regularizers import L2
 import numpy as np
 import pandas as pd
 import os
@@ -16,8 +17,9 @@ from pymatgen.core.structure import Structure
 import json
 import argparse
 import time
-from keras import backend as BK
 import scipy.sparse as sp
+from tensorflow.keras import backend as K
+from tensorflow.keras import activations
 
 class AtomInitializer(object):
     """
@@ -107,8 +109,10 @@ class MyDataset(Dataset):
         super().__init__()
 
     def read(self):
-        df = pd.read_csv(os.path.join(self.datadir,self.filename), names=['id','target'], header=0)
+        df = pd.read_csv(os.path.join(self.datadir,self.filename), names=['id','target'], header=None)
+
         df = df.sample(frac=1).reset_index(drop=True)
+
         allgraphs=[]
         cifs=list(df['id'])
         self.cifs=cifs
@@ -123,9 +127,21 @@ class MyDataset(Dataset):
 
             ari = AtomCustomJSONInitializer(os.path.join(self.datadir,'atom_init.json'))#check atom initializer
             atomic_numbers=[crystal[i].specie.number for i in range(len(crystal))]
-            all_atomic_numbers= all_atomic_numbers + atomic_numbers
 
-            atom_fea = np.vstack([ari.get_atom_fea(crystal[i].specie.number) for i in range(len(crystal))]) #the features of each element in the atom, in no particular order
+            atom_fea=[]
+            all_atomic_numbers= all_atomic_numbers + atomic_numbers
+            for atom in crystal:
+                group_encoding= np.zeros(18)
+                row_encoding= np.zeros(9)
+                group_encoding[atom.specie.group-1]=1
+                row_encoding[atom.specie.row-1]=1
+                atom_hot=np.concatenate((group_encoding, row_encoding))
+                atom_fea.append(atom_hot)
+
+
+            atom_fea= np.vstack(atom_fea)
+
+            #atom_fea = np.vstack([ari.get_atom_fea(crystal[i].specie.number) for i in range(len(crystal))]) #the features of each element in the atom, in no particular order
             all_nbrs = crystal.get_all_neighbors(self.radius_angstroms, include_index=True)
             all_nbrs = [sorted(nbrs, key=lambda x: x[1]) for nbrs in all_nbrs]
             nbr_fea_idx, nbr_fea = [], []
@@ -172,12 +188,60 @@ class MyDataset(Dataset):
             else:
                 print(self.task, ' is not c or r.')
             allgraphs.append(MG)
-            np.savez('./formation_npz/'+c,x=MG.x, a=MG.a, e=MG.e, y=MG.y, s=MG._atomlist, c=c)
+            #np.savez('./formation_npz/'+c,x=MG.x, a=MG.a, e=MG.e, y=MG.y, s=MG._atomlist, c=c)
         self.all_atomic_numbers= set(all_atomic_numbers)
         return allgraphs#, cifs
 
     def get_cifs(self):
         return np.asarray(self.cifs , dtype=object)
+
+class RegularizedDiffPool(DiffPool):
+    def __init__(self, k, channels=None, return_selection=False, activation=None, kernel_initializer="glorot_uniform",
+        kernel_regularizer=None, kernel_constraint=None, column_lambda=1, entr_lambda=1, **kwargs):
+
+        self.column_lambda= column_lambda
+        self.entr_lambda= entr_lambda
+        self.bn_reduce= BatchNormalization()
+
+        super().__init__(k, channels=channels, return_selection=return_selection, activation=activation,
+                kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer, kernel_constraint=kernel_constraint,
+                **kwargs)
+
+
+    def select(self, x, a, i, fltr=None, mask=None):
+        s = ops.modal_dot(fltr, K.dot(x, self.kernel_pool))
+        s = activations.softmax(s, axis=-1)
+        if mask is not None:
+            s *= mask[0]
+
+        # Auxiliary losses
+        column_loss= self.column_entropy(s)
+        entr_loss = self.entropy_loss(s)
+        if K.ndim(x) == 3:
+            column_loss = K.mean(column_loss)
+            entr_loss = K.mean(entr_loss)
+        column_loss=self.column_lambda*column_loss
+        entr_loss= self.entr_lambda*entr_loss
+        self.add_loss(column_loss)
+        self.add_loss(entr_loss)
+        return s
+
+    def reduce(self, x, s, fltr=None):
+        z = ops.modal_dot(fltr, K.dot(x, self.kernel_emb))
+        z = self.activation(z)
+        z = self.bn_reduce(z)
+
+        return ops.modal_dot(s, z, transpose_a=True)
+
+    def column_entropy(self, s):
+        #print('column entropy is happening')
+        temp=tf.math.reduce_sum(s, axis=1)/s.shape[1]
+        #we want to maximize the column entropy to encourage distributing nodes into different pools
+        inv_entr = 1/tf.negative(tf.reduce_sum(tf.multiply(temp, K.log(temp)), axis=-1))
+
+        return inv_entr
+
+
 
 
 class HNet(Model):
@@ -335,21 +399,25 @@ class HNet(Model):
         return tf.map_fn(get_cum_graph_size, nodes)
 
 class HNetSimple(Model):
-    def __init__(self, task, num_classes, d1=0, d2=0, d3=0, return_s=False):
+    def __init__(self, task, num_classes, d1=0, d2=0, d3=0, el=1, cl=1, regularizer='l2', return_s=False):
         super().__init__()
-        tf.keras.backend.set_floatx('float64')
+
         self.return_s=return_s
         self.task=task
         self.num_classes=num_classes
-        self.embedding= Dense(64)
+        self.embedding= Dense(64, kernel_regularizer=regularizer)
 
-        self.conv1= CrystalConv()
-        self.conv2= CrystalConv()
-        self.conv3= CrystalConv()
+
+        self.conv1= CrystalConv(kernel_regularizer=regularizer)
+        self.bn1= BatchNormalization()
+        self.conv2= CrystalConv(kernel_regularizer=regularizer)
+        self.bn2= BatchNormalization()
+        self.conv3= CrystalConv(kernel_regularizer=regularizer)
+        self.bn3= BatchNormalization()
 
         self.disjoint2batch= Disjoint2Batch()
         self.dropout1= Dropout(d1)
-        self.pool= DiffPool(k=3, return_selection=True)
+        self.pool= RegularizedDiffPool(k=2, column_lambda=cl, entr_lambda=el, return_selection=True)
         self.dropout2= Dropout(d2)
         self.finalpool= DiffPool(k=1)
         self.dropout3= Dropout(d3)
@@ -360,24 +428,43 @@ class HNetSimple(Model):
         elif self.task=='r':
             self.out_layer= Dense(1)
 
+
     def call(self, inputs):
         x, a, e, i = inputs
 
         x= self.embedding(x)
         x= self.conv1([x, a, e])
+        self.conv1.add_loss(tf.norm(x))
+        x= self.bn1(x)
         x= self.conv2([x, a, e])
+        self.conv2.add_loss(tf.norm(x))
+        x= self.bn2(x)
         x= self.conv3([x, a, e])
+        self.conv3.add_loss(tf.norm(x))
+        x= self.bn3(x)
+
+
 
         batch_X, batch_A= self.disjoint2batch([x, a, i])
+        #temp=0
+        #for smallx in batch_X:
+        #    np.savez('./'+str(temp)+'/features',x=smallx)
+        #    temp+=1
+
         x= self.dropout1(x,training=True)
         x, a, s= self.pool([batch_X, batch_A])
+
+        lp_loss = self.pool.link_prediction_loss(batch_A, s)
+        entr_loss = self.pool.entropy_loss(s)
+
         x= self.dropout2(x,training=True)
         x, a = self.finalpool([x, a])
         x= self.dropout3(x,training=True)
 
-        x=self.out_layer(tf.reshape(x,(x.shape[0],x.shape[2])))
+        x=tf.reshape(x,(x.shape[0],x.shape[2]))
+        x=self.out_layer(x)
 
         if self.return_s:
-            return x, s
+            return x, s, lp_loss, entr_loss
         else:
             return x
