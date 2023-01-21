@@ -18,7 +18,7 @@ from pymatgen.core.structure import Structure
 import json
 import argparse
 import time
-from spektral_essential_objects import AtomInitializer, GaussianDistance,AtomCustomJSONInitializer,MyDataset,HNetSimple,PartitionedData#, PreloadDataset
+from spektral_essential_objects import GaussianDistance, MyDataset, HNetSimple, PartitionedData
 from multiprocessing import Process, Lock, Value, Manager, Semaphore
 from scipy.stats import qmc
 import matplotlib.pyplot as plt
@@ -59,8 +59,7 @@ parser.add_argument('--dataset', choices=['prashun', 'mp'],
                     default='prashun')
 #parser.add_argument('--patience', dest='patience',default=30, type=int,
 #                    help='num epochs for early stopping')
-#parser.add_argument('--lam', dest='lam',default=0, type=float,
-#                    help='lambda param for s penalty')
+
 
 def test_eval(loader_te,model,loss_fn,textlist):
     test_loss, test_metric = evaluate(loader_te, model, loss_fn, True)
@@ -78,7 +77,7 @@ def evaluate(loader, model, loss_fn, test=False):
     while step < loader.steps_per_epoch:
         step += 1
         inputs, target = loader.__next__()
-        pred, s, lp_loss, entr_loss = model(inputs, training=False)
+        pred, s = model(inputs, training=False)
         if args.task=='c':
             outs = (
                 loss_fn(target, pred),
@@ -102,7 +101,7 @@ def evaluate(loader, model, loss_fn, test=False):
 def train_step(inputs, target, model, loss_fn, optimizer):
     outputtxt=[]
     with tf.GradientTape() as tape:
-        predictions, s, lp_loss, entr_loss = model(inputs, training=True)
+        predictions, s = model(inputs, training=True)
         loss = loss_fn(target, predictions)
         #print(loss)
 
@@ -118,9 +117,10 @@ def train_step(inputs, target, model, loss_fn, optimizer):
 
         return loss, sca, outputtxt
 
-def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testelement, valelement, lr, specialindex, model_list, performance_list, d1, d2, d3, el, cl):
+def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testelement, valelement, lr, specialindex, model_list, performance_list, d1, d2, d3, el, cl, l2_1, l2_2, l2_3):
         init_time= time.time()
         fullpath=args.path+'/'+args.file_out+'/'+str(specialindex)
+        print(fullpath)
         if not os.path.exists(fullpath):
             os.makedirs(fullpath)
 
@@ -137,8 +137,7 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
         else:
             print(args.task, ' is not c or r.')
 
-        model= HNetSimple(args.task, args.num_classes, d1, d2, d3, el, cl, return_s=True)
-        #xprint(model.trainable_variables)
+        model= HNetSimple(args.task, args.num_classes, d1, d2, d3, el, cl, l2_1, l2_2, l2_3, return_s=True)
 
         textlist.append('evaluation on train set before training:')
         temp=evaluate(load_tr, model, loss_fn)
@@ -154,61 +153,50 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
         best_val_loss = np.inf
         best_weights = None
         results = []
-
         for batch in load_tr:
-            step += 1
-            loss, metric, outputtxt = train_step(*batch, model, loss_fn, optimizer)
-            textlist= textlist + outputtxt
-            if step == loader_tr.steps_per_epoch:
-                step = 0
-                loss_str="Loss: {}".format(loss / loader_tr.steps_per_epoch)
-                textlist.append(loss_str)
-                is_nan= np.isnan(loss)
-                loss = 0
-                val_loss, val_metric = evaluate(loader_va, model, loss_fn)
-                if val_loss<best_val_loss:
-                    best_val_loss= val_loss
-                    early_stop_counter=0
-                else:
-                    early_stop_counter+=1
-                if args.task=='r':
-                    textlist.append('train mse='+str(metric))
-                    textlist.append('val loss and mse')
-                elif args.task=='c':
-                    textlist.append('train accuracy='+str(metric))
-                    textlist.append('val loss and acc')
-                textlist.append(str(val_loss))
-                textlist.append(str(val_metric))
+                step += 1
+                loss, metric, outputtxt = train_step(*batch, model, loss_fn, optimizer)
+                textlist= textlist + outputtxt
+                if step == load_tr.steps_per_epoch:
+                    step = 0
+                    loss_str="Loss: {}".format(loss / load_tr.steps_per_epoch)
+                    textlist.append(loss_str)
+                    is_nan= np.isnan(loss)
+                    loss = 0
+                    val_loss, val_metric = evaluate(load_va, model, loss_fn)
+                    if val_loss<best_val_loss:
+                        best_val_loss= val_loss
+                        early_stop_counter=0
+                    else:
+                        early_stop_counter+=1
+                    if args.task=='r':
+                        textlist.append('train mse='+str(metric))
+                        textlist.append('val loss and mse')
+                    elif args.task=='c':
+                        textlist.append('train accuracy='+str(metric))
+                        textlist.append('val loss and acc')
+                    textlist.append(str(val_loss))
+                    textlist.append(str(val_metric))
 
-                model.save_weights(checkpoint_path)
-                epoch+=1
-                textlist.append('epoch='+str(epoch))
 
-                # if is_nan==True:
-                #     printlock.acquire()
-                #     try:
-                #         print(textlist, flush=True)
-                #         gen_plots(textlist, specialindex, fullpath)
-                #
-                #     finally:
-                #         printlock.release()
-                #
-                #     break
+                    epoch+=1
+                    textlist.append('epoch='+str(epoch))
 
-                #if early_stop_counter>args.patience:
-                    #textlist= test_eval(loader_te,model,loss_fn,textlist)
-                #    return model, textlist
+                    if is_nan:
+                        break
+                    else:
+                        # Create a callback that saves the model's weights
+                        model.save_weights(checkpoint_path)
+
 
 
         textlist.append('training time=')
         textlist.append(str(time.time()-init_time))
 
 
-        # Create a callback that saves the model's weights
-        model.save_weights(checkpoint_path)
 
-        #model_list[specialindex]= str(checkpoint_path)
-        #performance_list[specialindex] = best_val_loss
+        model_list[specialindex]= str(checkpoint_path)
+        performance_list[specialindex] = best_val_loss
 
         printlock.acquire()
         try:
@@ -332,7 +320,83 @@ def split_for_prashuns_data(data, test_element, val_element):
 
     return data_tr, data_va, data_te, data_ex
 
+def really_just_testing(data, printlock):
+    manager = Manager()
+    performance_dict= manager.dict()
+    model_dict = manager.dict()
 
+    atomic_num_list=[33, 83, 51, 15]
+    parameter_sets=[[8.32476614416975e-05, 16, 0.42433846176775447,0.10236993852196401,0.05248327786291443,441.67253673401046,518.4608954750361,539.2021439163364,666.6483021404565,31.681982510061996],
+        [9.637167056882282e-05,16,0.46789948244887974,0.007044903454544166,0.11820734112722273,123.49914584236699,842.1068092348547,299.5124924342337,182.80524194528564,803.740987656228],
+        [9.931902150186573e-05, 16, 0.050195127776030475,0.019802953668764955,0.21805471207211816,581.2589318356876,133.79767372790926, 349.8814045405835,157.07383470658633,442.0367255493623],
+        [9.699199391626148e-05, 16, 0.25899731184242175,0.02957067938909473,0.11098365061631105, 656.0162927841983, 913.5182585016929, 592.4862571035408,830.6184839838752,338.7821547286297],
+        [9.637167056882282e-05, 32, 0.46789948244887974,0.007044903454544166,0.11820734112722273, 123.49914584236699, 842.1068092348547, 299.5124924342337,182.80524194528564,803.740987656228]
+        ]
+    parameter_sets_with_elements=[]
+    for i in range(len(atomic_num_list)):
+        te=atomic_num_list[i]
+        try:
+            va=atomic_num_list[i+1]
+        except:
+            va=atomic_num_list[0]
+        for row in parameter_sets:
+            param_set= [te, va]+ list(row)
+            parameter_sets_with_elements.append(param_set)
+    processlist=[]
+    for i in range(len(parameter_sets_with_elements)):
+        current_params=parameter_sets_with_elements[i]
+        test_element= current_params[0]
+        val_element= current_params[1]
+        bs= current_params[3]
+        lr= current_params[2]
+        d1= current_params[4]
+        d2= current_params[5]
+        d3= current_params[6]
+        el= current_params[7]
+        cl= current_params[8]
+        l2_1= current_params[9]
+        l2_2= current_params[10]
+        l2_3= current_params[11]
+
+        if args.dataset=='prashun':
+            data_tr, data_va, data_te, data_ex= split_for_prashuns_data(data, test_element, val_element)
+        else:
+            data_tr, data_va, data_te, data_ex= split_for_mp(data, test_element, val_element)
+        data_tr= data_tr + data_va
+        #print(len(data_tr))
+        #print(len(data_te))
+        #print('---')
+        textlist=[]
+        textlist.append('model # '+str(i))
+        textlist.append('test element='+str(test_element))
+        textlist.append('test size='+str(len(data_te)))
+        textlist.append('train size='+str(len(data_tr)))
+        textlist.append('excluded to prevent data leakage:')
+        textlist.append(data_ex)
+        textlist.append('lr='+str(lr))
+        textlist.append('bs='+str(bs))
+        textlist.append('dropouts='+str(d1)+','+str(d2)+','+str(d3))
+        textlist.append('entropy lambda='+str(el))
+        textlist.append('column lambda='+str(cl))
+        textlist.append('l2 feature reg hyperparams='+str(l2_1)+','+str(l2_2)+','+str(l2_3))
+
+        loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=bs, epochs=args.epochs)
+        loader_te = DisjointLoader(PartitionedData(data_te), batch_size=len(data_te))
+        p= Process(target=full_training_loop, args=(printlock, loader_tr, loader_te, [], textlist, 0, test_element, lr, i, model_dict, performance_dict, d1, d2, d3, el, cl, l2_1, l2_2, l2_3))
+        processlist.append(p)
+    for pr in processlist:
+            pr.start()
+            print(pr, ' started', flush=True)
+    for pr in processlist:
+            pr.join()
+            print(pr)
+            print('complete')
+
+
+
+    print(model_dict)
+    print(performance_dict)
+#'lr=", 'bs=', 'dropouts=', 'entropy lambda=', 'column lambda=', 'l2 feature reg hyperparams='
 
 if __name__ == '__main__':
     printlock= Lock()
@@ -342,139 +406,108 @@ if __name__ == '__main__':
     np.random.seed(args.random_seed)
     if not os.path.exists(args.path+'/'+args.file_out):
         os.makedirs(args.path+'/'+args.file_out)
-    #sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
+    sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
 
     print(args)
     data= MyDataset(args.datadir,args.filename, args.radius_angstroms, args.num_nbrs, args.task)
     datasettime=time.time()-begin_time
     print('datset generated: time=', str(datasettime))
 
-    atomic_num_list=[33, 83, 51, 15]
-    sampler = qmc.LatinHypercube(d=6)
-    quantity=5
-    sample = sampler.random(n=quantity)
-    print(sample)
 
-    l_bounds= [1e-8, 0, 0, 0, 1e-8, 1e-8]
-    u_bounds= [1e-2, .5, .5, .5, 1000, 1000]
-    scaled_sample= qmc.scale(sample, l_bounds, u_bounds)
+    just_testing=True
 
+    if just_testing:
+        really_just_testing(data, printlock)
+    else:
 
-    #lr_candidates=
-    #droprate1=
-    #droprate2=
-    #droprate3=
-    #entr_lambda=
-    #column_lambda=
+        atomic_num_list=[33, 83, 51, 15]
+        sampler = qmc.LatinHypercube(d=9)
+        quantity=1
+        sample = sampler.random(n=quantity)
+        print(sample)
 
+        l_bounds= [0, 0, 0, 0, 0, 0, 0, 0, 0]
+        u_bounds= [1e-3, .5, .5, .5, 1000, 1000, 1000, 1000, 1000]
+        scaled_sample= qmc.scale(sample, l_bounds, u_bounds)
 
-    batch_size_candidates=[64,32,16]
-    parameter_sets= []
-    for i in range(len(atomic_num_list)):
-        te=atomic_num_list[i]
-        try:
-            va=atomic_num_list[i+1]
-        except:
-            va=atomic_num_list[0]
-        for bs in batch_size_candidates:
-            for row in scaled_sample:
-                param_set= [te, va, bs]+ list(row)
+        batch_size_candidates=[64,32,16]
+        parameter_sets= []
+        for i in range(len(atomic_num_list)):
+            te=atomic_num_list[i]
+            try:
+                va=atomic_num_list[i+1]
+            except:
+                va=atomic_num_list[0]
+            for bs in batch_size_candidates:
+                for row in scaled_sample:
+                    param_set= [te, va, bs]+ list(row)
+                    parameter_sets.append(param_set)
+            #for lr in lr_candidates:
+            #        for bs in batch_size_candidates:
+            #            for d1 in droprate1:
+            #                for d2 in droprate2:
+            #                    for d3 in droprate3:
+            #                        for el in entr_lambda:
+            #                            for cl in column_lambda:
+            #                                parameter_sets.append([te, va, lr, bs, d1, d2, d3, el, cl])
 
-                parameter_sets.append(param_set)
-        #for lr in lr_candidates:
-        #        for bs in batch_size_candidates:
-        #            for d1 in droprate1:
-        #                for d2 in droprate2:
-        #                    for d3 in droprate3:
-        #                        for el in entr_lambda:
-        #                            for cl in column_lambda:
-        #                                parameter_sets.append([te, va, lr, bs, d1, d2, d3, el, cl])
+        manager = Manager()
+        performance_dict= manager.dict()
+        model_dict = manager.dict()
+        #print('starting loop')
+        random.shuffle(parameter_sets)
 
-    manager = Manager()
-    performance_dict= manager.dict()
-    model_dict = manager.dict()
-    #max_cpu_semaphore= manager.Semaphore(8)
-    #graham suggestion: permute list of combinations and then iterate through
-    print('starting loop')
-    #parameter_sets= parameter_sets[:10]
-    random.shuffle(parameter_sets)
-    #parameter_sets = [parameter_sets[i]]
-    for i in range(len(parameter_sets)):
-        current_params=parameter_sets[i]
-        test_element= current_params[0]
-        val_element= current_params[1]
-        bs= current_params[2]
-        lr= current_params[3]
-        d1= current_params[4]
-        d2= current_params[5]
-        d3= current_params[6]
-        el= current_params[7]
-        cl= current_params[8]
-        print(current_params)
-        if args.dataset=='prashun':
-            data_tr, data_va, data_te, data_ex= split_for_prashuns_data(data, test_element, val_element)
-        else:
-            data_tr, data_va, data_te, data_ex= split_for_mp(data, test_element, val_element)
-        textlist=[]
-        textlist.append('model # '+str(i))
-        textlist.append('test element='+str(test_element))
-        textlist.append('test size='+str(len(data_te)))
-        textlist.append('val element='+str(val_element))
-        textlist.append('val size='+str(len(data_va)))
-        textlist.append('train size='+str(len(data_tr)))
-        textlist.append('excluded to prevent data leakage:')
-        textlist.append(data_ex)
-        textlist.append('lr='+str(lr))
-        textlist.append('bs='+str(bs))
-        textlist.append('dropouts='+str(d1)+','+str(d2)+','+str(d3))
-        textlist.append('entropy lambda='+str(el))
-        textlist.append('column lambda='+str(cl))
+        for i in range(len(parameter_sets)):
+            current_params=parameter_sets[i]
+            test_element= current_params[0]
+            val_element= current_params[1]
+            bs= current_params[2]
+            lr= current_params[3]
+            d1= current_params[4]
+            d2= current_params[5]
+            d3= current_params[6]
+            el= current_params[7]
+            cl= current_params[8]
+            l2_1= current_params[9]
+            l2_2= current_params[10]
+            l2_3= current_params[11]
+            if args.dataset=='prashun':
+                data_tr, data_va, data_te, data_ex= split_for_prashuns_data(data, test_element, val_element)
+            else:
+                data_tr, data_va, data_te, data_ex= split_for_mp(data, test_element, val_element)
+            textlist=[]
+            textlist.append('model # '+str(i))
+            textlist.append('test element='+str(test_element))
+            textlist.append('test size='+str(len(data_te)))
+            textlist.append('val element='+str(val_element))
+            textlist.append('val size='+str(len(data_va)))
+            textlist.append('train size='+str(len(data_tr)))
+            textlist.append('excluded to prevent data leakage:')
+            textlist.append(data_ex)
+            textlist.append('lr='+str(lr))
+            textlist.append('bs='+str(bs))
+            textlist.append('dropouts='+str(d1)+','+str(d2)+','+str(d3))
+            textlist.append('entropy lambda='+str(el))
+            textlist.append('column lambda='+str(cl))
+            textlist.append('l2 feature reg hyperparams='+str(l2_1)+','+str(l2_2)+','+str(l2_3))
 
-        loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=bs, epochs=args.epochs)
-        loader_va = DisjointLoader(PartitionedData(data_va), batch_size=len(data_va))
-        loader_te = DisjointLoader(PartitionedData(data_te), batch_size=len(data_te))
+            loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=bs, epochs=args.epochs)
+            loader_va = DisjointLoader(PartitionedData(data_va), batch_size=len(data_va))
+            loader_te = DisjointLoader(PartitionedData(data_te), batch_size=len(data_te))
 
-        p= Process(target=full_training_loop, args=(printlock, loader_tr, loader_va, loader_te, textlist, test_element, val_element, lr, i, model_dict, performance_dict, d1, d2, d3, el, cl))
+            p= Process(target=full_training_loop, args=(printlock, loader_tr, loader_va, loader_te, textlist, test_element, val_element, lr, i, model_dict, performance_dict, d1, d2, d3, el, cl, l2_1, l2_2, l2_3))
 
-        #p.start()
+            processlist.append(p)
 
-        processlist.append(p)
-            # if len(processlist)>4:
-            #     print('wait')
-    for pr in processlist:
-        pr.start()
-        print(pr, ' started', flush=True)
-    for pr in processlist:
-        pr.join()
-        print(pr)
-        print('complete')
-            #     processlist=[]
+        for pr in processlist:
+            pr.start()
+            print(pr, ' started', flush=True)
+        for pr in processlist:
+            pr.join()
+            print(pr)
+            print('complete')
 
 
-    print(model_dict)
-    print(performance_dict)
-    total= len(lr_candidates)*len(batch_size_candidates)*len(droprate1)*len(droprate2)*len(droprate3)
-    chunks=[0,int(total/4),int(total/2),int(total*3/4)]
 
-    # for i in chunks:
-    #     i2= i+int(total/4)
-    #     current_params=parameter_sets[i]
-    #     test_element= current_params[0]
-    #     val_element= current_params[1]
-    #     textlist=[]
-    #     textlist.append('for test element='+str(test_element))
-    #     tempkeys= list(performance_dict.keys())
-    #     tempkeys= [k for k in tempkeys if (k>i and k<i2)]
-    #     temp_dict={k: performance_dict[k] for k in tempkeys}
-    #     bestmodelindex= min(temp_dict, key=temp_dict.get)
-    #
-    #     checkpoint_dir = os.path.dirname(model_dict[bestmodelindex])
-    #     bestmodel= HNetSimple(args.task, args.num_classes, return_s=True)
-    #
-    #     latest = tf.train.latest_checkpoint(checkpoint_dir)
-    #     bestmodel.load_weights(latest)
-    #
-    #     print('model #', bestmodelindex, ' is the best model')
-    #     print('EVAL ON TEST SET')
-    #     textlist=test_eval(loader_te,bestmodel,SparseCategoricalCrossentropy(),[])
-    #     print(textlist)
+        print(model_dict)
+        print(performance_dict)

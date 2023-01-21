@@ -21,33 +21,33 @@ import scipy.sparse as sp
 from tensorflow.keras import backend as K
 from tensorflow.keras import activations
 
-class AtomInitializer(object):
-    """
-    Base class for intializing the vector representation for atoms.
-    !!! Use one AtomInitializer per dataset !!!
-    """
-    def __init__(self, atom_types):
-        self.atom_types = set(atom_types)
-        self._embedding = {}
-
-    def get_atom_fea(self, atom_type):
-        assert atom_type in self.atom_types
-        return self._embedding[atom_type]
-
-    def load_state_dict(self, state_dict):
-        self._embedding = state_dict
-        self.atom_types = set(self._embedding.keys())
-        self._decodedict = {idx: atom_type for atom_type, idx in
-                            self._embedding.items()}
-
-    def state_dict(self):
-        return self._embedding
-
-    def decode(self, idx):
-        if not hasattr(self, '_decodedict'):
-            self._decodedict = {idx: atom_type for atom_type, idx in
-                                self._embedding.items()}
-        return self._decodedict[idx]
+# class AtomInitializer(object):
+#     """
+#     Base class for intializing the vector representation for atoms.
+#     !!! Use one AtomInitializer per dataset !!!
+#     """
+#     def __init__(self, atom_types):
+#         self.atom_types = set(atom_types)
+#         self._embedding = {}
+#
+#     def get_atom_fea(self, atom_type):
+#         assert atom_type in self.atom_types
+#         return self._embedding[atom_type]
+#
+#     def load_state_dict(self, state_dict):
+#         self._embedding = state_dict
+#         self.atom_types = set(self._embedding.keys())
+#         self._decodedict = {idx: atom_type for atom_type, idx in
+#                             self._embedding.items()}
+#
+#     def state_dict(self):
+#         return self._embedding
+#
+#     def decode(self, idx):
+#         if not hasattr(self, '_decodedict'):
+#             self._decodedict = {idx: atom_type for atom_type, idx in
+#                                 self._embedding.items()}
+#         return self._decodedict[idx]
 
 class GaussianDistance(object):
     """
@@ -77,17 +77,17 @@ class GaussianDistance(object):
         return np.exp(-(distances[..., np.newaxis] - self.filter)**2 /
                       self.var**2)
 
-class AtomCustomJSONInitializer(AtomInitializer):
-    def __init__(self, elem_embedding_file):
-        with open(elem_embedding_file) as f:
-            elem_embedding = json.load(f)
-
-        elem_embedding = {int(key): value for key, value
-                          in elem_embedding.items()}
-        atom_types = set(elem_embedding.keys())
-        super(AtomCustomJSONInitializer, self).__init__(atom_types)
-        for key, value in elem_embedding.items():
-            self._embedding[key] = np.array(value, dtype=float)
+# class AtomCustomJSONInitializer(AtomInitializer):
+#     def __init__(self, elem_embedding_file):
+#         with open(elem_embedding_file) as f:
+#             elem_embedding = json.load(f)
+#
+#         elem_embedding = {int(key): value for key, value
+#                           in elem_embedding.items()}
+#         atom_types = set(elem_embedding.keys())
+#         super(AtomCustomJSONInitializer, self).__init__(atom_types)
+#         for key, value in elem_embedding.items():
+#             self._embedding[key] = np.array(value, dtype=float)
 
 class PartitionedData(Dataset):
     def __init__(self, datalist):
@@ -125,7 +125,7 @@ class MyDataset(Dataset):
                 crystal= Structure.from_file(os.path.join(self.datadir,c))
             num_atoms=len(crystal)
 
-            ari = AtomCustomJSONInitializer(os.path.join(self.datadir,'atom_init.json'))#check atom initializer
+            #ari = AtomCustomJSONInitializer(os.path.join(self.datadir,'atom_init.json'))#check atom initializer
             atomic_numbers=[crystal[i].specie.number for i in range(len(crystal))]
 
             atom_fea=[]
@@ -174,7 +174,11 @@ class MyDataset(Dataset):
                     if adj[i,k]==1:
                         edgeidxtemp.append((i,k))
                         edgefeat.append(nbr_fea[i][j])
+            #print('adjs:')
+            #print(adj)
             adj=sp.csr_matrix(adj)
+            #print(adj)
+            #print('----')
             edge_idx, edges= reorder(edge_index=np.array(edgeidxtemp), edge_features=np.array(edgefeat))
 
             if self.task=='c':
@@ -199,9 +203,10 @@ class RegularizedDiffPool(DiffPool):
     def __init__(self, k, channels=None, return_selection=False, activation=None, kernel_initializer="glorot_uniform",
         kernel_regularizer=None, kernel_constraint=None, column_lambda=1, entr_lambda=1, **kwargs):
 
-        self.column_lambda= column_lambda
-        self.entr_lambda= entr_lambda
+        self.column_lambda= tf.constant(column_lambda)
+        self.entr_lambda= tf.constant(entr_lambda)
         self.bn_reduce= BatchNormalization()
+        self.k=tf.constant(k)
 
         super().__init__(k, channels=channels, return_selection=return_selection, activation=activation,
                 kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer, kernel_constraint=kernel_constraint,
@@ -213,15 +218,15 @@ class RegularizedDiffPool(DiffPool):
         s = activations.softmax(s, axis=-1)
         if mask is not None:
             s *= mask[0]
-
+        #print(s)
         # Auxiliary losses
         column_loss= self.column_entropy(s)
         entr_loss = self.entropy_loss(s)
         if K.ndim(x) == 3:
             column_loss = K.mean(column_loss)
             entr_loss = K.mean(entr_loss)
-        column_loss=self.column_lambda*column_loss
-        entr_loss= self.entr_lambda*entr_loss
+        column_loss=tf.multiply(self.column_lambda,column_loss)
+        entr_loss= tf.multiply(self.entr_lambda,entr_loss)
         self.add_loss(column_loss)
         self.add_loss(entr_loss)
         return s
@@ -235,9 +240,10 @@ class RegularizedDiffPool(DiffPool):
 
     def column_entropy(self, s):
         #print('column entropy is happening')
-        temp=tf.math.reduce_sum(s, axis=1)/s.shape[1]
+        #print(s)
+        temp=tf.math.divide(tf.math.reduce_sum(s, axis=1),self.k)
         #we want to maximize the column entropy to encourage distributing nodes into different pools
-        inv_entr = 1/tf.negative(tf.reduce_sum(tf.multiply(temp, K.log(temp)), axis=-1))
+        inv_entr = tf.math.divide(1,tf.negative(tf.reduce_sum(tf.multiply(temp, K.log(temp)), axis=-1)))
 
         return inv_entr
 
@@ -399,25 +405,28 @@ class HNet(Model):
         return tf.map_fn(get_cum_graph_size, nodes)
 
 class HNetSimple(Model):
-    def __init__(self, task, num_classes, d1=0, d2=0, d3=0, el=1, cl=1, regularizer='l2', return_s=False):
+    def __init__(self, task, num_classes, embedding_size=64, d1=0, d2=0, d3=0, el=1, cl=1, l2_1=0, l2_2=0, l2_3=0, regularizer='l2', return_s=False,  **kwargs):
         super().__init__()
 
         self.return_s=return_s
         self.task=task
         self.num_classes=num_classes
-        self.embedding= Dense(64, kernel_regularizer=regularizer)
+        self.embedding= Dense(embedding_size, kernel_regularizer=regularizer)
 
 
-        self.conv1= CrystalConv(kernel_regularizer=regularizer)
+        self.conv1= CrystalConv(kernel_regularizer=regularizer)#does this l2 have a lambda
         self.bn1= BatchNormalization()
+        self.l2_1= tf.constant(l2_1)
         self.conv2= CrystalConv(kernel_regularizer=regularizer)
         self.bn2= BatchNormalization()
+        self.l2_2= tf.constant(l2_2)
         self.conv3= CrystalConv(kernel_regularizer=regularizer)
         self.bn3= BatchNormalization()
+        self.l2_3= tf.constant(l2_3)
 
         self.disjoint2batch= Disjoint2Batch()
         self.dropout1= Dropout(d1)
-        self.pool= RegularizedDiffPool(k=2, column_lambda=cl, entr_lambda=el, return_selection=True)
+        self.pool= RegularizedDiffPool(k=2, column_lambda=cl, entr_lambda=el, return_selection=return_s)
         self.dropout2= Dropout(d2)
         self.finalpool= DiffPool(k=1)
         self.dropout3= Dropout(d3)
@@ -431,40 +440,42 @@ class HNetSimple(Model):
 
     def call(self, inputs):
         x, a, e, i = inputs
-
+        #print(x.shape, a.shape, e.shape, i.shape)
         x= self.embedding(x)
         x= self.conv1([x, a, e])
-        self.conv1.add_loss(tf.norm(x))
+        #print(self.l2_1.dtype)
+        #print(tf.norm(x).dtype)
+        self.conv1.add_loss(tf.multiply(self.l2_1,tf.norm(x)))
         x= self.bn1(x)
         x= self.conv2([x, a, e])
-        self.conv2.add_loss(tf.norm(x))
+        self.conv2.add_loss(tf.multiply(self.l2_2,tf.norm(x)))
         x= self.bn2(x)
         x= self.conv3([x, a, e])
-        self.conv3.add_loss(tf.norm(x))
+        self.conv3.add_loss(tf.multiply(self.l2_3,tf.norm(x)))
         x= self.bn3(x)
 
 
 
         batch_X, batch_A= self.disjoint2batch([x, a, i])
-        #temp=0
-        #for smallx in batch_X:
-        #    np.savez('./'+str(temp)+'/features',x=smallx)
-        #    temp+=1
+
 
         x= self.dropout1(x,training=True)
-        x, a, s= self.pool([batch_X, batch_A])
 
-        lp_loss = self.pool.link_prediction_loss(batch_A, s)
-        entr_loss = self.pool.entropy_loss(s)
+        if self.return_s:
+            x, a, s= self.pool([batch_X, batch_A])
+        else:
+            x, a= self.pool([batch_X, batch_A])
+
 
         x= self.dropout2(x,training=True)
         x, a = self.finalpool([x, a])
         x= self.dropout3(x,training=True)
-
+        #print(x.shape)
         x=tf.reshape(x,(x.shape[0],x.shape[2]))
+        #print(x.shape)
         x=self.out_layer(x)
 
         if self.return_s:
-            return x, s, lp_loss, entr_loss
+            return x, s# lp_loss, entr_loss
         else:
             return x

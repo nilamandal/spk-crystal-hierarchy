@@ -74,27 +74,6 @@ def evaluate(loader, model, cifs):
         order2=[order.count(0),order.count(1),order.count(2)]
         print(order2)
         pred, s_tensor = model(inputs, training=False)
-        for i in range(3):
-            assignment=s_tensor[i]
-            if order2[i]==6:
-                cif_id='mp-3486'
-            elif order2[i]==24:
-                cif_id='mp-29374'
-            else:
-                cif_id='mp-18300'
-            crystal = Structure.from_file(os.path.join(args.datadir, cif_id+'.cif'))
-            elements=list(crystal.species)
-            print(cif_id)
-            for j in range(len(elements)):
-
-                print(str(elements[j]),assignment[j])
-            print('--')
-        #print(s_tensor)
-        #print(pred)
-        #print(target)
-        #np.savez('./feats28', x=s_tensor)
-        #all_s.append(s_tensor)
-        #all_pre_feats.append(prepool_feats)
 
         if args.task=='c':
             outs = tf.reduce_mean(sparse_categorical_accuracy(target, pred))
