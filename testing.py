@@ -1,6 +1,6 @@
-from spektral.data import Graph, Dataset, DisjointLoader
-from spektral.data.utils import to_batch
-from spektral.layers import CrystalConv, DiffPool, ops, GlobalMaxPool#, Disjoint2Batch
+#from spektral.data import Graph, Dataset, DisjointLoader
+#from spektral.data.utils import to_batch
+#from spektral.layers import CrystalConv, DiffPool, ops, GlobalMaxPool#, Disjoint2Batch
 import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import SGD, Adam
@@ -11,101 +11,142 @@ import numpy as np
 import pandas as pd
 import os
 import sys
-from pymatgen.core.structure import Structure
-import json
+#from pymatgen.core.structure import Structure
+#import json
 import argparse
 import time
-from spektral_essential_objects import GaussianDistance,MyDataset,HNetSimple,PartitionedData
-from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
-import matplotlib.pyplot as plt
-from scipy.spatial import distance
-from pymatgen.core.structure import Structure
-#import ast
+#from spektral_essential_objects import GaussianDistance,MyDataset,HNetSimple,PartitionedData
+#from sklearn.cluster import KMeans
+#from sklearn.decomposition import PCA
+#import matplotlib.pyplot as plt
+#from scipy.spatial import distance
+#from pymatgen.core.structure import Structure
 
 
-begin_time = time.time()
-parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
+# begin_time = time.time()
+# parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
+#
+# parser.add_argument('--datadir', dest='datadir',
+#         help='Directory where dataset is located', default='../cgcnn-pretrained-models/data/10atom_relaxed_cifs')
+# parser.add_argument('--ckpt-path', dest='ckpt_path',
+#                     help='checkpoint_path path', default='./latin4/debugging3/')
+# parser.add_argument('--filename', dest='filename',
+#                     help='csv where data is located', default='id_mini.csv')
+# parser.add_argument('--file-out', dest='file_out',
+#                     help='output txt file name', default='predscriptout.txt')
+# parser.add_argument('--path-out', dest='path',
+#                     help='output path', default='./debugging_/')
+# parser.add_argument('--num-atoms', dest='num_atoms', type=int,
+#                     help='Maximum number of nodes', default=10)
+# parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
+#                     help='num neighbors per atom', default=12)
+#
+# parser.add_argument('--num-classes', dest='num_classes', type=int,
+#                     help='Number of label classes', default=3)
+#
+# parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
+#                     help='search radius for neighbors', default=8)
+# parser.add_argument('--random-seed', dest='random_seed', type=int,
+#                     help='random seed for numpy', default=0)
+# parser.add_argument('--batch-size', dest='batch_size', type=int,
+#                     help='Batch size.', default=256)
+#
+# parser.add_argument('--task', choices=['r', 'c'],
+#                     default='r', help='complete a regression or '
+#                         'classification task (default: regression)')
 
-parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='../cgcnn-pretrained-models/data/10atom_relaxed_cifs')
-parser.add_argument('--ckpt-path', dest='ckpt_path',
-                    help='checkpoint_path path', default='./latin4/debugging3/')
-parser.add_argument('--filename', dest='filename',
-                    help='csv where data is located', default='id_mini.csv')
-parser.add_argument('--file-out', dest='file_out',
-                    help='output txt file name', default='predscriptout.txt')
-parser.add_argument('--path-out', dest='path',
-                    help='output path', default='./debugging_/')
-parser.add_argument('--num-atoms', dest='num_atoms', type=int,
-                    help='Maximum number of nodes', default=10)
-parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
-                    help='num neighbors per atom', default=12)
+# def performance_dict_extractor(filename):
+#     f= open(filename)
+#     f= f.readlines()
+#     grand_performance_dict={}
+#     path_dict={}
+#     performance_dict={}
+#     for i in range(len(f)):
+#         line= f[i]
+#         if '{' in line:
+#             line = line.strip()
+#             line = line[1:-1]
+#             pairs = line.split(', ')
+#             for pair in pairs:
+#                 pair=pair.split(':')
+#                 pair[0]=int(pair[0])
+#                 pair[1]= pair[1].strip()
+#                 try:
+#                     performance_dict[pair[0]]=float(pair[1])
+#                 except:
+#                     path_dict[pair[0]]=pair[1][1:-1]
+#         if path_dict and performance_dict:
+#             new_key= path_dict[pair[0]].split('/')[0]
+#             grand_performance_dict[new_key]=performance_dict
+#             path_dict={}
+#             performance_dict={}
+#     return grand_performance_dict
+#
 
-parser.add_argument('--num-classes', dest='num_classes', type=int,
-                    help='Number of label classes', default=3)
-
-parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
-                    help='search radius for neighbors', default=8)
-parser.add_argument('--random-seed', dest='random_seed', type=int,
-                    help='random seed for numpy', default=0)
-parser.add_argument('--batch-size', dest='batch_size', type=int,
-                    help='Batch size.', default=256)
-
-parser.add_argument('--task', choices=['r', 'c'],
-                    default='r', help='complete a regression or '
-                        'classification task (default: regression)')
-
-def evaluate(loader, model, ciflist):
-    output = []
-    step = 0
-
-    while step < loader.steps_per_epoch:
-        print(ciflist[step])
-        step += 1
-        inputs, target = loader.__next__()
-
-        pred, s_tensor = model(inputs, training=False)
-
-        print(s_tensor)
-        if args.task=='c':
-            outs = tf.reduce_mean(sparse_categorical_accuracy(target, pred))
-
-        elif args.task=='r':
-            outs = tf.reduce_mean(mean_squared_error(target, pred))
-            #print(target, pred)
-        output.append(outs)
-        if step == loader.steps_per_epoch:
-            output = np.array(output)
-            return np.average(output)#, pred
-
-def split_for_prashuns_data(data, test_element, val_element):
-    data_tr=[]
-    data_va=[]
-    data_te=[]
-    data_ex=[]
-    for d in data:
-        atomset= set(d._atomlist)
-        if test_element in atomset:
-            if val_element in atomset:
-                data_ex.append(d._cif)
-            else:
-                data_te.append(d)
-        elif val_element in atomset:
-            data_va.append(d)
-        else:
-            data_tr.append(d)
-
-    return data_tr, data_va, data_te, data_ex
-
-args = parser.parse_args(sys.argv[1:])
-
+# def long_file_extractor(filename):
+#     f= open(filename)
+#     f= f.readlines()
+#     grand_model_dict={}
+#     grand_params_dict={}
+#     for i in range(len(f)):
+#         line=f[i]
+#         if 'lhs_relu' in line:
+#             line=line.split('/')
+#             if len(line)==3:
+#                 temp=f[i+2].split("', '")
+#                 print()
+# def evaluate(loader, model, ciflist):
+#     output = []
+#     step = 0
+#
+#     while step < loader.steps_per_epoch:
+#         print(ciflist[step])
+#         step += 1
+#         inputs, target = loader.__next__()
+#
+#         pred, s_tensor = model(inputs, training=False)
+#
+#         print(s_tensor)
+#         if args.task=='c':
+#             outs = tf.reduce_mean(sparse_categorical_accuracy(target, pred))
+#
+#         elif args.task=='r':
+#             outs = tf.reduce_mean(mean_squared_error(target, pred))
+#             #print(target, pred)
+#         output.append(outs)
+#         if step == loader.steps_per_epoch:
+#             output = np.array(output)
+#             return np.average(output)#, pred
+#
+# def split_for_prashuns_data(data, test_element, val_element):
+#     data_tr=[]
+#     data_va=[]
+#     data_te=[]
+#     data_ex=[]
+#     for d in data:
+#         atomset= set(d._atomlist)
+#         if test_element in atomset:
+#             if val_element in atomset:
+#                 data_ex.append(d._cif)
+#             else:
+#                 data_te.append(d)
+#         elif val_element in atomset:
+#             data_va.append(d)
+#         else:
+#             data_tr.append(d)
+#
+#     return data_tr, data_va, data_te, data_ex
+#
+# args = parser.parse_args(sys.argv[1:])
 def file_extractor(filename):
     f= open(filename)
     f= f.readlines()
 
     model_dict={}
     params_dict={}
+    val_element_dict={}
+    path_dict={}
+    performance_dict={}
 
     for line in f:
         if 'model #' in line:
@@ -113,100 +154,134 @@ def file_extractor(filename):
             model_num= None
             lr= None
             bs= None
-            #print(temp[:13])
             for item in temp:
                 if 'model #' in item:
                     model_num= item.split('# ')[-1]
                     model_num= int(model_num)
+                if 'val element' in item:
+                    val_element_dict[model_num]=item.split('=')
                 if 'lr=' in item:
                     lr=item.split('=')[-1]
                     lr=float(lr)
                 if 'bs' in item:
                     bs= int(item.split('=')[-1])
-                    #print(bs)
             tuple_key= (lr, bs)
             if tuple_key not in model_dict:
                 model_dict[tuple_key]= [model_num]
             else:
                 model_dict[tuple_key].append(model_num)
-            params_dict[model_num]=temp[:12]
-    return model_dict, params_dict
 
-model_dict, params_dict= file_extractor('./latin4/outputs.txt')
+            params_dict[model_num]=temp[:14]
+        if '{' in line:
+            line = line.strip()
+            line = line[1:-1]
+            pairs = line.split(', ')
+            for pair in pairs:
+                pair=pair.split(':')
+                pair[0]=int(pair[0])
+                pair[1]= pair[1].strip()
+                try:
+                    performance_dict[pair[0]]=float(pair[1])
+                except:
+                    path_dict[pair[0]]=pair[1][1:-1]
 
-performance_dict={263: 1.0896543264389038, 368: 6.58965539932251, 12: 1.4053291082382202, 390: 0.7222416996955872, 312: 0.42241862416267395, 500: 2.9480276107788086, 382: 1.4667437076568604, 279: 0.6483421921730042, 69: 1.7751795053482056, 44: 2.7206177711486816, 381: 2.919921398162842, 158: 144.901123046875, 366: 1.1962175369262695, 165: 3.5873329639434814, 314: 1.806726336479187, 212: 1.5747824907302856, 306: 1.1077744960784912, 185: 1.238683819770813, 144: 140.62838745117188, 126: 2.3463642597198486, 321: 1.477199673652649, 211: 1.170976161956787, 329: 3.9496636390686035, 162: 1.5193392038345337, 380: 0.4875410497188568, 127: 2.3892099857330322, 396: 2.274536609649658, 467: 1.0432484149932861, 85: 1.561658501625061, 455: 1.1440975666046143, 213: 6.213411808013916, 56: 3.537210464477539, 209: 2.1633810997009277, 48: 2.3959293365478516, 60: 9.596938133239746, 76: 5.0414347648620605, 371: 0.5057847499847412, 47: 1.6970739364624023, 121: 0.9756796956062317, 182: 3.219456434249878, 452: 1.5880337953567505, 6: 6.8372650146484375, 141: 2.217580556869507, 403: 1.2702417373657227, 291: 3.0803401470184326, 118: 4.0512824058532715, 409: 1.8562493324279785, 216: 3.8911123275756836, 398: 2.605626344680786, 449: 1.056962251663208, 327: 365.767822265625, 345: 1.793272852897644, 43: 2.501561403274536, 466: 5.280771732330322, 460: 2.5765597820281982, 290: 2.4587414264678955, 363: 1.465173363685608, 400: 0.6818509101867676, 132: 12.280420303344727, 434: 0.43737420439720154, 384: 6.436747074127197, 278: 126.57136535644531, 26: 2.2551121711730957, 180: 6.5568037033081055, 431: 1.5628706216812134, 437: 3.0574734210968018, 439: 2.7772693634033203, 468: 1.7414487600326538, 457: 0.6407153606414795, 367: 2.1515603065490723, 125: 1.9046707153320312, 50: 0.9822708368301392, 310: 0.7330434918403625, 88: 0.28801050782203674, 117: 1.4923913478851318, 51: 8.037046432495117, 257: 2.624009132385254, 234: 1.0036840438842773, 64: 2.295940399169922, 189: 1.6642671823501587, 305: 1.1753302812576294, 20: 1.6973100900650024, 123: 0.9238759875297546, 145: 2.0419511795043945, 18: 0.8243602514266968, 295: 11.578653335571289, 318: 3.7126262187957764, 207: 1.2161717414855957, 359: 2.2623131275177, 230: 5.934581279754639, 344: 25.482606887817383, 191: 2.388018846511841, 249: 2.82576584815979, 93: 2.7739200592041016, 465: 0.9677898287773132, 30: 0.9253232479095459, 326: 2.952341318130493, 502: 11.6043062210083, 354: 1.6898565292358398, 2: 1.3842824697494507, 269: 2.812120199203491, 483: 4.741800785064697, 333: 1.3357810974121094, 116: 3.156771421432495, 128: 2.7843217849731445, 204: 1.644503116607666, 421: 0.7737842798233032, 107: 1.7647895812988281, 311: 1.2694240808486938, 130: 1.9236422777175903, 472: 6.125339508056641, 350: 2.7514209747314453, 473: 3.4547765254974365, 55: 1.041603684425354, 320: 7.113889694213867, 214: 2.023087739944458, 199: 0.8111833930015564, 34: 1.5998754501342773, 446: 2.793339252471924, 266: 2.5270209312438965, 271: 1.1168506145477295, 422: 1.1347529888153076, 57: 0.6916261315345764, 164: 3.7767560482025146, 135: 15.880733489990234, 289: 0.8605355620384216, 37: 0.5340067148208618, 325: 1.3771916627883911, 36: 2.1371073722839355, 474: 2.085503339767456, 87: 0.8282321691513062, 370: 10.131775856018066, 323: 11.682987213134766, 133: 3.1124706268310547, 501: 4.237819671630859, 155: 1.429998755455017, 41: 1.95564866065979, 423: 1.4637914896011353, 59: 1.5167443752288818, 97: 1.1854139566421509, 32: 1.7313014268875122, 89: 1.2939167022705078, 82: 2.8262650966644287, 348: 0.8531420230865479, 507: 3.3005669116973877, 456: 2.9642655849456787, 151: 2.0537307262420654, 493: 0.6345159411430359, 383: 2.6113193035125732, 45: 3.3112692832946777, 389: 2.040475368499756, 3: 2.933990240097046, 192: 6.481939315795898, 255: 7.091913223266602, 352: 1.4210081100463867, 274: 8.517021179199219, 111: 1.2300622463226318, 227: 1.0099971294403076, 136: 1.9670764207839966, 140: 22.656965255737305, 360: 1.9774516820907593, 378: 1.5420082807540894, 42: 1.88246750831604, 372: 5.007637023925781, 418: 0.783433735370636, 296: 2.2980215549468994, 308: 2.28818416595459, 394: 5.244177341461182, 338: 6.061614513397217, 503: 0.904350757598877, 259: 2.9307637214660645, 106: 2.5965352058410645, 49: 3.0390546321868896, 430: 0.9638054966926575, 38: 1.8471020460128784, 307: 0.3390229344367981, 346: 1.2179346084594727, 309: 1.1109758615493774, 174: 0.9935560822486877, 74: 1.8609176874160767, 173: 2.2313995361328125, 258: 1.6874868869781494, 450: 8.931584358215332, 509: 4.302737236022949, 188: 2.279912233352661, 285: 2.5346782207489014, 17: 2.0134449005126953, 96: 1.656723141670227, 238: 5.900775909423828, 391: 1.9832466840744019, 377: 2.576915979385376, 510: 2.786043882369995, 63: 1.2272334098815918, 225: 2.7158522605895996, 95: 1.0792797803878784, 273: 4.190099239349365, 313: 1.6972613334655762, 152: 3.9691689014434814, 229: 0.725492000579834, 342: 3.3675568103790283, 241: 0.6393309831619263, 200: 1.8667758703231812, 183: 2.575299024581909, 15: 4.517426490783691, 7: 23.384965896606445, 286: 12.764823913574219, 324: 12.880653381347656, 442: 1.7059258222579956, 100: 2.532897472381592, 186: 2.604787588119507, 497: 1.844520926475525, 5: 5.533472537994385, 407: 1.268497347831726, 365: 0.9978014826774597, 13: 1.9644114971160889, 236: 1.6861459016799927, 27: 7.603770732879639, 293: 3.245593309402466, 438: 22.180280685424805, 478: 1.7542917728424072, 334: 1.2792713642120361, 208: 0.40399813652038574, 247: 2.0435047149658203, 242: 2.692716360092163, 53: 1.349660038948059, 171: 3.0008199214935303, 477: 2.676609754562378, 444: 10.231026649475098, 0: 1.1516221761703491, 436: 2.1315243244171143, 499: 1.6451815366744995, 301: 1.5116742849349976, 221: 1.9894098043441772, 61: 4.8205389976501465, 317: 1.161004662513733, 341: 2.8332529067993164, 292: 5.5182881355285645, 488: 1.415000557899475, 29: 1.7801103591918945, 224: 1.5851942300796509, 146: 0.988921046257019, 25: 2.0178825855255127, 385: 6.118905067443848, 504: 2.47530460357666, 362: 10.682052612304688, 187: 1.0473768711090088, 387: 3.3089001178741455, 79: 2.5344042778015137, 339: 0.8817481994628906, 170: 1.8896514177322388, 219: 0.36746445298194885, 198: 1.2312350273132324, 332: 1.29568612575531, 77: 1.755980134010315, 464: 7.077558517456055, 443: 3.602916955947876, 129: 0.8124571442604065, 81: 1.5495165586471558, 184: 1.6753815412521362, 86: 1.103479266166687, 336: 0.6903101801872253, 419: 1.8186546564102173, 153: 0.7048047780990601, 441: 1.5084716081619263, 424: 0.9456084966659546, 264: 0.9188485741615295, 201: 7.444046497344971, 115: 1.5658023357391357, 297: 1.3377776145935059, 67: 3.41968035697937, 300: 1.0757039785385132, 134: 1.1841672658920288, 260: 0.7902618646621704, 65: 0.9523985981941223, 139: 1.1375397443771362, 203: 0.8511946201324463, 1: 0.7035612463951111, 471: 3.3797552585601807, 28: 1.2624847888946533, 73: 1.6379055976867676, 447: 0.7862011790275574, 232: 8.473183631896973, 75: 1.4011430740356445, 254: 7.172088146209717, 282: 3.037980556488037, 66: 0.4336261749267578, 374: 6.18475866317749, 196: 0.7348802089691162, 228: 4.228278636932373, 496: 8.737067222595215, 226: 2.799710512161255, 4: 0.7084691524505615, 445: 0.6758669018745422, 379: 1.6997439861297607, 9: 0.7726390361785889, 357: 0.7753459811210632, 392: 2.943324327468872, 195: 0.8578103184700012, 176: 0.8553587794303894, 245: 1.4544366598129272, 408: 1.7185845375061035, 91: 0.8547230958938599, 448: 0.9609941244125366, 470: 2.257351875305176, 33: 1.2564575672149658, 386: 0.5351570844650269, 250: 2.333458423614502, 103: 0.48580053448677063, 469: 1.0972692966461182, 197: 1.028780460357666, 98: 1.450498104095459, 177: 0.9106045365333557, 206: 1.395683765411377, 401: 1.144342303276062, 251: 0.6979077458381653, 62: 1.4852981567382812, 349: 5.0744404792785645, 388: 0.44598767161369324, 369: 8.513704299926758, 131: 0.7079768180847168, 105: 1.580740213394165, 104: 1.0780701637268066, 276: 8.427291870117188, 358: 0.47809386253356934, 99: 1.0131727457046509, 222: 0.2192186713218689, 508: 0.8037899732589722, 461: 0.5786617994308472, 223: 1.6460108757019043, 475: 0.9335460662841797, 190: 1.4773950576782227, 16: 0.308701753616333, 316: 0.727954089641571, 463: 1.5098150968551636, 281: 1.099585771560669, 505: 1.1963971853256226, 102: 1.3295172452926636, 481: 0.541846752166748, 490: 1.5386658906936646, 168: 203.6881866455078, 256: 1.6543500423431396, 194: 1.496013879776001, 287: 1.0396137237548828, 149: 0.2578409016132355, 506: 1.1341824531555176, 315: 1.6884742975234985, 275: 0.6009942293167114, 23: 2.2793211936950684, 159: 0.8385372161865234, 376: 0.42221158742904663, 451: 4.456526756286621, 114: 3.572817087173462, 181: 1.193068504333496, 22: 1.6868466138839722, 154: 0.4882953464984894, 19: 3.4182839393615723, 14: 1.01107656955719, 453: 2.305936098098755, 210: 0.5455894470214844, 167: 2.2624433040618896, 302: 1.3693711757659912, 143: 4.538812637329102, 480: 0.6434960961341858, 427: 3.605294942855835, 240: 1.1292064189910889, 459: 5.228696823120117, 414: 1.0588382482528687, 166: 0.6289684176445007, 413: 1.7667052745819092, 487: 0.6017664670944214, 280: 3.2612874507904053, 364: 0.6242460012435913, 120: 11.845087051391602, 298: 1.1171644926071167, 347: 1.7685290575027466, 113: 1.714428186416626, 156: 1.7021968364715576, 375: 1.0037434101104736, 337: 0.17290444672107697, 330: 0.764454185962677, 40: 1.1107163429260254, 112: 1.4985401630401611, 10: 1.362311601638794, 84: 0.3978172242641449, 58: 0.6804516315460205, 393: 3.3749303817749023, 108: 3.1037747859954834, 35: 4.701118469238281, 138: 1.7815381288528442, 124: 0.7278732657432556, 417: 1.8663506507873535, 31: 0.7365002036094666, 351: 143.6588897705078, 68: 1.4004734754562378, 150: 0.7106121778488159, 70: 1.476294755935669, 80: 1.08739173412323, 175: 1.6904528141021729, 397: 0.8327282667160034, 52: 1.0863741636276245, 160: 0.7865251898765564, 498: 1.2932422161102295, 319: 0.9133970141410828, 262: 0.3082791268825531, 270: 1.49981689453125, 39: 1.2287657260894775, 231: 6.443144798278809, 494: 0.23319825530052185, 72: 2.0055229663848877, 399: 4.288369178771973, 410: 6.09796667098999, 440: 0.7439215779304504, 252: 0.6264649033546448, 489: 1.006285309791565, 294: 0.8418089151382446, 486: 2.166731834411621, 137: 1.360580563545227, 179: 2.278407096862793, 356: 2.3544883728027344, 395: 4.945863246917725, 340: 3.785085916519165, 303: 1.3700981140136719, 495: 0.5398764610290527, 101: 1.5014126300811768, 268: 3.256394147872925, 92: 1.6682387590408325, 90: 0.9145414233207703, 272: 109.35148620605469, 11: 2.078463315963745, 244: 1.8654619455337524, 8: 1.9225342273712158, 412: 0.6200726628303528, 71: 0.7945289015769958, 353: 5.2126288414001465, 283: 1.5533689260482788, 484: 0.6486459374427795, 163: 1.0628167390823364, 491: 0.5183332562446594, 46: 2.505687952041626, 235: 2.400186061859131, 373: 0.4605439305305481, 161: 1.315266728401184, 94: 6.306102752685547, 217: 0.3905021548271179, 21: 10.045363426208496, 54: 1.0615525245666504, 172: 1.5656298398971558, 322: 0.6579864025115967, 157: 4.224526882171631, 237: 1.5044411420822144, 425: 0.9332822561264038, 402: 0.5933631658554077, 178: 1.8674087524414062, 239: 1.141571044921875, 411: 0.7271941900253296, 218: 1.461021065711975, 202: 1.2662396430969238, 142: 0.6520625948905945, 462: 3.7197749614715576, 429: 0.6459543108940125, 458: 0.7348394989967346, 476: 4.350816249847412, 343: 0.6651584506034851, 248: 1.6190006732940674, 265: 0.9277904629707336, 482: 0.9721717834472656, 304: 0.7289911508560181, 119: 1.095178484916687, 193: 0.8396068811416626, 435: 2.1698851585388184, 277: 1.429009199142456, 147: 2.432084321975708, 416: 138.5941619873047, 220: 0.7135447263717651, 215: 0.9609459042549133, 253: 0.6930378079414368, 428: 1.2841218709945679, 331: 0.6203590631484985, 361: 0.7764042019844055, 299: 1.2020057439804077, 78: 0.8561491370201111, 233: 3.853057622909546, 246: 1.2555947303771973, 404: 1.586246132850647, 485: 0.80075603723526, 169: 0.8040980100631714, 511: 1.876975655555725, 148: 2.03922176361084, 261: 0.8716416358947754, 284: 0.7522726058959961, 420: 1.3634477853775024, 83: 0.9354800581932068, 335: 1.0468533039093018, 109: 1.611698865890503, 355: 2.7779839038848877, 479: 0.39145031571388245, 110: 1.339530110359192, 406: 0.9034169316291809, 405: 0.9235910177230835, 433: 1.2103904485702515, 205: 0.773996114730835, 288: 1.0642157793045044, 267: 0.9473533034324646, 24: 3.5657877922058105, 243: 1.4388211965560913, 426: 1.3033238649368286, 415: 0.7563560009002686, 432: 0.7906887531280518, 122: 0.926670491695404, 328: 0.7797446846961975, 454: 0.6701900959014893, 492: 1.242881178855896}
-#data= MyDataset(args.datadir,args.filename, args.radius_angstroms, args.num_nbrs, args.task)
-# #
-keys=model_dict.keys()
-mses=[]
-main_perf=[]
-lr=[]
-for key in keys:
-    model_nums=model_dict[key]
-    performances=[]
-    for model_num in model_nums:
-        performances.append(performance_dict[model_num])
-    main_perf.append(np.mean(performances))
-    lr.append(float(params_dict[model_num][11].split('=')[-1].split(',')[2]))
-plt.scatter(lr, main_perf, color='blue')
-
-model_dict, params_dict= file_extractor('./lhs_5_lim/debugging3/debugging3.txt')
-
-
-performance_dict={74: 1.982251763343811, 58: 6.2461042404174805, 108: 5.500767230987549, 47: 1.4550225734710693, 95: 3.554299831390381, 90: 1.1682982444763184, 104: 1.764570713043213, 105: 1.993978500366211, 126: 1.7385194301605225, 27: 1.086197018623352, 59: 2.976362943649292, 84: 3.0932278633117676, 110: 2.654900312423706, 91: 1.5527453422546387, 78: 6.5324530601501465, 14: 0.7875269651412964, 79: 14.368023872375488, 30: 1.0576753616333008, 113: 1.7403020858764648, 107: 5.417248725891113, 88: 2.7721519470214844, 64: 0.734556257724762, 80: 1.6542329788208008, 10: 1.5527671575546265, 13: 0.9909639358520508, 103: 1.269432544708252, 44: 5.204375743865967, 24: 2.3288071155548096, 86: 2.747234582901001, 55: 4.1686787605285645, 65: 1.6695032119750977, 9: 2.008606433868408, 85: 3.71187424659729, 120: 1.4627150297164917, 92: 5.564677715301514, 31: 0.8707548975944519, 111: 0.9353644251823425, 116: 1.8461624383926392, 121: 6.124226093292236, 75: 1.0281167030334473, 93: 0.796602189540863, 67: 1.2129849195480347, 114: 2.0503053665161133, 100: 1.0388637781143188, 122: 1.3475464582443237, 18: 0.611197292804718, 115: 1.305760383605957, 49: 1.4375178813934326, 117: 0.6216949224472046, 36: 3.0673940181732178, 72: 0.9454811811447144, 1: 0.6329087615013123, 45: 0.626705527305603, 17: 2.671405076980591, 5: 1.6078256368637085, 57: 3.0244851112365723, 54: 2.338318109512329, 46: 1.6233243942260742, 53: 1.9256813526153564, 96: 2.5730502605438232, 32: 4.84969425201416, 33: 0.8798837065696716, 82: 0.712459146976471, 66: 0.8568019866943359, 123: 2.6295247077941895, 73: 3.1134753227233887, 71: 1.6115413904190063, 68: 1.4248665571212769, 102: 1.271180510520935, 38: 1.3847131729125977, 11: 2.304450511932373, 69: 1.233548879623413, 7: 0.5352578163146973, 29: 1.7722523212432861, 127: 0.8391449451446533, 56: 0.8876063823699951, 50: 1.8272911310195923, 81: 2.0197386741638184, 76: 0.792941689491272, 124: 2.1375932693481445, 77: 0.4298896789550781, 87: 1.6180721521377563, 23: 0.7225655317306519, 28: 1.0077309608459473, 119: 0.7718236446380615, 16: 0.5101780891418457, 48: 0.43650829792022705, 106: 0.7125107049942017, 99: 2.1965184211730957, 97: 0.8911347389221191, 70: 1.6596848964691162, 60: 1.4415298700332642, 26: 1.8257473707199097, 25: 0.7426350116729736, 12: 5.242684364318848, 22: 0.6077884435653687, 109: 48617.8671875, 62: 34921.80078125, 112: 36652.69921875, 2: 210949.984375, 4: 71736.1640625, 51: 28358.068359375, 34: 7863.26171875, 41: 28104.33984375, 35: 35286.48828125, 40: 19207.447265625, 39: 21763.083984375, 118: 21209.7578125, 3: 10669.0439453125, 52: 29484.85546875, 63: 9057.39453125, 37: 26229.595703125, 61: 20184.359375, 94: 64396.18359375, 15: 64261.41796875, 21: 29815.02734375, 83: 31466.740234375, 20: 23637.693359375, 43: 21542.029296875, 101: 11267.984375, 89: 7261.5009765625, 42: 82348.6796875, 6: 39093.671875, 125: 27432.404296875, 98: 14812.67578125, 8: 9226.654296875, 19: 33533.7734375, 0: 51508.4375}
-
-keys=model_dict.keys()
-mses=[]
-main_perf=[]
-lr=[]
-for key in keys:
-    model_nums=model_dict[key]
-    performances=[]
-    for model_num in model_nums:
-        performances.append(performance_dict[model_num])
-    main_perf.append(np.mean(performances))
-    lr.append(float(params_dict[model_num][11].split('=')[-1].split(',')[2]))
-plt.scatter(lr, main_perf,color='blue')
-
-model_dict, params_dict= file_extractor('./lhs_6_lim/debugging3/debugging3.txt')
-
-performance_dict={84: 17.685813903808594, 73: 2.5679874420166016, 109: 3.437100648880005, 118: 1.5038944482803345, 23: 1.5902787446975708, 124: 1.173844575881958, 122: 3.244317054748535, 113: 2.8258304595947266, 13: 8.057257652282715, 52: 3.8099310398101807, 85: 0.813227117061615, 48: 3.549027442932129, 78: 3.150503158569336, 63: 3.413006544113159, 67: 0.9592332243919373, 123: 3.774479627609253, 61: 6.564220428466797, 62: 7.210965156555176, 64: 3.0013043880462646, 68: 1.9997811317443848, 47: 2.5987958908081055, 24: 9.084028244018555, 40: 0.7687481045722961, 35: 2.5254509449005127, 112: 0.8791467547416687, 115: 0.7002214193344116, 53: 1.2115575075149536, 16: 4.326054573059082, 88: 1.8996378183364868, 5: 1.2269268035888672, 87: 1.4991785287857056, 116: 1.6950417757034302, 106: 2.4175729751586914, 65: 1.6027257442474365, 86: 1.9510542154312134, 49: 3.5305333137512207, 76: 1.265091896057129, 44: 3.313103675842285, 29: 5.238024711608887, 57: 2.142385482788086, 117: 0.6753061413764954, 79: 1.0018054246902466, 83: 1.3170701265335083, 72: 0.8495348691940308, 25: 1.8591817617416382, 111: 0.8961869478225708, 51: 0.791510283946991, 93: 1.6403051614761353, 17: 0.8592913746833801, 98: 0.4873427748680115, 55: 0.5758983492851257, 21: 2.380629301071167, 42: 1.6028231382369995, 50: 0.5316480398178101, 11: 0.6458922028541565, 8: 1.0478793382644653, 34: 1.5178217887878418, 28: 13.650362014770508, 9: 0.9842929840087891, 30: 1.0036741495132446, 33: 0.869918704032898, 119: 6.12615966796875, 94: 7.81180477142334, 0: 1.0528062582015991, 18: 1.6598265171051025, 110: 1.9485384225845337, 66: 7.145038604736328, 6: 1.3742793798446655, 125: 2.1179065704345703, 27: 1.152405858039856, 15: 1.4774878025054932, 96: 0.5950554013252258, 20: 0.9886847138404846, 95: 1.389425277709961, 104: 0.649523913860321, 90: 1.113926887512207, 121: 1.4403167963027954, 74: 3.317012071609497, 3: 0.6144310235977173, 81: 2.3696658611297607, 10: 0.5469344258308411, 105: 0.6192373633384705, 114: 0.8208879232406616, 2: 1.049919843673706, 56: 0.5256578922271729, 120: 0.8068317770957947, 37: 0.6151928901672363, 46: 5.648947715759277, 107: 0.8681856989860535, 4: 1.2821401357650757, 58: 0.9132370352745056, 38: 1.2885469198226929, 127: 1.457303524017334, 101: 6.975241184234619, 108: 0.37757766246795654, 99: 0.7244266867637634, 12: 94263.109375, 36: 17786.275390625, 43: 257111.484375, 22: 35864.90625, 54: 52846.765625, 103: 45705.46875, 102: 20873.7734375, 14: 50505.53515625, 97: 13226.5146484375, 32: 13116.1904296875, 26: 33097.58984375, 91: 33528.61328125, 75: 73252.8671875, 70: 133626.671875, 59: 18861.109375, 126: 19425.109375, 92: 66005.421875, 7: 44462.2109375, 19: 26682.984375, 45: 137334.1875, 39: 10159.0986328125, 60: 29486.31640625, 69: 64899.45703125, 82: 65653.4375, 31: 64552.1875, 41: 19843.984375, 1: 9682.9599609375, 77: 57373.16015625, 71: 34298.80078125, 89: 86391.109375, 80: 19352.953125, 100: 105689.078125}
-
-keys=model_dict.keys()
-mses=[]
-main_perf=[]
-lr=[]
-for key in keys:
-    model_nums=model_dict[key]
-    performances=[]
-    for model_num in model_nums:
-        performances.append(performance_dict[model_num])
-    main_perf.append(np.mean(performances))
-    lr.append(float(params_dict[model_num][11].split('=')[-1].split(',')[2]))
-plt.scatter(lr, main_perf, color='blue')
-
-plt.ylim(0,1)
-plt.ylabel('MSE')
-plt.xlabel('L2 lambda')
-plt.title('L2 lambda #3 vs Validation MSE averaged across 4 folds')
-plt.show()
-
-#sorted_perf= sorted(main_perf, key=main_perf.get)
-
-
-    #         params=params_dict[model_num]
-    #         test_el=int(params[1].split('=')[-1])
-    #         val_el=int(params[3].split('=')[-1])
-    #
-    #         #data_tr, data_va, data_te, data_ex= split_for_prashuns_data(data, test_el, val_el)
-    #         cif_list= data.cifs
-    #         loader_te = DisjointLoader(data, shuffle=False)
-    #         print('model #'+ str(model_num))
-    #         model= HNetSimple(args.task, args.num_classes, return_s=True)
-    #
-    #         checkpoint_path= args.ckpt_path+str(model_num)+'/goodmodel.ckpt.index'
-    #         checkpoint = tf.train.Checkpoint(model)
-    #         checkpoint.restore(checkpoint_path)
-    #
-    #         performance = evaluate(loader_te,model, cif_list)
-    #         performances.append(performance)
+    keys=model_dict.keys()
+    mses=[]
+    main_perf=[]
+    vals_all=[]
+    lr=[]
+    bs=[]
+    dr1=[]
+    dr2=[]
+    dr3=[]
+    el=[]
+    cl=[]
+    l2_1=[]
+    l2_2=[]
+    l2_3=[]
+    decay_rate=[]
+    decay_steps=[]
+    for key in keys:
+        model_nums=model_dict[key]
+        performances=[]
+        vals=[]
+        for model_num in model_nums:
+            performances.append(performance_dict[model_num])
+            vals.append((model_num, val_element_dict[model_num]))
+        relevant_params= params_dict[model_num]
+        #print(relevant_params)
+        #print('---')
+        main_perf.append(np.mean(performances))
+        vals_all.append(vals)
+        lr.append(float(relevant_params[6].split('=')[-1]))
+        bs.append(int(relevant_params[7].split('=')[-1]))
+        drs= relevant_params[8].split('=')[-1].split(',')
+        dr1.append(float(drs[0]))
+        dr2.append(float(drs[1]))
+        dr3.append(float(drs[2]))
+        el.append(float(relevant_params[9].split('=')[-1]))
+        cl.append(float(relevant_params[10].split('=')[-1]))
+        l2s=relevant_params[11].split('=')[-1].split(',')
+        l2_1.append(float(l2s[0]))
+        l2_2.append(float(l2s[1]))
+        l2_3.append(float(l2s[2]))
+        decay_rate.append(float(relevant_params[12].split('=')[-1]))
+        decay_steps.append(float(relevant_params[13].split('=')[-1]))
+    # #     #print(l2s)
+    # #     #print('---')
+    # #
+    df = pd.DataFrame({'val_mse_mean':main_perf})
+    df['val_folds']= vals_all
+    df['lr']=lr
+    df['bs']=bs
+    df['dr1']=dr1
+    df['dr2']=dr2
+    df['dr3']=dr3
+    df['el']=el
+    df['cl']=cl
+    df['l2_1']=l2_1
+    df['l2_2']=l2_2
+    df['l2_3']=l2_3
+    df['decay_rate']=decay_rate
+    df['decay_steps']=decay_steps
+    namelist=[filename]*len(lr)
+    df['path']=namelist
+    df.to_csv('val_var_siamese.csv', mode='a', header=True, index=False)
+    #return model_dict, params_dict, performance_dict, val_element_dict
+#
+file_extractor('./var_lr_siamese/lhs_siamese0/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese1/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese2/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese3/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese4/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese5/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese6/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese7/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese8/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese9/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese10/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese11/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese12/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese13/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese14/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese15/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese16/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese17/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese18/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese19/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese20/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese21/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese22/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese23/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese24/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese25/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese26/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese27/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese28/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese29/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese30/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese31/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese32/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese33/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese34/debugging/debugging.txt')
+file_extractor('./var_lr_siamese/lhs_siamese35/debugging/debugging.txt')

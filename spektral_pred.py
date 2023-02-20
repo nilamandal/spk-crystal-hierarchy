@@ -15,12 +15,9 @@ from pymatgen.core.structure import Structure
 import json
 import argparse
 import time
-from spektral_essential_objects import AtomInitializer, GaussianDistance,AtomCustomJSONInitializer,MyDataset,HNetSimple
-from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
+from spektral_essential_objects import GaussianDistance,MyDataset,HNetSimple, PartitionedData
+
 import matplotlib.pyplot as plt
-from scipy.spatial import distance
-from pymatgen.core.structure import Structure
 
 #from scipy.special import softmax
 
@@ -28,7 +25,7 @@ begin_time = time.time()
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 
 parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='../qy_requests')
+        help='Directory where dataset is located', default='../cgcnn-pretrained-models/data/10atom_relaxed_cifs')
 
 parser.add_argument('--filename', dest='filename',
                     help='csv where data is located', default='id_prop.csv')
@@ -62,19 +59,49 @@ parser.add_argument('--task', choices=['r', 'c'],
 #parser.add_argument('--patience', dest='patience',default=10, type=int,
 #                    help='num epochs for early stopping')
 
-def evaluate(loader, model, cifs):
+
+def split_for_prashuns_data(data, test_element, val_element):
+    data_tr=[]
+    data_va=[]
+    data_te=[]
+    data_ex=[]
+    for d in data:
+        atomset= set(d._atomlist)
+        if test_element in atomset:
+            if val_element in atomset:
+                data_ex.append(d._cif)
+            else:
+                data_te.append(d)
+        elif val_element in atomset:
+            data_va.append(d)
+        else:
+            data_tr.append(d)
+
+    return data_tr, data_va, data_te, data_ex
+
+
+def evaluate(loader, model, cifs, color='#000000', label=''):
     output = []
     step = 0
     all_s=[]
     all_pre_feats=[]
+    cif_idx=0
+    i=0
     while step < loader.steps_per_epoch:
         step += 1
         inputs, target = loader.__next__()
-        order=list(inputs[3])
-        order2=[order.count(0),order.count(1),order.count(2)]
-        print(order2)
-        pred, s_tensor = model(inputs, training=False)
 
+        pred, s_tensor = model(inputs, training=False)
+        for j in range(len(s_tensor)):
+                assign= s_tensor[j]
+                individual_error= (target[j]-pred[j])**2
+                if individual_error<0.001:
+                    print(cifs[i])
+                    print(individual_error)
+                    print(assign)
+                    print('---')
+                i+=1
+        #plt.scatter(pred, target, c=color, label=label)
         if args.task=='c':
             outs = tf.reduce_mean(sparse_categorical_accuracy(target, pred))
 
@@ -83,13 +110,14 @@ def evaluate(loader, model, cifs):
 
         output.append(outs)
         if step == loader.steps_per_epoch:
+            #plt.show()
             #b= tf.concat(all_pre_feats, axis=0)
             #s= tf.concat(all_s, axis=0)
-            s= None
+            #s= None
             output = np.array(output)
-            return np.average(output), s, pred#, b
+            return np.average(output), s_tensor, pred#, b
 
-checkpoint_path = "../formation_3drops/debugging/108/debugging{33, 2, 36, 42, 43, 76, 77, 78, 44, 80, 45, 53, 54}-{32, 46, 47, 48, 50, 51}idx108.ckpt"
+checkpoint_path = "./useful_results/relu_results/lhs_relu31/debugging/110/goodmodel.ckpt"
 
 checkpoint_dir = os.path.dirname(checkpoint_path)
 
@@ -100,16 +128,40 @@ cifs=data.get_cifs()
 
 datasettime=time.time()-begin_time
 
-loader = DisjointLoader(data, batch_size=args.batch_size)
+loader = DisjointLoader(data, batch_size=args.batch_size, shuffle=False)
 
-model= HNetSimple(args.task, args.num_classes, return_s=True)
-
+model= HNetSimple(args.task, args.num_classes, return_s=True, siamese=False)
+sys.stdout = open('./presentation_prep_assignments3.txt', 'w')
+#print(checkpoint_dir)
 latest = tf.train.latest_checkpoint(checkpoint_dir)
+#print(latest)
 model.load_weights(latest)
-
 result, s_tensors, pred=evaluate(loader,model, cifs)
+#
+# data_tr, data_va, data_te, data_ex= split_for_prashuns_data(data, 33, 83)
+# loader_tr = DisjointLoader(PartitionedData(data_tr),batch_size=len(data_tr))
+# loader_va = DisjointLoader(PartitionedData(data_va),batch_size=len(data_va))
+# loader_te = DisjointLoader(PartitionedData(data_te),batch_size=len(data_te))
+# plt.figure()
+# result, s_tensors, pred=evaluate(loader_tr,model, '#2596be', 'train (51, 15)')
+#
+# result, s_tensors, pred=evaluate(loader_te,model, '#2ab838', 'test (33)')
+# result, s_tensors, pred=evaluate(loader_va,model, '#f5425a', 'val (83)')
+# x = np.linspace(-6,0,100)
+#
+# plt.plot(x, x, '#000000', label='x=y')
+# plt.xlabel('prediction')
+# plt.ylabel('target')
+# plt.title('model 33')
+# plt.legend()
+# plt.show()
 
-print(pred)
+
+#print(result)
+
+
+
+
 # print(s_tensors.shape)
 # for i in range(len(prepool_feats)):
 #     pools=np.argmax(s_tensors[i], axis=1)

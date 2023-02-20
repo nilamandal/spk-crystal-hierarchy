@@ -1,53 +1,229 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
-files=['lr1e-2/lr1e-2.txt','lr1e-3/lr1e-3.txt','lr1e-4/lr1e-4.txt','lr1e-5/lr1e-5.txt','lr1e-6/lr1e-6.txt']
-path='./separatefeats/spk16/'
-for file in files:
-    #figtitle=file.split('.')[0]+'.png'
-    figtitle=path+file.split('.')[0]+'.png'
-    f= open(path+file)
-    f= f.readlines()
-    #lr=f[0].split(',')
-    #lr=lr[7]
-    plt.figure(figsize=(18, 16))
-    plt.rc('font', size=40)
-    #print(temp[7])
-    #plt.ylim([0,10])
-    train_mse=[]
-    val_mse=[]
-    temp_train=[]
-    for line_num in range(len(f)):
-        if 'val loss' in f[line_num]:
-            loss= float(f[line_num+1].split(' ')[0])
-            #print(loss)
-            val_mse.append(loss)
-        if 'train loss' in f[line_num]:
-            if 'Loss:' in f[line_num+2]:
-                #print()
-                train_mse.append(float(f[line_num+2].split(' ')[1].strip()))
-            #print(f[line_num])
+df=pd.read_csv('val_var_siamese.csv')
+print(df)
+df['lr']=pd.to_numeric(df['lr'])
+###
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(np.log10(df['lr']), df['val_mse_mean'], s=100)
+plt.title('LR vs Avg. Val MSE across folds')
+plt.xlabel('log_10 of learning rate')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/lr.png')
 
-            #temp_train.append(float(f[line_num+3].split(',')[0].split('(')[1]))
-            #print(temp_train)
-        #if len(temp_train)==703:
-        #    train_mse.append(np.mean(temp_train))
-        #    temp_train=[]
-    print(train_mse)
-    print(len(train_mse))
-    print(len(val_mse))
-        # if 'mse' in line:
-        #     mse=float(line.split(':')[-1].strip()[:-1])
-        #     #print(mse)
-        #     if "Train" in line:
-        #         train_mse.append(mse)
-        #     elif "Validation" in line:
-        #         val_mse.append(mse)
-    epochs=list(range(len(train_mse)))
-    plt.plot(epochs, train_mse, label='training loss')
-    plt.plot(epochs, val_mse, label='val loss')
-    plt.title('learning curves')
-    plt.xlabel('epochs')
-    plt.legend()
-    plt.ylabel('categorical cross entropy loss')
-    plt.savefig(figtitle)
+
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(np.log10(df['lr']), df['val_mse_mean'], s=100)
+plt.ylim(0,1)
+plt.title('LR vs Avg. Val MSE across folds')
+plt.xlabel('log_10 of learning rate')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/lr_limited.png')
+
+###
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(df['bs'], df['val_mse_mean'], s=100)
+plt.title('Batch size vs Avg. Val MSE across folds')
+plt.xlabel('Batch size')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/bs.png')
+
+
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(df['bs'], df['val_mse_mean'], s=100)
+plt.ylim(0,1)
+plt.title('Batch size vs Avg. Val MSE across folds')
+plt.xlabel('Batch size')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/bs_limited.png')
+
+###
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(df['dr1'], df['val_mse_mean'], s=100)
+plt.title('Dropout rate #1 vs Avg. Val MSE across folds')
+plt.xlabel('Dropout rate')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/dr1.png')
+
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(df['dr1'], df['val_mse_mean'], s=100)
+plt.ylim(0,1)
+plt.title('Dropout rate #1 vs Avg. Val MSE across folds')
+plt.xlabel('Dropout rate')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/dr1_limited.png')
+
+###
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(df['dr2'], df['val_mse_mean'], s=100)
+plt.title('Dropout rate #2 vs Avg. Val MSE across folds')
+plt.xlabel('Dropout rate')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/dr2.png')
+
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(df['dr2'], df['val_mse_mean'], s=100)
+plt.ylim(0,1)
+plt.title('Dropout rate #2 vs Avg. Val MSE across folds')
+plt.xlabel('Dropout rate')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/dr2_limited.png')
+
+
+###
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(df['dr3'], df['val_mse_mean'], s=100)
+plt.title('Dropout rate #3 vs Avg. Val MSE across folds')
+plt.xlabel('Dropout rate')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/dr3.png')
+
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(df['dr3'], df['val_mse_mean'], s=100)
+plt.ylim(0,1)
+plt.title('Dropout rate #3 vs Avg. Val MSE across folds')
+plt.xlabel('Dropout rate')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/dr3_limited.png')
+
+###
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(np.log10(df['el']), df['val_mse_mean'], s=100)
+plt.title('Entropy lambda vs Avg. Val MSE across folds')
+plt.xlabel('log_10 of Entropy lambda')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/el.png')
+
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(np.log10(df['el']), df['val_mse_mean'], s=100)
+plt.ylim(0,1)
+plt.title('Entropy lambda vs Avg. Val MSE across folds')
+plt.xlabel('log_10 of Entropy lambda')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/el_limited.png')
+
+###
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(np.log10(df['cl']), df['val_mse_mean'], s=100)
+plt.title('column lambda vs Avg. Val MSE across folds')
+plt.xlabel('log_10 of column lambda')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/cl.png')
+
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(np.log10(df['cl']), df['val_mse_mean'], s=100)
+plt.ylim(0,1)
+plt.title('column lambda vs Avg. Val MSE across folds')
+plt.xlabel('log_10 of column lambda')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/cl_limited.png')
+
+##
+
+
+
+###
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(np.log10(df['l2_1']), df['val_mse_mean'], s=100)
+plt.title('L2 lambda #1 vs Avg. Val MSE across folds')
+plt.xlabel('log_10 of L2 lambda')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/l2_1.png')
+
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(np.log10(df['l2_1']), df['val_mse_mean'], s=100)
+plt.ylim(0,1)
+plt.title('L2 lambda #1 vs Avg. Val MSE across folds')
+plt.xlabel('log_10 of L2 lambda')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/l2_1_limited.png')
+
+###
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(np.log10(df['l2_2']), df['val_mse_mean'], s=100)
+plt.title('L2 lambda #2 vs Avg. Val MSE across folds')
+plt.xlabel('log_10 of L2 lambda')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/l2_2.png')
+
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(np.log10(df['l2_2']), df['val_mse_mean'], s=100)
+plt.ylim(0,1)
+plt.title('L2 lambda #2 vs Avg. Val MSE across folds')
+plt.xlabel('log_10 of L2 lambda')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/l2_2_limited.png')
+
+
+###
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(np.log10(df['l2_3']), df['val_mse_mean'], s=100)
+plt.title('L2 lambda #3 vs Avg. Val MSE across folds')
+plt.xlabel('log_10 of L2 lambda')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/l2_3.png')
+
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(np.log10(df['l2_3']), df['val_mse_mean'], s=100)
+plt.ylim(0,1)
+plt.title('L2 lambda #3 vs Avg. Val MSE across folds')
+plt.xlabel('log_10 of L2 lambda')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/l2_3_limited.png')
+
+
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(df['decay_rate'], df['val_mse_mean'], s=100)
+plt.title('LR Decay rate vs Avg. Val MSE across folds')
+plt.xlabel('decay rate')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/decayrate.png')
+
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(df['decay_rate'], df['val_mse_mean'], s=100)
+plt.ylim(0,1)
+plt.title('LR Decay rate vs Avg. Val MSE across folds')
+plt.xlabel('decay rate')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/decayrate_limited.png')
+
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(df['decay_steps'], df['val_mse_mean'], s=100)
+plt.title('LR Decay steps vs Avg. Val MSE across folds')
+plt.xlabel('decay steps')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/decaysteps.png')
+
+plt.figure(figsize=(24, 16))
+plt.rc('font', size=40)
+plt.scatter(df['decay_steps'], df['val_mse_mean'], s=100)
+plt.ylim(0,1)
+plt.title('LR Decay steps vs Avg. Val MSE across folds')
+plt.xlabel('decay steps')
+plt.ylabel('Val MSE')
+plt.savefig('siamese_variable_lr_plots/decaysteps_limited.png')

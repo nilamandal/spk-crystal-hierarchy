@@ -17,9 +17,9 @@ parser.add_argument('--datadir', dest='datadir',
 parser.add_argument('--filename', dest='filename',
                     help='csv where data is located', default='id_mini.csv')
 parser.add_argument('--file-out', dest='file_out',
-                    help='output file name', default='debugging')
+                    help='output file name', default='bayes_history')
 parser.add_argument('--path-out', dest='path',
-                    help='output path', default='./bayes')
+                    help='output path', default='./bayes_history')
 parser.add_argument('--num-atoms', dest='num_atoms', type=int,
                     help='Maximum number of nodes', default=200)
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
@@ -29,10 +29,10 @@ parser.add_argument('--num-classes', dest='num_classes', type=int,
 parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
                     help='search radius for neighbors', default=10)
 parser.add_argument('--random-seed', dest='random_seed', type=int,
-                    help='random seed for numpy', default=0)
+                    help='random seed for numpy', default=2)
 parser.add_argument('--optim', default='SGD', type=str, metavar='SGD',
                         help='choose an optimizer, SGD or Adam, (default: SGD)')
-parser.add_argument('--epochs', default=5, type=int, metavar='N',
+parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run (default: 30)')
 parser.add_argument('--task', choices=['r', 'c'],
                     default='r', help='complete a regression or '
@@ -61,117 +61,143 @@ def split_for_prashuns_data(data, test_element, val_element):
 
     return data_tr, data_va, data_te, data_ex
 
-data= MyDataset(args.datadir,args.filename, args.radius_angstroms, args.num_nbrs, args.task)
-
-test_element=33
-val_element=83
-data_tr, data_va, data_te, data_ex= split_for_prashuns_data(data, test_element, val_element)
 
 class HNetHyperModel(keras_tuner.HyperModel):
     def build(self, hp):
-        embedding_size= hp.Int('embedding_size', min_value=1, max_value=128, step=1)
+        embedding_size= 64#hp.Int('embedding_size', min_value=64, max_value=128, step=1)
 
-        l2_1=tf.cast(hp.Float("l2_feat_reg1", min_value=0, max_value=1000, step=0.10), tf.float32)
-        l2_2=tf.cast(hp.Float("l2_feat_reg2", min_value=0, max_value=1000, step=0.10), tf.float32)
-        l2_3=tf.cast(hp.Float("l2_feat_reg3", min_value=0, max_value=1000, step=0.10), tf.float32)
+        l2_1_hp=tf.cast(hp.Float("l2_feat_reg1", min_value=0, max_value=4, step=0.1), tf.float32)
+        l2_1= 10**l2_1_hp
+        l2_2_hp=tf.cast(hp.Float("l2_feat_reg2", min_value=0, max_value=4, step=0.1), tf.float32)
+        l2_2= 10**l2_2_hp
+        l2_3_hp=tf.cast(hp.Float("l2_feat_reg3", min_value=0, max_value=4, step=0.1), tf.float32)
+        l2_3= 10**l2_3_hp
 
-        dr1=hp.Float("drop_rate1", min_value=0, max_value=0.5, step=0.01)
-        dr2=hp.Float("drop_rate2", min_value=0, max_value=0.5, step=0.01)
-        dr3=hp.Float("drop_rate3", min_value=0, max_value=0.5, step=0.01)
+        dr1=hp.Float("drop_rate1", min_value=0, max_value=0.75, step=0.01)
+        dr2= 0 #hp.Float("drop_rate2", min_value=0, max_value=0.5, step=0.01)
+        dr3=hp.Float("drop_rate3", min_value=0, max_value=0.75, step=0.01)
 
-        column_lambda= tf.cast(hp.Float("column_lambda", min_value=0, max_value=1000, step=0.10), tf.float32)
-        entropy_lambda=tf.cast(hp.Float("entropy_lambda", min_value=0, max_value=1000, step=0.10), tf.float32)
+        column_lambda_hp= tf.cast(hp.Float("column_lambda", min_value=0, max_value=4, step=0.1), tf.float32)
+        column_lambda= 10**column_lambda_hp
+        entropy_lambda_hp=tf.cast(hp.Float("entropy_lambda", min_value=0, max_value=4, step=0.1), tf.float32)
+        entropy_lambda= 10**entropy_lambda_hp
 
         model= HNetSimple('r', 1, embedding_size, dr1, dr2, dr3, entropy_lambda, column_lambda, l2_1, l2_2, l2_3)
+        self.params=['r', 1, embedding_size, dr1, dr2, dr3, entropy_lambda, column_lambda, l2_1, l2_2, l2_3]
 
         return model
 
     def fit(self, hp, model, *args, **kwargs):
-
-        learning_rate= hp.Float("lr", min_value=1e-9, max_value=1, step=1e-5)
-        optim=SGD(learning_rate)
+        print(model)
+        learning_rate_hp= hp.Float("lr", min_value=0, max_value=9, step=0.1)
+        lr= 10**(-1*learning_rate_hp)
+        optim=SGD(lr)
         loss_fn= MeanSquaredError()
-        model.compile(optimizer=optim, loss=loss_fn)
-
-        batch_size = hp.Int("batch_size", 1, 64, step=4, default=16)
-
-        data_tr=args[0]
+        batch_size = hp.Int("batch_size", 16, 64, step=4, default=16)
         num_epochs= kwargs['epochs']
-        data_va= kwargs['validation_data']
         callbacks= kwargs['callbacks']
-        #print(len(data_tr), batch_size, num_epochs)
-        loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=batch_size, epochs=num_epochs)
-        loader_va = DisjointLoader(PartitionedData(data_va), batch_size=len(data_va))
 
 
-        epoch_loss_metric = keras.metrics.Mean()
+        atomic_num_list=[33, 83, 51, 15]
+        for i in range(len(atomic_num_list)):
+            val_manager=[]
+            te=atomic_num_list[i]
+            try:
+                va=atomic_num_list[i+1]
+            except:
+                va=atomic_num_list[0]
 
-        def run_train_step(graph_inputs, labels):
-            with tf.GradientTape() as tape:
-                predictions = model(graph_inputs)
+
+            data_tr, data_va, data_te, data_ex= split_for_prashuns_data(data, te, va)
+            loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=batch_size, epochs=num_epochs)
+            loader_va = DisjointLoader(PartitionedData(data_va), batch_size=len(data_va))
+            model.compile(optimizer=optim, loss=loss_fn)
+
+
+
+
+            epoch_loss_metric = keras.metrics.Mean()
+
+            def run_train_step(graph_inputs, labels):
+                with tf.GradientTape() as tape:
+                    print('train')
+                    predictions = model(graph_inputs)
+                    #print(np.isnan(predictions))
+                    loss = loss_fn(labels, predictions)
+                    # Add any regularization losses.
+                    if model.losses:
+                        loss += tf.math.add_n(model.losses)
+                gradients = tape.gradient(loss, model.trainable_variables)
+                optim.apply_gradients(zip(gradients, model.trainable_variables))
+
+            # Function to run the validation step.
+            #@tf.function
+            def run_val_step(graph_inputs, labels):
+                print('val')
+                predictions = model(graph_inputs, training=False)
+                #print(np.isnan(predictions))
                 loss = loss_fn(labels, predictions)
-                # Add any regularization losses.
-                if model.losses:
-                    loss += tf.math.add_n(model.losses)
-            gradients = tape.gradient(loss, model.trainable_variables)
-            optim.apply_gradients(zip(gradients, model.trainable_variables))
+                # Update the metric.
+                epoch_loss_metric.update_state(loss)
 
-        # Function to run the validation step.
-        #@tf.function
-        def run_val_step(graph_inputs, labels):
-            predictions = model(graph_inputs)
-            loss = loss_fn(labels, predictions)
-            # Update the metric.
-            epoch_loss_metric.update_state(loss)
+            # Assign the model to the callbacks.
+            for callback in callbacks:
+                callback.model = model
+            # Record the best validation loss value
+            best_epoch_loss = float("inf")
 
-        # Assign the model to the callbacks.
-        for callback in callbacks:
-            callback.model = model
-        # Record the best validation loss value
-        best_epoch_loss = float("inf")
+            # The custom training loop.
+            step=0
+            current_epoch=0
 
-        # The custom training loop.
-        step=0
-        current_epoch=0
+            for batch in loader_tr:
+                if step==0:
+                    print(f"Epoch: {current_epoch}")
+                step += 1
 
-        for batch in loader_tr:
-            if step==0:
-                print(f"Epoch: {current_epoch}")
-            step += 1
+                run_train_step(*batch)
 
-            run_train_step(*batch)
+                if step == loader_tr.steps_per_epoch:
+                    inputs, target = loader_va.__next__()
+                    run_val_step(inputs, target)
+                    epoch_loss = float(epoch_loss_metric.result().numpy())
 
-            if step == loader_tr.steps_per_epoch:
-                inputs, target = loader_va.__next__()
-                run_val_step(inputs, target)
-                epoch_loss = float(epoch_loss_metric.result().numpy())
+                    for callback in callbacks:
+                        # The "my_metric" is the objective passed to the tuner.
+                        callback.on_epoch_end(current_epoch, logs={"val_loss": epoch_loss})
+                    epoch_loss_metric.reset_states()
 
-                for callback in callbacks:
-                    # The "my_metric" is the objective passed to the tuner.
-                    callback.on_epoch_end(current_epoch, logs={"val_loss": epoch_loss})
-                epoch_loss_metric.reset_states()
+                    print(f"Epoch loss: {epoch_loss}")
+                    if np.isnan(epoch_loss):
+                        val_manager.append(best_epoch_loss)
+                        break
+                    else:
+                        best_epoch_loss = min(best_epoch_loss, epoch_loss)
+                        step= 0
+                        current_epoch+=1
+            val_manager.append(best_epoch_loss)
+            model=self.reset_model()
+        return np.mean(val_manager)
 
-                print(f"Epoch loss: {epoch_loss}")
-                best_epoch_loss = min(best_epoch_loss, epoch_loss)
-
-                step= 0
-                current_epoch+=1
-
-        return best_epoch_loss
+    def reset_model(self):
+        model=HNetSimple(self.params[0], self.params[1], self.params[2], self.params[3], self.params[4], self.params[5], self.params[6], self.params[7], self.params[8], self.params[9], self.params[10])
+        return model
 
 
-
-filename='spk_'+str(args.random_seed)
+filename='bayes_history'#args.path+str(args.random_seed)
 
 my_hyper_model= HNetHyperModel()
 tuner= keras_tuner.tuners.BayesianOptimization(
     my_hyper_model,
     objective='val_loss',
-    max_trials=50,
+    max_trials=1000,
     seed=args.random_seed,
     project_name=filename)
 
+data= MyDataset(args.datadir,args.filename, args.radius_angstroms, args.num_nbrs, args.task)
+#test_element= 15
+#val_element= 33
 
-tuner.search(data_tr, epochs=args.epochs, validation_data=data_va)
+tuner.search(data, epochs=args.epochs)
 
 print(tuner.results_summary(5))

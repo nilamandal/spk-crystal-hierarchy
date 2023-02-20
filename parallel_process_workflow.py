@@ -29,11 +29,11 @@ parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 parser.add_argument('--datadir', dest='datadir',
         help='Directory where dataset is located', default='../cgcnn-pretrained-models/data/10atom_relaxed_cifs')
 parser.add_argument('--filename', dest='filename',
-                    help='csv where data is located', default='id_mini.csv')
+                    help='csv where data is located', default='id_prop.csv')
 parser.add_argument('--file-out', dest='file_out',
-                    help='output file name', default='debugging3')
+                    help='output file name', default='debugging')
 parser.add_argument('--path-out', dest='path',
-                    help='output path', default='./debugging')
+                    help='output path', default='./best_test')
 parser.add_argument('--num-atoms', dest='num_atoms', type=int,
                     help='Maximum number of nodes', default=200)
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
@@ -43,12 +43,12 @@ parser.add_argument('--num-classes', dest='num_classes', type=int,
 parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
                     help='search radius for neighbors', default=10)
 parser.add_argument('--random-seed', dest='random_seed', type=int,
-                    help='random seed for numpy', default=1)
+                    help='random seed for numpy', default=31)
 parser.add_argument('--optim', default='SGD', type=str, metavar='SGD',
                         help='choose an optimizer, SGD or Adam, (default: SGD)')
 #parser.add_argument('--batch-size', dest='batch_size', type=int,
 #                    help='Batch size.', default=256)
-parser.add_argument('--epochs', default=5, type=int, metavar='N',
+parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run (default: 30)')
 #parser.add_argument('--lr', dest='learning_rate', type=float,
 #                    help='Learning rate.', default=1e-3)
@@ -103,8 +103,6 @@ def train_step(inputs, target, model, loss_fn, optimizer):
     with tf.GradientTape() as tape:
         predictions, s = model(inputs, training=True)
         loss = loss_fn(target, predictions)
-        #print(loss)
-
 
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -117,14 +115,23 @@ def train_step(inputs, target, model, loss_fn, optimizer):
 
         return loss, sca, outputtxt
 
-def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testelement, valelement, lr, specialindex, model_list, performance_list, d1, d2, d3, el, cl, l2_1, l2_2, l2_3):
+def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testelement, valelement, lr, specialindex, model_list, performance_list, d1, d2, d3, el, cl, l2_1, l2_2, l2_3, testing=False):
         init_time= time.time()
-        fullpath=args.path+'/'+args.file_out+'/'+str(specialindex)
+        if testing:
+            fullpath=args.path+'/'+args.file_out+'_testing'+'/'+str(specialindex)
+        else:
+            fullpath=args.path+'/'+args.file_out+'/'+str(specialindex)
         print(fullpath)
         if not os.path.exists(fullpath):
             os.makedirs(fullpath)
 
         checkpoint_path=fullpath+'/goodmodel.ckpt'
+        #
+        # lr_schedule = ExponentialDecay(
+        #     initial_learning_rate=lr,
+        #     decay_steps=decay_steps,
+        #     decay_rate=decay_rate)
+
 
         if args.optim=='Adam':
             optimizer = Adam(learning_rate=lr)
@@ -137,7 +144,7 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
         else:
             print(args.task, ' is not c or r.')
 
-        model= HNetSimple(args.task, args.num_classes, d1, d2, d3, el, cl, l2_1, l2_2, l2_3, return_s=True)
+        model= HNetSimple(args.task, args.num_classes, d1=d1, d2=d2, d3=d3, el=el, cl=cl, l2_1=l2_1, l2_2=l2_2, l2_3=l2_3, return_s=True, random_seed=args.random_seed)
 
         textlist.append('evaluation on train set before training:')
         temp=evaluate(load_tr, model, loss_fn)
@@ -165,6 +172,7 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
                     loss = 0
                     val_loss, val_metric = evaluate(load_va, model, loss_fn)
                     if val_loss<best_val_loss:
+                        model.save_weights(checkpoint_path)
                         best_val_loss= val_loss
                         early_stop_counter=0
                     else:
@@ -183,17 +191,13 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
                     textlist.append('epoch='+str(epoch))
 
                     if is_nan:
+                        model_list[specialindex]= str(checkpoint_path)
+                        performance_list[specialindex] = best_val_loss
                         break
-                    else:
-                        # Create a callback that saves the model's weights
-                        model.save_weights(checkpoint_path)
-
 
 
         textlist.append('training time=')
         textlist.append(str(time.time()-init_time))
-
-
 
         model_list[specialindex]= str(checkpoint_path)
         performance_list[specialindex] = best_val_loss
@@ -320,35 +324,19 @@ def split_for_prashuns_data(data, test_element, val_element):
 
     return data_tr, data_va, data_te, data_ex
 
-def really_just_testing(data, printlock):
+def really_just_testing(data, printlock, parameter_sets_with_elements):
+    #os.makedirs(args.path+'/'+args.file_out+'_test')
     manager = Manager()
-    performance_dict= manager.dict()
-    model_dict = manager.dict()
+    performance_dict_test= manager.dict()
+    model_dict_test = manager.dict()
 
-    atomic_num_list=[33, 83, 51, 15]
-    parameter_sets=[[8.32476614416975e-05, 16, 0.42433846176775447,0.10236993852196401,0.05248327786291443,441.67253673401046,518.4608954750361,539.2021439163364,666.6483021404565,31.681982510061996],
-        [9.637167056882282e-05,16,0.46789948244887974,0.007044903454544166,0.11820734112722273,123.49914584236699,842.1068092348547,299.5124924342337,182.80524194528564,803.740987656228],
-        [9.931902150186573e-05, 16, 0.050195127776030475,0.019802953668764955,0.21805471207211816,581.2589318356876,133.79767372790926, 349.8814045405835,157.07383470658633,442.0367255493623],
-        [9.699199391626148e-05, 16, 0.25899731184242175,0.02957067938909473,0.11098365061631105, 656.0162927841983, 913.5182585016929, 592.4862571035408,830.6184839838752,338.7821547286297],
-        [9.637167056882282e-05, 32, 0.46789948244887974,0.007044903454544166,0.11820734112722273, 123.49914584236699, 842.1068092348547, 299.5124924342337,182.80524194528564,803.740987656228]
-        ]
-    parameter_sets_with_elements=[]
-    for i in range(len(atomic_num_list)):
-        te=atomic_num_list[i]
-        try:
-            va=atomic_num_list[i+1]
-        except:
-            va=atomic_num_list[0]
-        for row in parameter_sets:
-            param_set= [te, va]+ list(row)
-            parameter_sets_with_elements.append(param_set)
     processlist=[]
     for i in range(len(parameter_sets_with_elements)):
         current_params=parameter_sets_with_elements[i]
         test_element= current_params[0]
         val_element= current_params[1]
-        bs= current_params[3]
         lr= current_params[2]
+        bs= current_params[3]
         d1= current_params[4]
         d2= current_params[5]
         d3= current_params[6]
@@ -363,9 +351,7 @@ def really_just_testing(data, printlock):
         else:
             data_tr, data_va, data_te, data_ex= split_for_mp(data, test_element, val_element)
         data_tr= data_tr + data_va
-        #print(len(data_tr))
-        #print(len(data_te))
-        #print('---')
+
         textlist=[]
         textlist.append('model # '+str(i))
         textlist.append('test element='+str(test_element))
@@ -382,7 +368,7 @@ def really_just_testing(data, printlock):
 
         loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=bs, epochs=args.epochs)
         loader_te = DisjointLoader(PartitionedData(data_te), batch_size=len(data_te))
-        p= Process(target=full_training_loop, args=(printlock, loader_tr, loader_te, [], textlist, 0, test_element, lr, i, model_dict, performance_dict, d1, d2, d3, el, cl, l2_1, l2_2, l2_3))
+        p= Process(target=full_training_loop, args=(printlock, loader_tr, loader_te, [], textlist, 0, test_element, lr, i, model_dict_test, performance_dict_test, d1, d2, d3, el, cl, l2_1, l2_2, l2_3, True))
         processlist.append(p)
     for pr in processlist:
             pr.start()
@@ -392,11 +378,146 @@ def really_just_testing(data, printlock):
             print(pr)
             print('complete')
 
+    print(model_dict_test)
+    print(performance_dict_test)
+
+
+def lhs(data, printlock):
+    atomic_num_list=[33, 83, 51, 15]
+    sampler = qmc.LatinHypercube(d=10)
+    quantity=1
+    sample = sampler.random(n=quantity)
+    #print(sample)
+
+    l_bounds= [0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+    u_bounds= [5, 1, .75, 4, 4, 4, 4, 4, 1, args.epochs]
+    scaled_sample= qmc.scale(sample, l_bounds, u_bounds)
+
+    batch_size_candidates=[16]
+    parameter_sets= []
+
+    for i in range(len(atomic_num_list)):
+        te=atomic_num_list[i]
+        try:
+            va=atomic_num_list[i+1]
+        except:
+            va=atomic_num_list[0]
+        for bs in batch_size_candidates:
+            for row in scaled_sample:
+                row=list(row)
+                row[0]= 10**(-1*row[0])
+                #print(row[3])
+                row[3]= 10**row[3]
+                row[4]= 10**row[4]
+                row[5]= 10**row[5]
+                row[6]= 10**row[6]
+                row[7]= 10**row[7]
+                row[9]= np.rint(row[9])
+                param_set= [te, va, bs]+ row
+                print(param_set)
+                parameter_sets.append(param_set)
+
+    manager = Manager()
+    performance_dict= manager.dict()
+    model_dict = manager.dict()
+
+
+    for i in range(len(parameter_sets)):
+        current_params=parameter_sets[i]
+        test_element= current_params[0]
+        val_element= current_params[1]
+        bs= current_params[2]
+        lr= current_params[3]
+        d1= current_params[4]
+        d2= current_params[5]
+        el= current_params[6]
+        cl= current_params[7]
+        l2_1= current_params[8]
+        l2_2= current_params[9]
+        l2_3= current_params[10]
+        decay_rate=current_params[11]
+        decay_steps=current_params[12]
+        if args.dataset=='prashun':
+            data_tr, data_va, data_te, data_ex= split_for_prashuns_data(data, test_element, val_element)
+        else:
+            data_tr, data_va, data_te, data_ex= split_for_mp(data, test_element, val_element)
+        textlist=[]
+        textlist.append('model # '+str(i))
+        textlist.append('test element='+str(test_element))
+        textlist.append('test size='+str(len(data_te)))
+        textlist.append('val element='+str(val_element))
+        textlist.append('val size='+str(len(data_va)))
+        textlist.append('train size='+str(len(data_tr)))
+        textlist.append('excluded to prevent data leakage:')
+        textlist.append(data_ex)
+        textlist.append('lr='+str(lr))
+        textlist.append('bs='+str(bs))
+        textlist.append('dropouts='+str(d1)+','+str(d2))
+        textlist.append('entropy lambda='+str(el))
+        textlist.append('column lambda='+str(cl))
+        textlist.append('l2 feature reg hyperparams='+str(l2_1)+','+str(l2_2)+','+str(l2_3))
+        textlist.append('decay rate='+str(decay_rate))
+        textlist.append('decay steps='+str(decay_steps))
+
+        loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=bs, epochs=args.epochs)
+        loader_va = DisjointLoader(PartitionedData(data_va), batch_size=len(data_va))
+        loader_te = DisjointLoader(PartitionedData(data_te), batch_size=len(data_te))
+
+        p= Process(target=full_training_loop, args=(printlock, loader_tr, loader_va, loader_te, textlist, test_element, val_element, lr, i, model_dict, performance_dict, d1, d2, el, cl, l2_1, l2_2, l2_3, decay_rate, decay_steps))
+
+        processlist.append(p)
+
+    for pr in processlist:
+        pr.start()
+        print(pr, ' started', flush=True)
+    for pr in processlist:
+        pr.join()
+        print(pr)
+        print('complete')
+
 
 
     print(model_dict)
     print(performance_dict)
-#'lr=", 'bs=', 'dropouts=', 'entropy lambda=', 'column lambda=', 'l2 feature reg hyperparams='
+    print('---')
+    matched_dict={}
+    for i in range(len(parameter_sets)):
+        current_params=parameter_sets[i]
+        bs= current_params[2]
+        lr= current_params[3]
+        tuple_key= (lr, bs)
+        if tuple_key not in matched_dict:
+            matched_dict[tuple_key]= [i]
+        else:
+            matched_dict[tuple_key].append(i)
+
+        #evaluate validation averages
+
+
+    keys=matched_dict.keys()
+
+    for key in keys:
+        mse=[]
+        models= matched_dict[key]
+        print(models)
+        for i in models:
+            mse.append(performance_dict[i])
+
+        print(key)
+        param_subset= [parameter_sets[j] for j in models]
+        print(param_subset)
+        print('averaged validation mse:')
+        avg_val=np.mean(mse)
+        print(avg_val)
+
+        if avg_val<0.52:
+            print('worth running test set')
+
+
+        print('---')
+
+
+
 
 if __name__ == '__main__':
     printlock= Lock()
@@ -417,97 +538,22 @@ if __name__ == '__main__':
     just_testing=True
 
     if just_testing:
-        really_just_testing(data, printlock)
-    else:
-
+        print('TESTING TIME')
         atomic_num_list=[33, 83, 51, 15]
-        sampler = qmc.LatinHypercube(d=9)
-        quantity=1
-        sample = sampler.random(n=quantity)
-        print(sample)
-
-        l_bounds= [0, 0, 0, 0, 0, 0, 0, 0, 0]
-        u_bounds= [1e-3, .5, .5, .5, 1000, 1000, 1000, 1000, 1000]
-        scaled_sample= qmc.scale(sample, l_bounds, u_bounds)
-
-        batch_size_candidates=[64,32,16]
-        parameter_sets= []
+        params=[]
+        partial_params=[[0.000489777,	16,	0.913869433,	0,	0.383829448,	125.5750714,	15.23101633,	96.79498245,	10.89401172,	21.95725808],
+            [0.000302482,	16,	0.731053259,	0,	0.255794306,	530.952971,	2230.294573,	128.7518907,	4.964786942,	146.4514565],
+            [0.000251403,	8,	0.986264179,	0,	0.126747884,	5.992236206,	105.6289856,	5443.214257,	601.0071149,	1.124490158],
+            [0.000302482,	8,	0.731053259,	0,	0.255794306,	530.952971,	2230.294573,	128.7518907,	4.964786942,	146.4514565]]
         for i in range(len(atomic_num_list)):
             te=atomic_num_list[i]
             try:
                 va=atomic_num_list[i+1]
             except:
                 va=atomic_num_list[0]
-            for bs in batch_size_candidates:
-                for row in scaled_sample:
-                    param_set= [te, va, bs]+ list(row)
-                    parameter_sets.append(param_set)
-            #for lr in lr_candidates:
-            #        for bs in batch_size_candidates:
-            #            for d1 in droprate1:
-            #                for d2 in droprate2:
-            #                    for d3 in droprate3:
-            #                        for el in entr_lambda:
-            #                            for cl in column_lambda:
-            #                                parameter_sets.append([te, va, lr, bs, d1, d2, d3, el, cl])
-
-        manager = Manager()
-        performance_dict= manager.dict()
-        model_dict = manager.dict()
-        #print('starting loop')
-        random.shuffle(parameter_sets)
-
-        for i in range(len(parameter_sets)):
-            current_params=parameter_sets[i]
-            test_element= current_params[0]
-            val_element= current_params[1]
-            bs= current_params[2]
-            lr= current_params[3]
-            d1= current_params[4]
-            d2= current_params[5]
-            d3= current_params[6]
-            el= current_params[7]
-            cl= current_params[8]
-            l2_1= current_params[9]
-            l2_2= current_params[10]
-            l2_3= current_params[11]
-            if args.dataset=='prashun':
-                data_tr, data_va, data_te, data_ex= split_for_prashuns_data(data, test_element, val_element)
-            else:
-                data_tr, data_va, data_te, data_ex= split_for_mp(data, test_element, val_element)
-            textlist=[]
-            textlist.append('model # '+str(i))
-            textlist.append('test element='+str(test_element))
-            textlist.append('test size='+str(len(data_te)))
-            textlist.append('val element='+str(val_element))
-            textlist.append('val size='+str(len(data_va)))
-            textlist.append('train size='+str(len(data_tr)))
-            textlist.append('excluded to prevent data leakage:')
-            textlist.append(data_ex)
-            textlist.append('lr='+str(lr))
-            textlist.append('bs='+str(bs))
-            textlist.append('dropouts='+str(d1)+','+str(d2)+','+str(d3))
-            textlist.append('entropy lambda='+str(el))
-            textlist.append('column lambda='+str(cl))
-            textlist.append('l2 feature reg hyperparams='+str(l2_1)+','+str(l2_2)+','+str(l2_3))
-
-            loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=bs, epochs=args.epochs)
-            loader_va = DisjointLoader(PartitionedData(data_va), batch_size=len(data_va))
-            loader_te = DisjointLoader(PartitionedData(data_te), batch_size=len(data_te))
-
-            p= Process(target=full_training_loop, args=(printlock, loader_tr, loader_va, loader_te, textlist, test_element, val_element, lr, i, model_dict, performance_dict, d1, d2, d3, el, cl, l2_1, l2_2, l2_3))
-
-            processlist.append(p)
-
-        for pr in processlist:
-            pr.start()
-            print(pr, ' started', flush=True)
-        for pr in processlist:
-            pr.join()
-            print(pr)
-            print('complete')
-
-
-
-        print(model_dict)
-        print(performance_dict)
+            for row in partial_params:
+                pset=[te, va]+ row
+                params.append(pset)
+        really_just_testing(data, printlock, params)
+    else:
+        lhs(data,printlock)
