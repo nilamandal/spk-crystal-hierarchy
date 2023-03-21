@@ -15,11 +15,9 @@ from pymatgen.core.structure import Structure
 import json
 import argparse
 import time
-from spektral_essential_objects import GaussianDistance,MyDataset,HNetSimple, PartitionedData
-
+from spektral_essential_objects import GaussianDistance,MyDataset,HNetSimple, HNetConcat, PartitionedData
 import matplotlib.pyplot as plt
 
-#from scipy.special import softmax
 
 begin_time = time.time()
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
@@ -48,17 +46,9 @@ parser.add_argument('--random-seed', dest='random_seed', type=int,
 parser.add_argument('--batch-size', dest='batch_size', type=int,
                     help='Batch size.', default=256)
 
-#parser.add_argument('--epochs', default=30, type=int, metavar='N',
-#                    help='number of total epochs to run (default: 30)')
-
-#parser.add_argument('--lr', dest='learning_rate', type=float,
-#                    help='Learning rate.', default=1e-3)
 parser.add_argument('--task', choices=['r', 'c'],
                     default='r', help='complete a regression or '
                         'classification task (default: regression)')
-#parser.add_argument('--patience', dest='patience',default=10, type=int,
-#                    help='num epochs for early stopping')
-
 
 def split_for_prashuns_data(data, test_element, val_element):
     data_tr=[]
@@ -76,9 +66,7 @@ def split_for_prashuns_data(data, test_element, val_element):
             data_va.append(d)
         else:
             data_tr.append(d)
-
     return data_tr, data_va, data_te, data_ex
-
 
 def evaluate(loader, model, cifs, color='#000000', label=''):
     output = []
@@ -92,16 +80,18 @@ def evaluate(loader, model, cifs, color='#000000', label=''):
         inputs, target = loader.__next__()
 
         pred, s_tensor = model(inputs, training=False)
+
         for j in range(len(s_tensor)):
                 assign= s_tensor[j]
-                individual_error= (target[j]-pred[j])**2
+
+                individual_error= (target[j]-pred[0][j])**2
                 if individual_error<0.001:
                     print(cifs[i])
                     print(individual_error)
                     print(assign)
                     print('---')
                 i+=1
-        #plt.scatter(pred, target, c=color, label=label)
+
         if args.task=='c':
             outs = tf.reduce_mean(sparse_categorical_accuracy(target, pred))
 
@@ -110,14 +100,11 @@ def evaluate(loader, model, cifs, color='#000000', label=''):
 
         output.append(outs)
         if step == loader.steps_per_epoch:
-            #plt.show()
-            #b= tf.concat(all_pre_feats, axis=0)
-            #s= tf.concat(all_s, axis=0)
-            #s= None
+
             output = np.array(output)
             return np.average(output), s_tensor, pred#, b
 
-checkpoint_path = "./useful_results/relu_results/lhs_relu31/debugging/110/goodmodel.ckpt"
+checkpoint_path = "./past_results/cgcnnlike_results/10_lhs_13adam/debugging/33/goodmodel.ckpt"
 
 checkpoint_dir = os.path.dirname(checkpoint_path)
 
@@ -130,36 +117,13 @@ datasettime=time.time()-begin_time
 
 loader = DisjointLoader(data, batch_size=args.batch_size, shuffle=False)
 
-model= HNetSimple(args.task, args.num_classes, return_s=True, siamese=False)
-sys.stdout = open('./presentation_prep_assignments3.txt', 'w')
+model= HNetConcat(args.task, args.num_classes, return_s=True)
+sys.stdout = open('./cgcnnlike_10lhs13adam_33_assignments.txt', 'w')
 #print(checkpoint_dir)
 latest = tf.train.latest_checkpoint(checkpoint_dir)
 #print(latest)
 model.load_weights(latest)
 result, s_tensors, pred=evaluate(loader,model, cifs)
-#
-# data_tr, data_va, data_te, data_ex= split_for_prashuns_data(data, 33, 83)
-# loader_tr = DisjointLoader(PartitionedData(data_tr),batch_size=len(data_tr))
-# loader_va = DisjointLoader(PartitionedData(data_va),batch_size=len(data_va))
-# loader_te = DisjointLoader(PartitionedData(data_te),batch_size=len(data_te))
-# plt.figure()
-# result, s_tensors, pred=evaluate(loader_tr,model, '#2596be', 'train (51, 15)')
-#
-# result, s_tensors, pred=evaluate(loader_te,model, '#2ab838', 'test (33)')
-# result, s_tensors, pred=evaluate(loader_va,model, '#f5425a', 'val (83)')
-# x = np.linspace(-6,0,100)
-#
-# plt.plot(x, x, '#000000', label='x=y')
-# plt.xlabel('prediction')
-# plt.ylabel('target')
-# plt.title('model 33')
-# plt.legend()
-# plt.show()
-
-
-#print(result)
-
-
 
 
 # print(s_tensors.shape)

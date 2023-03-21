@@ -21,6 +21,7 @@ import scipy.sparse as sp
 from tensorflow.keras import backend as K
 from tensorflow.keras import activations
 from keras import initializers
+from spektral.layers.ops.scatter import deserialize_scatter
 
 # class HNet(Model):
 #     def __init__(self, task, num_classes, return_s=False):
@@ -176,33 +177,6 @@ from keras import initializers
 #
 #         return tf.map_fn(get_cum_graph_size, nodes)
 
-# class AtomInitializer(object):
-#     """
-#     Base class for intializing the vector representation for atoms.
-#     !!! Use one AtomInitializer per dataset !!!
-#     """
-#     def __init__(self, atom_types):
-#         self.atom_types = set(atom_types)
-#         self._embedding = {}
-#
-#     def get_atom_fea(self, atom_type):
-#         assert atom_type in self.atom_types
-#         return self._embedding[atom_type]
-#
-#     def load_state_dict(self, state_dict):
-#         self._embedding = state_dict
-#         self.atom_types = set(self._embedding.keys())
-#         self._decodedict = {idx: atom_type for atom_type, idx in
-#                             self._embedding.items()}
-#
-#     def state_dict(self):
-#         return self._embedding
-#
-#     def decode(self, idx):
-#         if not hasattr(self, '_decodedict'):
-#             self._decodedict = {idx: atom_type for atom_type, idx in
-#                                 self._embedding.items()}
-#         return self._decodedict[idx]
 
 class GaussianDistance(object):
     """
@@ -355,6 +329,7 @@ class RegularizedDiffPool(DiffPool):
 
 
     def select(self, x, a, i, fltr=None, mask=None):
+        
         s = ops.modal_dot(fltr, K.dot(x, self.kernel_pool))
         s = activations.softmax(s, axis=-1)
         if mask is not None:
@@ -384,10 +359,12 @@ class RegularizedDiffPool(DiffPool):
         return ops.modal_dot(s, z, transpose_a=True)
 
     def column_entropy(self, s):
-        temp=tf.math.divide(tf.math.reduce_sum(s, axis=1),self.k)
+        #print(s)
+        #print(s.shape)
+        temp=tf.math.divide(tf.math.reduce_sum(s, axis=1),s.shape[1])#this should be corrected to average over the number of atoms!
         #we want to maximize the column entropy to encourage distributing nodes into different pools
-        inv_entr = tf.math.divide(1,tf.negative(tf.reduce_sum(tf.multiply(temp, K.log(temp)), axis=-1)))
-
+        inv_entr = tf.reduce_sum(tf.multiply(temp, K.log(temp)), axis=-1) #this should be positive!!!!
+        #print(inv_entr)
         return inv_entr
 
 class SigmoidalDiffPool(RegularizedDiffPool):
@@ -400,72 +377,72 @@ class SigmoidalDiffPool(RegularizedDiffPool):
 
     def select(self, x, a, i, fltr=None, mask=None):
         s = ops.modal_dot(fltr, K.dot(x, self.kernel_pool))
-        #print('in diffpool')
-
         s = activations.sigmoid(s)
-        #print(s)
+
         if mask is not None:
             s *= mask[0]
 
         # Auxiliary losses
-        #column_loss= self.column_entropy(s)
         entr_loss = self.entropy_loss(s)
-
         if K.ndim(x) == 3:
-            #column_loss = K.mean(column_loss)
             entr_loss = K.mean(entr_loss)
-
-        #column_loss=tf.multiply(self.column_lambda,column_loss)
         entr_loss= tf.multiply(self.entr_lambda,entr_loss)
-        #print(column_loss, entr_loss)
-        #self.add_loss(column_loss)
-        self.add_loss(entr_loss)
 
+        self.add_loss(entr_loss)
         return s
 
     def reduce(self, x, s, fltr=None):
         z = ops.modal_dot(fltr, K.dot(x, self.kernel_emb))
         z = self.activation(z)
         z = self.bn_reduce(z)
-        #print(z)
-        return ops.modal_dot(s, z, transpose_a=True)
+        #return ops.modal_dot(s, z, transpose_a=True)
+        return (z, s)
+
+    def get_outputs(self, x_pool, a_pool, i_pool, s):
+        z, s= x_pool
+        output = [ops.modal_dot(s, z, transpose_a=True), a_pool]
+        if i_pool is not None:
+            output.append(i_pool)
+        if self.return_selection:
+            output.append(s)
+            output.append(z)
+        return output
 
 
 class HNetSimple(Model):
-    def __init__(self, task, num_classes, embedding_size=64, d1=0, d2=0, d3=0, el=1, cl=1, l2_1=0, l2_2=0, l2_3=0, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+    def __init__(self, task, num_classes, embedding_size=64, d1=0, d2=0, el=1, cl=1, l2_1=0, l2_2=0, l2_3=0, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
         super().__init__()
 
         self.return_s=return_s
         self.task=task
         self.num_classes=num_classes
-        seeded_initializer= initializers.glorot_uniform(seed=random_seed)
+        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+        he_initializer= initializers.he_uniform(seed=random_seed)
 
-        self.embedding= Dense(embedding_size, kernel_initializer=seeded_initializer, kernel_regularizer=regularizer)
+        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
 
-
-        self.conv1= CrystalConv(kernel_initializer=seeded_initializer, kernel_regularizer=regularizer)#does this l2 have a lambda
+        self.conv1= CrystalConv(kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)#does this l2 have a lambda
         self.bn1= BatchNormalization()
         self.l2_1= tf.constant(l2_1, dtype=tf.float32)
-        self.conv2= CrystalConv(kernel_initializer=seeded_initializer, kernel_regularizer=regularizer)
+        self.conv2= CrystalConv(kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
         self.bn2= BatchNormalization()
         self.l2_2= tf.constant(l2_2, dtype=tf.float32)
-        self.conv3= CrystalConv(kernel_initializer=seeded_initializer, kernel_regularizer=regularizer)
+        self.conv3= CrystalConv(kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
         self.bn3= BatchNormalization()
         self.l2_3= tf.constant(l2_3, dtype=tf.float32)
 
         self.disjoint2batch= Disjoint2Batch()
         self.dropout1= Dropout(d1)
-        self.pool= RegularizedDiffPool(k=2, kernel_initializer=seeded_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
-        #self.dropout2= Dropout(d2)
-        self.finalpool= DiffPool(k=1, kernel_initializer=seeded_initializer)
+        self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
+        self.finalpool= DiffPool(k=1, kernel_initializer=he_initializer, activation='relu')
 
-        self.dropout3= Dropout(d3)
+        self.dropout2= Dropout(d2)
 
         #we should have a dropout after aggregating crystal features
         if self.task=='c':
-            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=seeded_initializer)
+            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
         elif self.task=='r':
-            self.out_layer= Dense(1, kernel_initializer=seeded_initializer)
+            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
 
 
     def call(self, inputs):
@@ -488,7 +465,7 @@ class HNetSimple(Model):
         x, a, s= self.pool([batch_X, batch_A])
 
         x, a = self.finalpool([x, a])
-        x= self.dropout3(x)
+        x= self.dropout2(x)
 
 
         x=self.out_layer(x)
@@ -498,120 +475,42 @@ class HNetSimple(Model):
             return x
 
 class HNetSiamese(Model):
-    def __init__(self, task, num_classes, embedding_size=64, d1=0, d2=0, d3=0, el=1, cl=1, l2_1=0, l2_2=0, l2_3=0, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+    def __init__(self, task, num_classes, embedding_size=64, d1=0, d2=0, el=1, cl=1, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
         super().__init__()
-        seeded_initializer= initializers.glorot_uniform(seed=random_seed)
+        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+        he_initializer= initializers.he_uniform(seed=random_seed)
 
         self.return_s=return_s
         self.task=task
         self.num_classes=num_classes
 
-        self.embedding= Dense(embedding_size, kernel_initializer=seeded_initializer, kernel_regularizer=regularizer)
+        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
 
-        self.conv1= CrystalConv(kernel_initializer=seeded_initializer, kernel_regularizer=regularizer)#does this l2 have a lambda
-        self.bn1= BatchNormalization()
-        self.l2_1= tf.constant(l2_1, dtype=tf.float32)
-        self.conv2= CrystalConv(kernel_initializer=seeded_initializer, kernel_regularizer=regularizer)
-        self.bn2= BatchNormalization()
-        self.l2_2= tf.constant(l2_2, dtype=tf.float32)
-        self.conv3= CrystalConv(kernel_initializer=seeded_initializer, kernel_regularizer=regularizer)
-        self.bn3= BatchNormalization()
-        self.l2_3= tf.constant(l2_3, dtype=tf.float32)
+        self.conv1= CrystalConv(kernel_initializer=glorot_initializer)#does this l2 have a lambda
+        self.conv2= CrystalConv(kernel_initializer=glorot_initializer)
+        self.conv3= CrystalConv(kernel_initializer=glorot_initializer)
 
         self.disjoint2batch= Disjoint2Batch()
         self.dropout1= Dropout(d1)
 
-        self.pool= RegularizedDiffPool(k=2, kernel_initializer=seeded_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
-        self.finalpool= GlobalSumPool()
-
-        self.dropout3= Dropout(d3)
-
-        #we should have a dropout after aggregating crystal features
-        if self.task=='c':
-            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=seeded_initializer)
-        elif self.task=='r':
-            self.out_layer= Dense(1, kernel_initializer=seeded_initializer)
-
-
-    def call(self, inputs):
-        x, a, e, i = inputs
-        x= self.embedding(x)
-        x= self.conv1([x, a, e])
-        self.conv1.add_loss(tf.multiply(self.l2_1,tf.norm(x)))
-        x= self.bn1(x)
-        x= self.conv2([x, a, e])
-        self.conv2.add_loss(tf.multiply(self.l2_2,tf.norm(x)))
-        x= self.bn2(x)
-        x= self.conv3([x, a, e])
-        self.conv3.add_loss(tf.multiply(self.l2_3,tf.norm(x)))
-        x= self.bn3(x)
-
-        x= self.dropout1(x)
-        batch_X, batch_A= self.disjoint2batch([x, a, i])
-        x, a, s= self.pool([batch_X, batch_A])
-
-        w= tf.constant([1.0,-1.0], dtype=tf.float32)
-        x=tf.multiply(x, w[:,tf.newaxis])
-
-        x = self.finalpool([x])
-        x= tf.abs(x)
-
-        x= self.dropout3(x)
-        x=self.out_layer(x)
-
-        if self.return_s:
-            return x, s
-        else:
-            return x
-
-class HNetSiamese(Model):
-    def __init__(self, task, num_classes, embedding_size=64, d1=0, d2=0, el=1, cl=1, l2_1=0, l2_2=0, l2_3=0, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
-        super().__init__()
-        seeded_initializer= initializers.glorot_uniform(seed=random_seed)
-
-        self.return_s=return_s
-        self.task=task
-        self.num_classes=num_classes
-
-        self.embedding= Dense(embedding_size, kernel_initializer=seeded_initializer, kernel_regularizer=regularizer)
-
-        self.conv1= CrystalConv(kernel_initializer=seeded_initializer, kernel_regularizer=regularizer)#does this l2 have a lambda
-        self.bn1= BatchNormalization()
-        self.l2_1= tf.constant(l2_1, dtype=tf.float32)
-        self.conv2= CrystalConv(kernel_initializer=seeded_initializer, kernel_regularizer=regularizer)
-        self.bn2= BatchNormalization()
-        self.l2_2= tf.constant(l2_2, dtype=tf.float32)
-        self.conv3= CrystalConv(kernel_initializer=seeded_initializer, kernel_regularizer=regularizer)
-        self.bn3= BatchNormalization()
-        self.l2_3= tf.constant(l2_3, dtype=tf.float32)
-
-        self.disjoint2batch= Disjoint2Batch()
-        self.dropout1= Dropout(d1)
-
-        self.pool= RegularizedDiffPool(k=2, kernel_initializer=seeded_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
+        self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
         self.finalpool= GlobalSumPool()
 
         self.dropout2= Dropout(d2)
 
         #we should have a dropout after aggregating crystal features
         if self.task=='c':
-            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=seeded_initializer)
+            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
         elif self.task=='r':
-            self.out_layer= Dense(1, kernel_initializer=seeded_initializer)
+            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
 
 
     def call(self, inputs):
         x, a, e, i = inputs
         x= self.embedding(x)
         x= self.conv1([x, a, e])
-        self.conv1.add_loss(tf.multiply(self.l2_1,tf.norm(x)))
-        x= self.bn1(x)
         x= self.conv2([x, a, e])
-        self.conv2.add_loss(tf.multiply(self.l2_2,tf.norm(x)))
-        x= self.bn2(x)
         x= self.conv3([x, a, e])
-        self.conv3.add_loss(tf.multiply(self.l2_3,tf.norm(x)))
-        x= self.bn3(x)
 
         x= self.dropout1(x)
         batch_X, batch_A= self.disjoint2batch([x, a, i])
@@ -632,56 +531,213 @@ class HNetSiamese(Model):
             return x
 
 class HNetSigmoid(Model):
-    def __init__(self, task, num_classes, embedding_size=64, d1=0, d2=0, el=1, cl=1, l2_1=0, l2_2=0, l2_3=0, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+    def __init__(self, task, num_classes, embedding_size=64, d1=0, d2=0, el=1, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
         super().__init__()
         self.return_s=return_s
         self.task=task
         self.num_classes=num_classes
-        seeded_initializer= initializers.glorot_uniform(seed=random_seed)
+        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+        he_initializer= initializers.he_uniform(seed=random_seed)
 
-        self.embedding= Dense(embedding_size, kernel_initializer=seeded_initializer, kernel_regularizer=regularizer)
+        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
 
-
-        self.conv1= CrystalConv(kernel_initializer=seeded_initializer, kernel_regularizer=regularizer)#does this l2 have a lambda? it doesn't.
-        self.bn1= BatchNormalization()
-        self.l2_1= tf.constant(l2_1, dtype=tf.float32)
-        self.conv2= CrystalConv(kernel_initializer=seeded_initializer, kernel_regularizer=regularizer)
-        self.bn2= BatchNormalization()
-        self.l2_2= tf.constant(l2_2, dtype=tf.float32)
-        self.conv3= CrystalConv(kernel_initializer=seeded_initializer, kernel_regularizer=regularizer)
-        self.bn3= BatchNormalization()
-        self.l2_3= tf.constant(l2_3, dtype=tf.float32)
+        self.conv1= CrystalConv(kernel_initializer=glorot_initializer)
+        self.conv2= CrystalConv(kernel_initializer=glorot_initializer)
+        self.conv3= CrystalConv(kernel_initializer=glorot_initializer)
 
         self.disjoint2batch= Disjoint2Batch()
         self.dropout1= Dropout(d1)
-        self.pool= SigmoidalDiffPool(kernel_initializer=seeded_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='linear')
+        self.pool= SigmoidalDiffPool(kernel_initializer=he_initializer, entr_lambda=el, return_selection=True, activation='linear')
         self.dropout2= Dropout(d2)
-        #we should have a dropout after aggregating crystal features
         if self.task=='c':
-            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=seeded_initializer)
+            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
         elif self.task=='r':
-            self.out_layer= Dense(1, kernel_initializer=seeded_initializer)
+            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
 
     def call(self, inputs):
         x, a, e, i = inputs
         x= self.embedding(x)
         x= self.conv1([x, a, e])
-        self.conv1.add_loss(tf.multiply(self.l2_1,tf.norm(x)))
-        x= self.bn1(x)
         x= self.conv2([x, a, e])
-        self.conv2.add_loss(tf.multiply(self.l2_2,tf.norm(x)))
-        x= self.bn2(x)
         x= self.conv3([x, a, e])
-        self.conv3.add_loss(tf.multiply(self.l2_3,tf.norm(x)))
-        x= self.bn3(x)
 
         x= self.dropout1(x)
         batch_X, batch_A= self.disjoint2batch([x, a, i])
 
-        x, a, s= self.pool([batch_X, batch_A])
+        x, a, s, z= self.pool([batch_X, batch_A])
+
+        s_2= tf.subtract(1, s)
+        z_2=ops.modal_dot(s_2,z, transpose_a=True)
+        x= tf.abs(tf.subtract(x, z_2))
+
         x= self.dropout2(x)
 
         x=self.out_layer(x)
+        if self.return_s:
+            return x, s
+        else:
+            return x
+
+
+class ModifiedCrystalConv(CrystalConv):
+     def __init__(self, activation= None, kernel_initializer= None, **kwargs):
+         super().__init__(self, activation=activation, kernel_initializer=kernel_initializer, **kwargs)
+         #print('init complete')
+         #print(self.activation)
+         self.agg = deserialize_scatter('sum')
+         self.bn1= BatchNormalization()
+         self.bn2= BatchNormalization()
+
+
+     def message(self, x, e=None):
+        x_i = self.get_targets(x)
+        x_j = self.get_sources(x)
+
+        to_concat = [x_i, x_j]
+        if e is not None:
+            to_concat += [e]
+        z = K.concatenate(to_concat, axis=-1)
+        z= self.bn1(z)
+        nbr_sumed = self.dense_s(z) * self.dense_f(z)
+        output= self.bn2(nbr_sumed)
+        #print(output.shape)
+        return output
+
+
+
+class HNetConcat(Model):
+    def __init__(self, task, num_classes, embedding_size=52, d1=0, d2=0, el=1, cl=1, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+        super().__init__()
+        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+        he_initializer= initializers.he_uniform(seed=random_seed)
+
+        self.return_s=return_s
+        self.task=task
+        self.num_classes=num_classes
+
+        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
+
+        self.conv1= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)#does this l2 have a lambda
+        self.conv2= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+        self.conv3= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+        # print('modified:')
+        # print(self.conv3.built)
+        # print(self.conv3)
+        # print(self.conv3.aggregate)
+        # print(self.conv3.agg)
+        # print('----')
+        # print(self.conv3.activation)
+        # print(self.conv3.use_bias)
+        # print(self.conv3.kernel_initializer)
+        # print(self.conv3.bias_initializer)
+
+
+        self.disjoint2batch= Disjoint2Batch()
+        self.dropout1= Dropout(d1)
+
+        self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
+        self.finalpool= GlobalSumPool()
+
+        self.dropout2= Dropout(d2)
+        self.fc= Dense(23, activation='softplus', kernel_initializer=he_initializer)
+        #we should have a dropout after aggregating crystal features
+        if self.task=='c':
+            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
+        elif self.task=='r':
+            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
+
+
+    def call(self, inputs):
+        x, a, e, i = inputs
+        #print(self.conv1.built)
+        x= self.embedding(x)
+        x= self.conv1([x, a, e])
+        x= tf.nn.softplus(x)
+        x= self.conv2([x, a, e])
+        x= tf.nn.softplus(x)
+        x= self.conv3([x, a, e])
+        x= tf.nn.softplus(x)
+
+        x= self.dropout1(x)
+        batch_X, batch_A= self.disjoint2batch([x, a, i])
+        x_orig, a, s= self.pool([batch_X, batch_A, i])
+
+        w= tf.constant([1.0,-1.0], dtype=tf.float32)
+        x=tf.multiply(x_orig, w[:,tf.newaxis])
+
+        x = self.finalpool([x])
+        x= tf.abs(x)
+
+        x_orig= tf.reshape(x_orig, (x.shape[0], x_orig.shape[0], x_orig.shape[1]*x_orig.shape[2]))
+
+        x_new=tf.concat([x,x_orig], axis=2)
+
+        x= self.dropout2(x_new)
+        x= self.fc(x)
+        x=self.out_layer(x)
+
+        if self.return_s:
+            return x, s
+        else:
+            return x
+
+class HNetNoSub(Model):
+    def __init__(self, task, num_classes, embedding_size=52, d1=0, d2=0, el=1, cl=1, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+        super().__init__()
+        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+        he_initializer= initializers.he_uniform(seed=random_seed)
+
+        self.return_s=return_s
+        self.task=task
+        self.num_classes=num_classes
+
+        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
+
+        self.conv1= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)#does this l2 have a lambda
+        self.conv2= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+        self.conv3= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+
+        self.disjoint2batch= Disjoint2Batch()
+        self.dropout1= Dropout(d1)
+
+        self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
+        self.finalpool= GlobalSumPool()
+
+        self.dropout2= Dropout(d2)
+        self.fc= Dense(23, activation='softplus', kernel_initializer=he_initializer)
+        #we should have a dropout after aggregating crystal features
+        if self.task=='c':
+            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
+        elif self.task=='r':
+            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
+
+
+    def call(self, inputs):
+        x, a, e, i = inputs
+
+        x= self.embedding(x)
+        x= self.conv1([x, a, e])
+        x= tf.nn.softplus(x)
+        x= self.conv2([x, a, e])
+        x= tf.nn.softplus(x)
+        x= self.conv3([x, a, e])
+        x= tf.nn.softplus(x)
+
+        x= self.dropout1(x)
+        batch_X, batch_A= self.disjoint2batch([x, a, i])
+        x_orig, a, s= self.pool([batch_X, batch_A])
+        #print(x_orig.shape)
+
+
+
+        x= tf.reshape(x_orig, (x_orig.shape[0], x_orig.shape[1]*x_orig.shape[2]))
+        #print(x.shape)
+        #x_new=tf.concat([x,x_orig], axis=2)
+
+        x= self.dropout2(x)
+        x= self.fc(x)
+        x=self.out_layer(x)
+
         if self.return_s:
             return x, s
         else:
