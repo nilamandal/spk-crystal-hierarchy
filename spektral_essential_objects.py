@@ -329,7 +329,7 @@ class RegularizedDiffPool(DiffPool):
 
 
     def select(self, x, a, i, fltr=None, mask=None):
-        
+
         s = ops.modal_dot(fltr, K.dot(x, self.kernel_pool))
         s = activations.softmax(s, axis=-1)
         if mask is not None:
@@ -359,13 +359,16 @@ class RegularizedDiffPool(DiffPool):
         return ops.modal_dot(s, z, transpose_a=True)
 
     def column_entropy(self, s):
-        #print(s)
-        #print(s.shape)
-        temp=tf.math.divide(tf.math.reduce_sum(s, axis=1),s.shape[1])#this should be corrected to average over the number of atoms!
+
+        column_sums=tf.math.reduce_sum(s, axis=1)#this should give shape(batch size, k)
+        column_means=tf.math.divide(column_sums,s.shape[1])#this should give shape(batch size, k)
+        #print(column_means)
+        column_logs=tf.math.log(column_means+ K.epsilon())
         #we want to maximize the column entropy to encourage distributing nodes into different pools
-        inv_entr = tf.reduce_sum(tf.multiply(temp, K.log(temp)), axis=-1) #this should be positive!!!!
-        #print(inv_entr)
-        return inv_entr
+        inv_entr = tf.reduce_sum(tf.multiply(column_means, column_logs),axis=-1) #this should be a positive scalar
+        inv_entr_sum=tf.reduce_sum(inv_entr)
+
+        return inv_entr_sum
 
 class SigmoidalDiffPool(RegularizedDiffPool):
     def __init__(self, channels=None, return_selection=False, activation='relu', kernel_initializer="glorot_uniform",
@@ -660,7 +663,7 @@ class HNetConcat(Model):
 
         x= self.dropout1(x)
         batch_X, batch_A= self.disjoint2batch([x, a, i])
-        x_orig, a, s= self.pool([batch_X, batch_A, i])
+        x_orig, a, s= self.pool([batch_X, batch_A])
 
         w= tf.constant([1.0,-1.0], dtype=tf.float32)
         x=tf.multiply(x_orig, w[:,tf.newaxis])

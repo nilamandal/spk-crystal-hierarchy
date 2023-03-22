@@ -311,7 +311,7 @@ def split_for_prashuns_data(data, test_element, val_element):
             data_va.append(d)
         else:
             data_tr.append(d)
-
+    print(data_tr)
     return data_tr, data_va, data_te, data_ex
 
 
