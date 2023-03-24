@@ -104,7 +104,7 @@ def evaluate(loader, model, cifs, color='#000000', label=''):
             output = np.array(output)
             return np.average(output), s_tensor, pred#, b
 
-checkpoint_path = "./past_results/cgcnnlike_results/10_lhs_13adam/debugging/33/goodmodel.ckpt"
+checkpoint_path = "./cgcnnlike_corrected_results/lhs_0adam1/debugging/8/goodmodel.ckpt"
 
 checkpoint_dir = os.path.dirname(checkpoint_path)
 
@@ -118,7 +118,7 @@ datasettime=time.time()-begin_time
 loader = DisjointLoader(data, batch_size=args.batch_size, shuffle=False)
 
 model= HNetConcat(args.task, args.num_classes, return_s=True)
-sys.stdout = open('./cgcnnlike_10lhs13adam_33_assignments.txt', 'w')
+sys.stdout = open('./cgcnnlike_corrected_results_lhs_0adam1_8_assignments.txt', 'w')
 #print(checkpoint_dir)
 latest = tf.train.latest_checkpoint(checkpoint_dir)
 #print(latest)

@@ -319,7 +319,7 @@ def lhs(data, printlock):
     #atomic_num_list=[33, 83, 51, 15]
     atomic_num_list=[33, 83, 51]
     sampler = qmc.LatinHypercube(d=6)
-    quantity=6
+    quantity=4
     sample = sampler.random(n=quantity)
 
     #lr param, dr1, dr2, el, cl, l2_1, l2_2, l2_3, lr_decay_rate, lr_decay_steps
@@ -350,7 +350,7 @@ def lhs(data, printlock):
     manager = Manager()
     performance_dict= manager.dict()
     model_dict = manager.dict()
-    parameter_sets= [parameter_sets[0]]
+    #parameter_sets= [parameter_sets[0]]
     #training and validation
     for i in range(len(parameter_sets)):
         current_params=parameter_sets[i]
@@ -420,7 +420,7 @@ if __name__ == '__main__':
     np.random.seed(args.random_seed)
     if not os.path.exists(args.path+'/'+args.file_out):
         os.makedirs(args.path+'/'+args.file_out)
-    #sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
+    sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
 
     print(args)
     data= MyDataset(args.datadir,args.filename, args.radius_angstroms, args.num_nbrs, args.task)
@@ -429,32 +429,29 @@ if __name__ == '__main__':
 
 
     lhs(data,printlock)
-    # args.path= args.path+'1'
-    # if not os.path.exists(args.path+'/'+args.file_out):
-    #     os.makedirs(args.path+'/'+args.file_out)
-    # sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
-    # processlist=[]
-    # lhs(data,printlock)
-    # args.path= args.path+'2'
-    # if not os.path.exists(args.path+'/'+args.file_out):
-    #     os.makedirs(args.path+'/'+args.file_out)
-    # sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
-    # processlist=[]
-    # lhs(data,printlock)
-    # args.path= args.path+'3'
-    # if not os.path.exists(args.path+'/'+args.file_out):
-    #     os.makedirs(args.path+'/'+args.file_out)
-    # sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
-    # processlist=[]
-    # lhs(data,printlock)
-    # args.path= args.path+'4'
-    # if not os.path.exists(args.path+'/'+args.file_out):
-    #     os.makedirs(args.path+'/'+args.file_out)
-    # sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
-    # processlist=[]
-    # lhs(data,printlock)
-    # args.path= args.path+'5'
-    # if not os.path.exists(args.path+'/'+args.file_out):
-    #     os.makedirs(args.path+'/'+args.file_out)
-    # sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
+    args.path= args.path+'1'
+    if not os.path.exists(args.path+'/'+args.file_out):
+        os.makedirs(args.path+'/'+args.file_out)
+    sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
+    processlist=[]
+    lhs(data,printlock)
+    args.path= args.path+'2'
+    if not os.path.exists(args.path+'/'+args.file_out):
+        os.makedirs(args.path+'/'+args.file_out)
+    sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
+    processlist=[]
+    lhs(data,printlock)
+    args.path= args.path+'3'
+    if not os.path.exists(args.path+'/'+args.file_out):
+        os.makedirs(args.path+'/'+args.file_out)
+    sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
+    processlist=[]
+    lhs(data,printlock)
+    args.path= args.path+'4'
+    if not os.path.exists(args.path+'/'+args.file_out):
+        os.makedirs(args.path+'/'+args.file_out)
+    sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
+    processlist=[]
+    lhs(data,printlock)
+
     #full_training_loop(printlock, loader_tr, loader_te, [], textlist, 0, te, lr, str(te)+'_', {}, {}, dr1, dr2, el, cl, r1, r2, r3, testing=True)

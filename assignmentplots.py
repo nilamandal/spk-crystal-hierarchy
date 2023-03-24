@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 color_dict={15: '#d479cf',20: '#b179d4',38: '#4400ff', 4: '#0057d1', 12:'#4aedca',25:'#d02669', 30:'#a83238', 33:'#2bcc59', 48:'#264dd0', 51:'#de8a2a', 56:'#ccc72b', 70:'#71cc2b', 80: '#40bde3', 83:'#5bad60'}
 electronegativity_dict={80: 2, 48: 1.69, 30: 1.65, 4: 1.57, 25: 1.55, 12: 1.31, 70: 1.1, 20: 1, 38: 0.95, 56: 0.89, 15: 2.19, 33: 2.18, 51: 2.05, 83: 2.02}
 
-f= open('cgcnnlike_10lhs13adam_33_assignments.txt')
+f= open('cgcnnlike_corrected_results_lhs_0adam_0_assignments.txt')
 f= f.readlines()
 assignment_dict={'good':[], 'allinone':[], 'other':[]}
 for i in range(len(f)):
@@ -36,9 +36,10 @@ for i in range(len(f)):
 
         assignment=np.array(coords)
         sums=assignment.sum(axis=0)
-        if sums[0]==0 or sums[1]==0:
+        if sums[0]==0 or sums[1]==0 or sums[1]==len(crysta;) or sums[0]==len(crystal):
             assignment_dict['allinone'].append(line.strip())
         else:
+            #separate into good or other
             print(line)
             print(assignment)
             print(sums)
@@ -53,4 +54,4 @@ for i in range(len(f)):
         plt.title(line.strip()+', sq. error='+error)
         plt.xlabel('assignment column 1')
         plt.ylabel('assignment column 2')
-        plt.savefig('./cgcnnlike_10lhs13adam_33_assignments/'+line.strip()+'_good_assignment_112.png')
+        plt.savefig('./cgcnnlike_corrected_results_lhs_0adam_0_assignments/'+line.strip()+'_good_assignment.png')

@@ -110,52 +110,35 @@ def read_test(filename):
     print(min)
     print('---')
 
+def identify_best(csv_name, new_name):
+    df= pd.read_csv(csv_name)
+    te_keys=[33,51,83]
+    lr_keys=np.unique(df['lr'].to_numpy())
+    bs_keys=np.unique(df['bs'].to_numpy())
+    df_new=pd.DataFrame(columns=['te', 'lr', 'bs', 'val_avg'])
+    for te_key in te_keys:
+         for lr_key in lr_keys:
+             for bs_key in bs_keys:
+                 df_temp=df[(df['te']==te_key) & (df['lr']==lr_key) &(df['bs']==bs_key)]
+                 if len(df_temp)>0:
+                      avg=np.mean(df[(df['te']==te_key) & (df['lr']==lr_key) &(df['bs']==bs_key)]['val_error'])
+                      df_new.loc[len(df_new.index)]=[te_key, lr_key, bs_key, avg]
+    df_newest=pd.merge(df, df_new, on=['te', 'lr', 'bs'], how='inner')
+    print(df_newest)
+    df_newest.to_csv(new_name)
 
-read_test('./noabsdiff_results/test_results/test15/debugging/debugging.txt')
-read_test('./noabsdiff_results/test_results/test33/debugging/debugging.txt')
-read_test('./noabsdiff_results/test_results/test83/debugging/debugging.txt')
-read_test('./noabsdiff_results/test_results/test51/debugging/debugging.txt')
-# file_list= list(range(21))
-#
-# for file in file_list:
+#read_test('./noabsdiff_results/test_results/test15/debugging/debugging.txt')
+#read_test('./noabsdiff_results/test_results/test33/debugging/debugging.txt')
+#read_test('./noabsdiff_results/test_results/test83/debugging/debugging.txt')
+#read_test('./noabsdiff_results/test_results/test51/debugging/debugging.txt')
+#file_list= ['', '1','12','123','1234']
+#for file in file_list:
 #      try:
-#          file_extractor('./noabsdiff_results/10_lhs_'+str(file)+'/debugging/debugging.txt')
-#          file_extractor('./noabsdiff_results/10_lhs_'+str(file)+'adam/debugging/debugging.txt')
-#          file_extractor('./noabsdiff_results/lhs_'+str(file)+'/debugging/debugging.txt')
-#          file_extractor('./noabsdiff_results/lhs_'+str(file)+'adam/debugging/debugging.txt')
-#
-#      except:
-#          print(file)
-# df.to_csv('noabsdiff_sweep.csv')
-# df= pd.read_csv('./noabsdiff_sweep.csv')
-# te_keys=[15,33,51,83]
-# lr_keys=np.unique(df['lr'].to_numpy())
-# bs_keys=np.unique(df['bs'].to_numpy())
-# gooddict={}
-# df_new=pd.DataFrame(columns=['te', 'lr', 'bs', 'val_avg'])
-#print(te_keys)
-#print(lr_keys)
-#print(bs_keys)
-# for te_key in te_keys:
-#      for lr_key in lr_keys:
-#          for bs_key in bs_keys:
-#             #print(te_key, lr_key, bs_key)
-#              df_temp=df[(df['te']==te_key) & (df['lr']==lr_key) &(df['bs']==bs_key)]
-#              if len(df_temp)>0:
-#                   avg=np.mean(df[(df['te']==te_key) & (df['lr']==lr_key) &(df['bs']==bs_key)]['val_error'])
-#                   df_new.loc[len(df_new.index)]=[te_key, lr_key, bs_key, avg]
-#
-# #
-# #             print()
-# #
-# #             #gooddict[(te_key,lr_key)]= avg
-#         #print('---')
-#
-#
-# #meankeeper=df.groupby(['te', 'lr', 'bs'], as_index=False).mean()
-# print(df)
-# print(df_new)
-#
-# df_newest=pd.merge(df, df_new, on=['te', 'lr', 'bs'], how='inner')
-# print(df_newest)
-# df_newest.to_csv('./noabsdiff_avgs.csv')
+          #file_extractor('./nosub_results/lhs_0adam'+str(file)+'/debugging/debugging.txt')
+          #file_extractor('./nosub_results/lhs_0sgd'+str(file)+'/debugging/debugging.txt')
+
+      #except:
+         # print(file)
+#df.to_csv('nosub_corrected_sweep.csv')
+identify_best('nosub_corrected_sweep.csv', 'nosub_corrected_val_avg.csv')
+identify_best('cgcnnlike_corrected_sweep.csv', 'cgcnnlike_corrected_val_avg.csv')
