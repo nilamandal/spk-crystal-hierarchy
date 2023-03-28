@@ -18,7 +18,7 @@ from pymatgen.core.structure import Structure
 import json
 import argparse
 import time
-from spektral_essential_objects import GaussianDistance, MyDataset, HNetSimple, HNetSiamese, HNetSigmoid, HNetNoSub, PartitionedData, HNetConcat
+from spektral_essential_objects import GaussianDistance, MyDataset, HNetSimple, HNetSiamese, HNetSigmoid, HNetNoSub, PartitionedData, HNetConcat, HNetElementProduct
 from multiprocessing import Process, Lock, Value, Manager, Semaphore
 from scipy.stats import qmc
 import matplotlib.pyplot as plt
@@ -311,7 +311,7 @@ def split_for_prashuns_data(data, test_element, val_element):
             data_va.append(d)
         else:
             data_tr.append(d)
-    print(data_tr)
+    #print(data_tr)
     return data_tr, data_va, data_te, data_ex
 
 
@@ -340,9 +340,7 @@ def lhs(data, printlock):
                         row[1]= 10**(-1*row[1])
                         row[4]= 10**row[4]
                         row[5]= 10**row[5]
-                        #row[6]= 10**row[6]
-                        #row[7]= 10**row[7]
-                        #row[8]= 10**row[8]
+
                         param_set= [te, va]+ row
                         print(param_set)
                         parameter_sets.append(param_set)
@@ -362,11 +360,7 @@ def lhs(data, printlock):
         d2= current_params[5]
         el= current_params[6]
         cl= current_params[7]
-        #r1= current_params[8]
-        #r2= current_params[9]
-        #r3= current_params[10]
-        #decay_rate=current_params[8]
-        #decay_steps=current_params[9]
+
         if args.dataset=='prashun':
             data_tr, data_va, data_te, data_ex= split_for_prashuns_data(data, test_element, val_element)
         else:
@@ -385,9 +379,7 @@ def lhs(data, printlock):
         textlist.append('dropouts='+str(d1)+','+str(d2))
         textlist.append('entropy lambda='+str(el))
         textlist.append('column lambda='+str(cl))
-        #textlist.append('l2 feature reg hyperparams='+str(r1)+','+str(r2)+','+str(r3))
-        #textlist.append('decay rate='+str(decay_rate))
-        #textlist.append('decay steps='+str(decay_steps))
+
 
         loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=bs, epochs=args.epochs)
         loader_va = DisjointLoader(PartitionedData(data_va), batch_size=len(data_va))

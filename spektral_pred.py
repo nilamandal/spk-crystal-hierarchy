@@ -15,7 +15,7 @@ from pymatgen.core.structure import Structure
 import json
 import argparse
 import time
-from spektral_essential_objects import GaussianDistance,MyDataset,HNetSimple, HNetConcat, PartitionedData
+from spektral_essential_objects import GaussianDistance,MyDataset,HNetSimple, HNetConcat, PartitionedData, HNetElementProduct
 import matplotlib.pyplot as plt
 
 
@@ -104,7 +104,7 @@ def evaluate(loader, model, cifs, color='#000000', label=''):
             output = np.array(output)
             return np.average(output), s_tensor, pred#, b
 
-checkpoint_path = "./cgcnnlike_corrected_results/lhs_0adam1/debugging/8/goodmodel.ckpt"
+checkpoint_path = "./spk_noz_corrected_results/lhs_0adam1234/debugging/22/goodmodel.ckpt"
 
 checkpoint_dir = os.path.dirname(checkpoint_path)
 
@@ -118,7 +118,7 @@ datasettime=time.time()-begin_time
 loader = DisjointLoader(data, batch_size=args.batch_size, shuffle=False)
 
 model= HNetConcat(args.task, args.num_classes, return_s=True)
-sys.stdout = open('./cgcnnlike_corrected_results_lhs_0adam1_8_assignments.txt', 'w')
+sys.stdout = open('./noz2_1234_22_assignments.txt', 'w')
 #print(checkpoint_dir)
 latest = tf.train.latest_checkpoint(checkpoint_dir)
 #print(latest)

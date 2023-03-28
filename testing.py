@@ -131,14 +131,14 @@ def identify_best(csv_name, new_name):
 #read_test('./noabsdiff_results/test_results/test33/debugging/debugging.txt')
 #read_test('./noabsdiff_results/test_results/test83/debugging/debugging.txt')
 #read_test('./noabsdiff_results/test_results/test51/debugging/debugging.txt')
-#file_list= ['', '1','12','123','1234']
-#for file in file_list:
-#      try:
-          #file_extractor('./nosub_results/lhs_0adam'+str(file)+'/debugging/debugging.txt')
-          #file_extractor('./nosub_results/lhs_0sgd'+str(file)+'/debugging/debugging.txt')
+file_list= ['', '1']#, '12', '123', '1234']
+for file in file_list:
+      try:
+          file_extractor('./newresults/lhs_0adam'+str(file)+'/debugging/debugging.txt')
+          #file_extractor('./spk_elementwise_results/lhs_0adam'+str(file)+'/debugging/debugging.txt')
 
-      #except:
-         # print(file)
-#df.to_csv('nosub_corrected_sweep.csv')
-identify_best('nosub_corrected_sweep.csv', 'nosub_corrected_val_avg.csv')
-identify_best('cgcnnlike_corrected_sweep.csv', 'cgcnnlike_corrected_val_avg.csv')
+      except:
+         print(file)
+df.to_csv('noz_sweep3.csv')
+identify_best('noz_sweep3.csv', 'noz_val_avg3.csv')
+#identify_best('noz_sweep.csv', 'noz_val_avg.csv')

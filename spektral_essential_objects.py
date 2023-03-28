@@ -5,7 +5,7 @@ from spektral.layers import CrystalConv, DiffPool, ops, GlobalSumPool, GlobalAvg
 import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import SGD, Adam
-from tensorflow.keras.layers import Dense, BatchNormalization, Dropout
+from tensorflow.keras.layers import Dense, BatchNormalization, Dropout, Multiply
 from tensorflow.keras.losses import MeanSquaredError, SparseCategoricalCrossentropy
 from tensorflow.keras.metrics import sparse_categorical_accuracy
 from tensorflow.keras.regularizers import L2
@@ -22,160 +22,6 @@ from tensorflow.keras import backend as K
 from tensorflow.keras import activations
 from keras import initializers
 from spektral.layers.ops.scatter import deserialize_scatter
-
-# class HNet(Model):
-#     def __init__(self, task, num_classes, return_s=False):
-#         super().__init__()
-#         self.return_s=return_s
-#         self.task=task
-#         self.num_classes=num_classes
-#         self.embedding= Dense(64)
-#         self.conv1= CrystalConv()
-#         self.conv2= CrystalConv()
-#         self.conv3= CrystalConv()
-#
-#         self.assign_embedding= Dense(64)
-#         self.assign_conv1= CrystalConv()
-#         self.assign_conv2= CrystalConv()
-#         self.assign_conv3= CrystalConv()
-#
-#         self.pool= DiffPool(k=3, return_selection=True)
-#         self.conv4= CrystalConv()
-#         self.avgpool= GlobalAvgPool()
-#         self.avgpool.data_mode='disjoint'
-#         if self.task=='c':
-#             self.out_layer= Dense(self.num_classes, activation='softmax')
-#         elif self.task=='r':
-#             self.out_layer= Dense(1)
-#
-#
-#
-#     def call(self, inputs):
-#         x, a, e, i = inputs
-#
-#         x_assign= self.assign_embedding(x)
-#
-#         x_assign= self.assign_conv1([x_assign, a, e])
-#         x_assign= self.assign_conv2([x_assign, a, e])
-#         x_assign= self.assign_conv3([x_assign, a, e])
-#
-#         x= self.embedding(x)
-#         x= self.conv1([x, a, e])
-#         x= self.conv2([x, a, e])
-#         x= self.conv3([x, a, e])
-#
-#         batch_X = ops.disjoint_signal_to_batch(x, i)
-#         batch_assignfeats= ops.disjoint_signal_to_batch(x_assign, i)
-#         batch_A, batch_E = self.local_disjoint_adjacency_to_batch(e, a, i)#had to rewrite
-#
-#         x_assign, a, s= self.pool([batch_assignfeats, batch_A])
-#
-#         x_temp=tf.einsum('bij,bmn->bjn',s,batch_X)
-#
-#         i=tf.convert_to_tensor([k for k in range(0,x_temp.shape[0]) for j in range(0,3)])
-#         x= tf.reshape(x_temp, (x_temp.shape[0]*x_temp.shape[1],x_temp.shape[2]))
-#
-#         temp=tf.einsum('bijk,bil->bilk',batch_E,s)
-#         e_new=tf.einsum('bmn,bilk->bnlk',s,temp)
-#
-#         temp_e=tf.math.reduce_max(e_new, axis=3)
-#         a_count=tf.math.count_nonzero(a)
-#         e_count=tf.math.count_nonzero(temp_e)
-#         zero = tf.constant(0, dtype=tf.float32)
-#
-#         if a_count!=e_count:
-#             where2=tf.not_equal(a, zero)
-#             indices_a= tf.where(where2)
-#             e=tf.gather_nd(e_new, indices_a)
-#
-#         else:
-#             e= tf.reshape(e_new, (e_new.shape[0]*e_new.shape[1]*e_new.shape[2],e_new.shape[3]))
-#
-#             temp2=tf.math.reduce_max(e, axis=1)
-#             where = tf.not_equal(temp2, zero)
-#             indices = tf.where(where)
-#
-#             temp3=tf.gather(e, indices, axis=0)
-#             e=tf.reshape(temp3, (temp3.shape[0],temp3.shape[2]))
-#
-#         #need to turn adj. back to disjoing mode.
-#         adj_empty = np.zeros((x.shape[0], x.shape[0]))
-#         idx=0
-#         for j in a:
-#             adj_empty[idx:idx+3, idx:idx+3]=j
-#             idx+=3
-#
-#         a_new= tf.sparse.from_dense(adj_empty)
-#
-#         x=self.conv4([x, a_new, e])
-#
-#         x=self.avgpool([x, i])
-#         x=self.out_layer(x)
-#
-#         if self.return_s:
-#             return x, s
-#         else:
-#             return x
-#
-#     def local_disjoint_adjacency_to_batch(self, E, A, I):
-#         I = tf.cast(I, tf.int64)
-#         E = tf.cast(E, tf.float32)
-#         A = tf.cast(A, tf.float32)
-#         indices = A.indices
-#         values = tf.cast(A.values, tf.int64)
-#         i_nodes, j_nodes = indices[:, 0], indices[:, 1]
-#
-#         graph_sizes = tf.math.segment_sum(tf.ones_like(I), I)
-#         max_n_nodes = tf.reduce_max(graph_sizes)
-#         n_graphs = tf.shape(graph_sizes)[0]
-#         relative_j_nodes = j_nodes - self._vectorised_get_cum_graph_size(j_nodes, graph_sizes)
-#         #relative_i_nodes = i_nodes - self._vectorised_get_cum_graph_size(i_nodes, graph_sizes)
-#
-#         #spaced_i_nodes = I * max_n_nodes + relative_i_nodes
-#         new_indices = tf.transpose(tf.stack([i_nodes, relative_j_nodes]))
-#
-#         new_indices = tf.cast(new_indices, tf.int32)
-#         n_graphs = tf.cast(n_graphs, tf.int32)
-#         max_n_nodes = tf.cast(max_n_nodes, tf.int32)
-#
-#         #adj
-#         dense_adjacency = tf.scatter_nd(
-#             new_indices, values, (n_graphs * max_n_nodes, max_n_nodes)
-#         )
-#
-#         batch_adj = tf.reshape(dense_adjacency, (n_graphs, max_n_nodes, max_n_nodes))
-#         batch_adj = tf.cast(batch_adj, tf.float32)
-#
-#         #edge
-#         dense_edge = tf.scatter_nd(
-#             new_indices, E, (n_graphs * max_n_nodes, max_n_nodes, 41)
-#         )
-#
-#         batch_edge = tf.reshape(dense_edge, (n_graphs, max_n_nodes, max_n_nodes, 41))
-#
-#         batch_edge = tf.cast(batch_edge, tf.float32)
-#
-#         return batch_adj, batch_edge
-#
-#
-#     def _vectorised_get_cum_graph_size(self, nodes, graph_sizes):
-#         """
-#         Takes a list of node ids and graph sizes ordered by segment ID and returns the
-#         number of nodes contained in graphs with smaller segment ID.
-#         :param nodes: List of node ids of shape (nodes)
-#         :param graph_sizes: List of graph sizes (i.e. tf.math.segment_sum(tf.ones_like(I), I) where I are the
-#         segment IDs).
-#         :return: A list of shape (nodes) where each entry corresponds to the number of nodes contained in graphs
-#         with smaller segment ID for each node.
-#         """
-#
-#         def get_cum_graph_size(node):
-#             cum_graph_sizes = tf.cumsum(graph_sizes, exclusive=True)
-#             indicator_if_smaller = tf.cast(node - cum_graph_sizes >= 0, tf.int32)
-#             graph_id = tf.reduce_sum(indicator_if_smaller) - 1
-#             return tf.cumsum(graph_sizes, exclusive=True)[graph_id]
-#
-#         return tf.map_fn(get_cum_graph_size, nodes)
 
 
 class GaussianDistance(object):
@@ -327,10 +173,11 @@ class RegularizedDiffPool(DiffPool):
                 kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer, kernel_constraint=kernel_constraint,
                 **kwargs)
 
+        self.assignment_fc= Dense(2)
 
     def select(self, x, a, i, fltr=None, mask=None):
 
-        s = ops.modal_dot(fltr, K.dot(x, self.kernel_pool))
+        s = self.assignment_fc(x)
         s = activations.softmax(s, axis=-1)
         if mask is not None:
             s *= mask[0]
@@ -352,11 +199,11 @@ class RegularizedDiffPool(DiffPool):
         return s
 
     def reduce(self, x, s, fltr=None):
-        z = ops.modal_dot(fltr, K.dot(x, self.kernel_emb))
-        z = self.activation(z)
-        z = self.bn_reduce(z)
+        #z = ops.modal_dot(fltr, K.dot(x, self.kernel_emb))
+        #z = self.activation(z)
+        #z = self.bn_reduce(z)
 
-        return ops.modal_dot(s, z, transpose_a=True)
+        return ops.modal_dot(s, x, transpose_a=True)
 
     def column_entropy(self, s):
 
@@ -623,17 +470,6 @@ class HNetConcat(Model):
         self.conv1= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)#does this l2 have a lambda
         self.conv2= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
         self.conv3= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
-        # print('modified:')
-        # print(self.conv3.built)
-        # print(self.conv3)
-        # print(self.conv3.aggregate)
-        # print(self.conv3.agg)
-        # print('----')
-        # print(self.conv3.activation)
-        # print(self.conv3.use_bias)
-        # print(self.conv3.kernel_initializer)
-        # print(self.conv3.bias_initializer)
-
 
         self.disjoint2batch= Disjoint2Batch()
         self.dropout1= Dropout(d1)
@@ -738,6 +574,81 @@ class HNetNoSub(Model):
         #x_new=tf.concat([x,x_orig], axis=2)
 
         x= self.dropout2(x)
+        x= self.fc(x)
+        x=self.out_layer(x)
+
+        if self.return_s:
+            return x, s
+        else:
+            return x
+
+
+class HNetElementProduct(Model):
+    def __init__(self, task, num_classes, embedding_size=52, d1=0, d2=0, el=1, cl=1, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+        super().__init__()
+        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+        he_initializer= initializers.he_uniform(seed=random_seed)
+
+        self.return_s=return_s
+        self.task=task
+        self.num_classes=num_classes
+
+        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
+
+        self.conv1= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+        self.conv2= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+        self.conv3= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+
+        self.disjoint2batch= Disjoint2Batch()
+        self.dropout1= Dropout(d1)
+
+        self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
+        self.elementwise_multiply= Multiply()
+        self.finalpool= GlobalSumPool()
+
+        self.dropout2= Dropout(d2)
+        self.fc= Dense(23, activation='softplus', kernel_initializer=he_initializer)
+
+        if self.task=='c':
+            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
+        elif self.task=='r':
+            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
+
+
+    def call(self, inputs):
+        x, a, e, i = inputs
+
+        x= self.embedding(x)
+        x= self.conv1([x, a, e])
+        x= tf.nn.softplus(x)
+        x= self.conv2([x, a, e])
+        x= tf.nn.softplus(x)
+        x= self.conv3([x, a, e])
+        x= tf.nn.softplus(x)
+
+        x= self.dropout1(x)
+        batch_X, batch_A= self.disjoint2batch([x, a, i])
+        x_orig, a, s= self.pool([batch_X, batch_A])
+
+        w= tf.constant([1.0,-1.0], dtype=tf.float32)
+        x=tf.multiply(x_orig, w[:,tf.newaxis])
+        x = self.finalpool([x])
+        x= tf.abs(x)
+
+        x_pre_product= tf.reshape(x_orig, (x_orig.shape[1], x_orig.shape[0], x_orig.shape[2]))
+        x_product= self.elementwise_multiply([x_pre_product[0], x_pre_product[1]])
+        x_product= tf.reshape(x_product, (1, x_product.shape[0], x_product.shape[1]))
+
+        x_orig= tf.reshape(x_orig, (x.shape[0], x_orig.shape[0], x_orig.shape[1]*x_orig.shape[2]))
+
+        x_new=tf.concat([x,x_orig, x_product], axis=2)
+        #print(x.shape)
+        #print(x_orig.shape)
+        #print(x_product.shape)
+        #print(x_new.shape)
+        #print('---')
+
+        x= self.dropout2(x_new)
         x= self.fc(x)
         x=self.out_layer(x)
 
