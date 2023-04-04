@@ -93,9 +93,9 @@ class MyHyperModel(keras_tuner.HyperModel):
 
 tuner = keras_tuner.BayesianOptimization(
     objective=keras_tuner.Objective("my_metric", "min"),
-    max_trials=2,
+    max_trials=5,
     hypermodel=MyHyperModel(),
-    directory="results",
+    directory="bayesresults",
     project_name="custom_training",
     overwrite=True,
 )

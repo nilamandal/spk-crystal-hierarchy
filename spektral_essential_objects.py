@@ -173,12 +173,23 @@ class RegularizedDiffPool(DiffPool):
                 kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer, kernel_constraint=kernel_constraint,
                 **kwargs)
 
-        self.assignment_fc= Dense(2)
+        self.assignment_fc= Dense(1)
+
+    def build(self, input_shape):
+        in_channels = input_shape[0][-1]
+        if self.channels is None:
+            self.channels = in_channels
+        super(DiffPool, self).build(input_shape)
 
     def select(self, x, a, i, fltr=None, mask=None):
 
         s = self.assignment_fc(x)
-        s = activations.softmax(s, axis=-1)
+        #s = activations.softmax(s, axis=-1)
+        s_1 = activations.sigmoid(s)
+        s_2 = tf.ones(s_1.shape)
+        s_2 = tf.subtract(s_2,s_1)
+        s= tf.concat([s_1, s_2], axis=2)
+
         if mask is not None:
             s *= mask[0]
 

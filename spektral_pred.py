@@ -26,7 +26,7 @@ parser.add_argument('--datadir', dest='datadir',
         help='Directory where dataset is located', default='../cgcnn-pretrained-models/data/10atom_relaxed_cifs')
 
 parser.add_argument('--filename', dest='filename',
-                    help='csv where data is located', default='id_prop.csv')
+                    help='csv where data is located', default='id_mini.csv')
 parser.add_argument('--file-out', dest='file_out',
                     help='output txt file name', default='predscriptout.txt')
 #parser.add_argument('--path-out', dest='path',
@@ -104,7 +104,7 @@ def evaluate(loader, model, cifs, color='#000000', label=''):
             output = np.array(output)
             return np.average(output), s_tensor, pred#, b
 
-checkpoint_path = "./spk_noz_corrected_results/lhs_0adam1234/debugging/22/goodmodel.ckpt"
+checkpoint_path = "./noz_4th_batch/0adamredo1/debugging/4/goodmodel.ckpt"
 
 checkpoint_dir = os.path.dirname(checkpoint_path)
 
@@ -118,12 +118,33 @@ datasettime=time.time()-begin_time
 loader = DisjointLoader(data, batch_size=args.batch_size, shuffle=False)
 
 model= HNetConcat(args.task, args.num_classes, return_s=True)
-sys.stdout = open('./noz2_1234_22_assignments.txt', 'w')
+#sys.stdout = open('./trash.txt', 'w')
 #print(checkpoint_dir)
 latest = tf.train.latest_checkpoint(checkpoint_dir)
 #print(latest)
 model.load_weights(latest)
 result, s_tensors, pred=evaluate(loader,model, cifs)
+for layer in model.layers:
+    print(layer.name, layer)
+    if layer.name == 'dense_2':
+        np.save('noz4_1_4_fc',layer.weights[0].numpy())
+    # if layer.name=='regularized_diff_pool':
+    #     rdp_all=layer.weights
+    #     for i in range(len(rdp_all)):
+    #         print(rdp_all[i])
+    #     s_weights=rdp_all[0].numpy()
+    #     np.save('noz4_1_0_sweights', s_weights)
+        # plt.scatter(s_weights[:,0], s_weights[:,1], c=list(range(52)))
+        # plt.xlabel('s weights column 1')
+        # plt.xlim(-0.5, 0.5)
+        # plt.ylim(-0.5, 0.5)
+        # plt.ylabel('s weights column 2')
+        # plt.title('noz4_1_0 (good)')
+        # plt.savefig('noz4_1_0_sweights.png')
+    #print(layer.weights)
+    #print(layer.bias)
+    #print('---')
+#
 
 
 # print(s_tensors.shape)

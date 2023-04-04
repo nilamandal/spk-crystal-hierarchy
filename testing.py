@@ -10,6 +10,7 @@ import os
 import sys
 import argparse
 import time
+import matplotlib.pyplot as plt
 
 df= pd.DataFrame(columns=['te', 'va', 'lr', 'bs', 'dr1', 'dr2', 'el', 'cl', 'l2_1', 'l2_2', 'l2_3', 'model_num', 'path', 'val_error'])
 
@@ -38,12 +39,13 @@ def file_extractor(filename):
                    performance_dict[pair[0]]=float(pair[1])
                except:
                    path_dict[pair[0]]=pair[1][1:-1]
-    #print(performance_dict)
+
     for line in f:
          if 'testing time' in line:
                  break
-         if 'model #' in line:
+         if '----NEW EXP----' in line:
              temp=line.split("', '")
+             expline=None
              model_num= None
              lr= None
              bs= None
@@ -83,9 +85,9 @@ def file_extractor(filename):
                      l2_2= float(all[1])
                      l2_3= float(all[2])
 
-
+             #print([te, va, lr, bs, dr1, dr2, el, cl, l2_1, l2_2, l2_3, 'model_num', 'path', 'val_error'])
              df.loc[len(df.index)] = [te, va, lr, bs, dr1, dr2, el, cl, l2_1, l2_2, l2_3, 'model_num', 'path', 'val_error']
-
+             #print(model_num)
              df.loc[(df['te']==te) & (df['va']==va) & (np.round(df['lr'], 6)==np.round(lr,6)), 'model_num']= model_num
              df.loc[(df['te']==te) & (df['va']==va) & (np.round(df['lr'], 6)==np.round(lr,6)), 'path']= filename
              df.loc[(df['te']==te) & (df['va']==va) & (np.round(df['lr'], 6)==np.round(lr,6)), 'val_error']= performance_dict[model_num]
@@ -95,9 +97,10 @@ def read_test(filename):
     f= open(filename)
     f= f.readlines()
     min= np.inf
+    print(filename)
     for line in f:
         if 'model #' in line:
-            #min= np.inf
+            min= np.inf
             temp=line.split("', '")
             for i in range(len(temp)):
                 currentline= temp[i]
@@ -105,10 +108,10 @@ def read_test(filename):
                     val_mse=float(temp[i+1])
                     if val_mse<min:
                         min= val_mse
-            #print(min)
-    print(filename)
-    print(min)
-    print('---')
+            print(min)
+
+    #print(min)
+            print('---')
 
 def identify_best(csv_name, new_name):
     df= pd.read_csv(csv_name)
@@ -127,18 +130,38 @@ def identify_best(csv_name, new_name):
     print(df_newest)
     df_newest.to_csv(new_name)
 
-#read_test('./noabsdiff_results/test_results/test15/debugging/debugging.txt')
-#read_test('./noabsdiff_results/test_results/test33/debugging/debugging.txt')
-#read_test('./noabsdiff_results/test_results/test83/debugging/debugging.txt')
-#read_test('./noabsdiff_results/test_results/test51/debugging/debugging.txt')
-file_list= ['', '1']#, '12', '123', '1234']
-for file in file_list:
-      try:
-          file_extractor('./newresults/lhs_0adam'+str(file)+'/debugging/debugging.txt')
-          #file_extractor('./spk_elementwise_results/lhs_0adam'+str(file)+'/debugging/debugging.txt')
+def bin_histogram(filename, bins):
+    fc_weights= np.load(filename)
+    fc_norms=np.linalg.norm(fc_weights, 2, axis=1)
+    print(fc_norms.shape)
+    #abs_diff= np.abs(s_weights[:,0]-s_weights[:,1])
+    #nodes_all= np.concatenate((s_weights[:,0],s_weights[:,1]))
+    plt.figure()
+    plt.hist(fc_norms, bins)
+    plt.title('fc weight norms for noz4_1_4')
+    plt.xlabel('fc weight norms ('+str(bins)+' bins)')
+    plt.ylabel('count (out of 156)')
+    plt.savefig('./noz4_1_4_fc_'+str(bins)+'bins.png')
+    #
+    # plt.figure()
+    # plt.hist(nodes_all, bins)
+    # plt.title('s-layer weights for noz4_1_4')
+    # plt.xlabel('individual weights ('+str(bins)+' bins)')
+    # plt.ylabel('count (out of 104)')
+    # plt.savefig('./noz4_1_4_s_'+str(bins)+'bins.png')
 
-      except:
-         print(file)
-df.to_csv('noz_sweep3.csv')
-identify_best('noz_sweep3.csv', 'noz_val_avg3.csv')
-#identify_best('noz_sweep.csv', 'noz_val_avg.csv')
+bin_histogram('noz4_1_4_fc.npy', 5)
+bin_histogram('noz4_1_4_fc.npy', 10)
+bin_histogram('noz4_1_4_fc.npy', 15)
+bin_histogram('noz4_1_4_fc.npy', 20)
+#read_test('./noabsdiff_results/test_results/test83/debugging/debugging.txt')
+# #read_test('./noabsdiff_results/test_results/test51/debugging/debugging.txt')
+# file_list= ['','1','12','123','1234']
+# for file in file_list:
+#     try:
+#            file_extractor('./noz_4th_batch/0adamredo'+str(file)+'/debugging/debugging.txt')
+#            file_extractor('./noz_4th_batch/lhs_0adam'+str(file)+'/debugging/debugging.txt')
+#     except:
+#         print(file)
+# df.to_csv('noz_sweep4.csv')
+# identify_best('adam_scheduler.csv', 'adam_scheduler_valavgs.csv')
