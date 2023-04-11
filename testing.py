@@ -1,9 +1,9 @@
-import tensorflow as tf
-from tensorflow.keras import Model
-from tensorflow.keras.optimizers import SGD, Adam
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.losses import MeanSquaredError, SparseCategoricalCrossentropy
-from tensorflow.keras.metrics import sparse_categorical_accuracy, mean_squared_error
+#import tensorflow as tf
+#from tensorflow.keras import Model
+#from tensorflow.keras.optimizers import SGD, Adam
+#from tensorflow.keras.layers import Dense
+#from tensorflow.keras.losses import MeanSquaredError, SparseCategoricalCrossentropy
+#from tensorflow.keras.metrics import sparse_categorical_accuracy, mean_squared_error
 import numpy as np
 import pandas as pd
 import os
@@ -131,37 +131,36 @@ def identify_best(csv_name, new_name):
     df_newest.to_csv(new_name)
 
 def bin_histogram(filename, bins):
-    fc_weights= np.load(filename)
-    fc_norms=np.linalg.norm(fc_weights, 2, axis=1)
-    print(fc_norms.shape)
-    #abs_diff= np.abs(s_weights[:,0]-s_weights[:,1])
-    #nodes_all= np.concatenate((s_weights[:,0],s_weights[:,1]))
+    s_weights= np.load(filename)
+    #fc_norms=np.linalg.norm(fc_weights, 2, axis=1)
+    #print(fc_norms.shape)
+    abs_diff= np.abs(s_weights[:,0]-s_weights[:,1])
+    nodes_all= np.concatenate((s_weights[:,0],s_weights[:,1]))
     plt.figure()
-    plt.hist(fc_norms, bins)
-    plt.title('fc weight norms for noz4_1_4')
-    plt.xlabel('fc weight norms ('+str(bins)+' bins)')
-    plt.ylabel('count (out of 156)')
-    plt.savefig('./noz4_1_4_fc_'+str(bins)+'bins.png')
-    #
-    # plt.figure()
-    # plt.hist(nodes_all, bins)
-    # plt.title('s-layer weights for noz4_1_4')
-    # plt.xlabel('individual weights ('+str(bins)+' bins)')
-    # plt.ylabel('count (out of 104)')
-    # plt.savefig('./noz4_1_4_s_'+str(bins)+'bins.png')
+    plt.hist(abs_diff, bins)
+    plt.title('s weight abs_diff for bayes51_211_33_sweights')
+    plt.xlabel('s weight abs_diff ('+str(bins)+' bins)')
+    plt.ylabel('count')
+    plt.savefig('./bayes51_211_33_sweights_diff_'+str(bins)+'bins.png')
 
-bin_histogram('noz4_1_4_fc.npy', 5)
-bin_histogram('noz4_1_4_fc.npy', 10)
-bin_histogram('noz4_1_4_fc.npy', 15)
-bin_histogram('noz4_1_4_fc.npy', 20)
+    plt.figure()
+    plt.hist(nodes_all, bins)
+    plt.title('s-layer weights for bayes51_211_33')
+    plt.xlabel('individual weights ('+str(bins)+' bins)')
+    plt.ylabel('count')
+    plt.savefig('./bayes51_211_33_s_'+str(bins)+'bins.png')
+
+#bin_histogram('bayes51_211_33_sweights.npy', 20)
+#bin_histogram('bayes51_211_33_sweights.npy', 15)
+#bin_histogram('bayes51_211_33_sweights.npy', 10)
 #read_test('./noabsdiff_results/test_results/test83/debugging/debugging.txt')
 # #read_test('./noabsdiff_results/test_results/test51/debugging/debugging.txt')
-# file_list= ['','1','12','123','1234']
-# for file in file_list:
-#     try:
-#            file_extractor('./noz_4th_batch/0adamredo'+str(file)+'/debugging/debugging.txt')
-#            file_extractor('./noz_4th_batch/lhs_0adam'+str(file)+'/debugging/debugging.txt')
-#     except:
-#         print(file)
-# df.to_csv('noz_sweep4.csv')
-# identify_best('adam_scheduler.csv', 'adam_scheduler_valavgs.csv')
+file_list= ['','1','12','123','1234','12345','123456']
+for file in file_list:
+    try:
+           file_extractor('./results_1/1withsigmoid'+str(file)+'/debugging/debugging.txt')
+
+    except:
+        print(file)
+df.to_csv('noz_sigmoid_1.csv')
+identify_best('noz_sigmoid_1.csv', 'noz_sigmoid_valavgs_1.csv')

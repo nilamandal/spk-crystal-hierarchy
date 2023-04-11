@@ -104,7 +104,7 @@ def evaluate(loader, model, cifs, color='#000000', label=''):
             output = np.array(output)
             return np.average(output), s_tensor, pred#, b
 
-checkpoint_path = "./noz_4th_batch/0adamredo1/debugging/4/goodmodel.ckpt"
+checkpoint_path = "./51bayes/trial_211/51_83_211/goodmodel.ckpt"
 
 checkpoint_dir = os.path.dirname(checkpoint_path)
 
@@ -117,23 +117,24 @@ datasettime=time.time()-begin_time
 
 loader = DisjointLoader(data, batch_size=args.batch_size, shuffle=False)
 
-model= HNetConcat(args.task, args.num_classes, return_s=True)
-#sys.stdout = open('./trash.txt', 'w')
+model= HNetConcat(args.task, args.num_classes, embedding_size=8, return_s=True)
+#sys.stdout = open('./bayes51_211_33.txt', 'w')
 #print(checkpoint_dir)
 latest = tf.train.latest_checkpoint(checkpoint_dir)
 #print(latest)
 model.load_weights(latest)
 result, s_tensors, pred=evaluate(loader,model, cifs)
 for layer in model.layers:
-    print(layer.name, layer)
-    if layer.name == 'dense_2':
-        np.save('noz4_1_4_fc',layer.weights[0].numpy())
-    # if layer.name=='regularized_diff_pool':
-    #     rdp_all=layer.weights
-    #     for i in range(len(rdp_all)):
-    #         print(rdp_all[i])
-    #     s_weights=rdp_all[0].numpy()
-    #     np.save('noz4_1_0_sweights', s_weights)
+     print(layer.name, layer)
+     if layer.name == 'dense_2':
+         np.save('bayes51_211_83_fc',layer.weights[0].numpy())
+     if layer.name=='regularized_diff_pool':
+        rdp_all=layer.weights
+        for i in range(len(rdp_all)):
+            print(rdp_all[i])
+        s_weights=rdp_all[0].numpy()
+        print(s_weights)
+        np.save('bayes51_211_83_sweights', s_weights)
         # plt.scatter(s_weights[:,0], s_weights[:,1], c=list(range(52)))
         # plt.xlabel('s weights column 1')
         # plt.xlim(-0.5, 0.5)

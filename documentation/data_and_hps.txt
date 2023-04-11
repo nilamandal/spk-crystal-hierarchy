@@ -1,0 +1,15 @@
+Element 51 fold, 326 crystals
+Element 83 fold, 290 crystals
+Element 33 fold, 303 crystals
+Element 15 fold, 306 crystals *always included in training.
+
+Hyperparameters:
+batch size (usually 8 or 16)
+learning rate (larger lrs tend to perform better, ie lr>=10^(-3))
+optimization algorithm (Adam vs SGD)
+embedding size (usually use 52)
+dropout rate 1 (>.5 usually)
+dropout rate 2 (<.5 usually)
+column lambda  (no obvious pattern)
+entropy lambda (no obvious pattern)
+fully connected layer size (usually use 23)
