@@ -18,7 +18,7 @@ from pymatgen.core.structure import Structure
 import json
 import argparse
 import time
-from spektral_essential_objects import GaussianDistance, MyDataset, HNetSimple, HNetSiamese, HNetSigmoid, HNetNoSub, PartitionedData, HNetConcat, HNetElementProduct
+from spektral_essential_objects import GaussianDistance, MyDataset, PartitionedData, HNetConcat, RegularizedDiffPool, MultifilterDiffPool, HNetMultifilter
 from multiprocessing import Process, Lock, Value, Manager, Semaphore
 from scipy.stats import qmc
 import matplotlib.pyplot as plt
@@ -141,7 +141,7 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
         else:
             print(args.task, ' is not c or r.')
 
-        model= HNetConcat(args.task, args.num_classes, d1=d1, d2=d2, el=el, cl=cl, return_s=True, random_seed=args.random_seed)
+        model= HNetMultifilter(args.task, args.num_classes, d1=d1, d2=d2, el=el, cl=cl, return_s=True, random_seed=args.random_seed)
 
         textlist.append('evaluation on train set before training:')
         print(testelement, valelement)
@@ -316,7 +316,6 @@ def split_for_prashuns_data(data, test_element, val_element):
 
 
 def lhs(data, printlock):
-    #atomic_num_list=[33, 83, 51, 15]
     atomic_num_list=[33, 83, 51]
     sampler = qmc.LatinHypercube(d=6)
     quantity=2
@@ -348,7 +347,7 @@ def lhs(data, printlock):
     manager = Manager()
     performance_dict= manager.dict()
     model_dict = manager.dict()
-    #parameter_sets= [parameter_sets[0]]
+    parameter_sets= [parameter_sets[0]]
     #training and validation
     for i in range(len(parameter_sets)):
         current_params=parameter_sets[i]
@@ -380,7 +379,6 @@ def lhs(data, printlock):
         textlist.append('entropy lambda='+str(el))
         textlist.append('column lambda='+str(cl))
 
-
         loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=bs, epochs=args.epochs)
         loader_va = DisjointLoader(PartitionedData(data_va), batch_size=len(data_va))
         loader_te = DisjointLoader(PartitionedData(data_te), batch_size=len(data_te))
@@ -400,8 +398,6 @@ def lhs(data, printlock):
     print(model_dict)
     print(performance_dict)
     print('---')
-
-
 
 
 if __name__ == '__main__':

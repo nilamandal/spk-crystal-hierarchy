@@ -15,7 +15,7 @@ from pymatgen.core.structure import Structure
 import json
 import argparse
 import time
-from spektral_essential_objects import GaussianDistance,MyDataset,HNetSimple, HNetConcat, PartitionedData, HNetElementProduct
+from spektral_essential_objects import GaussianDistance,MyDataset,HNetSimple, HNetConcat, PartitionedData, HNetMultifilter
 import matplotlib.pyplot as plt
 
 
@@ -26,7 +26,7 @@ parser.add_argument('--datadir', dest='datadir',
         help='Directory where dataset is located', default='../cgcnn-pretrained-models/data/10atom_relaxed_cifs')
 
 parser.add_argument('--filename', dest='filename',
-                    help='csv where data is located', default='id_mini.csv')
+                    help='csv where data is located', default='id_prop.csv')
 parser.add_argument('--file-out', dest='file_out',
                     help='output txt file name', default='predscriptout.txt')
 #parser.add_argument('--path-out', dest='path',
@@ -83,13 +83,14 @@ def evaluate(loader, model, cifs, color='#000000', label=''):
 
         for j in range(len(s_tensor)):
                 assign= s_tensor[j]
-
                 individual_error= (target[j]-pred[0][j])**2
-                if individual_error<0.001:
-                    print(cifs[i])
-                    print(individual_error)
-                    print(assign)
-                    print('---')
+                #if individual_error<0.001:
+                print(cifs[i])
+                print(individual_error)
+                print(assign)
+                print('---')
+
+
                 i+=1
 
         if args.task=='c':
@@ -104,7 +105,7 @@ def evaluate(loader, model, cifs, color='#000000', label=''):
             output = np.array(output)
             return np.average(output), s_tensor, pred#, b
 
-checkpoint_path = "./51bayes/trial_211/51_83_211/goodmodel.ckpt"
+checkpoint_path = "./multifilter_results/0seed1/debugging/5/goodmodel.ckpt"
 
 checkpoint_dir = os.path.dirname(checkpoint_path)
 
@@ -117,24 +118,24 @@ datasettime=time.time()-begin_time
 
 loader = DisjointLoader(data, batch_size=args.batch_size, shuffle=False)
 
-model= HNetConcat(args.task, args.num_classes, embedding_size=8, return_s=True)
-#sys.stdout = open('./bayes51_211_33.txt', 'w')
+model= HNetMultifilter(args.task, args.num_classes, return_s=True)
+sys.stdout = open('./mf_0_1_5_fullassignments.txt', 'w')
 #print(checkpoint_dir)
 latest = tf.train.latest_checkpoint(checkpoint_dir)
 #print(latest)
 model.load_weights(latest)
 result, s_tensors, pred=evaluate(loader,model, cifs)
-for layer in model.layers:
-     print(layer.name, layer)
-     if layer.name == 'dense_2':
-         np.save('bayes51_211_83_fc',layer.weights[0].numpy())
-     if layer.name=='regularized_diff_pool':
-        rdp_all=layer.weights
-        for i in range(len(rdp_all)):
-            print(rdp_all[i])
-        s_weights=rdp_all[0].numpy()
-        print(s_weights)
-        np.save('bayes51_211_83_sweights', s_weights)
+# for layer in model.layers:
+#      print(layer.name, layer)
+#      if layer.name == 'dense_2':
+#          np.save('bayes51_211_83_fc',layer.weights[0].numpy())
+#      if layer.name=='regularized_diff_pool':
+#         rdp_all=layer.weights
+#         for i in range(len(rdp_all)):
+#             print(rdp_all[i])
+#         s_weights=rdp_all[0].numpy()
+#         print(s_weights)
+#         np.save('bayes51_211_83_sweights', s_weights)
         # plt.scatter(s_weights[:,0], s_weights[:,1], c=list(range(52)))
         # plt.xlabel('s weights column 1')
         # plt.xlim(-0.5, 0.5)

@@ -166,14 +166,14 @@ class RegularizedDiffPool(DiffPool):
 
         self.column_lambda= tf.constant(column_lambda, dtype=tf.float32)
         self.entr_lambda= tf.constant(entr_lambda, dtype=tf.float32)
-        self.bn_reduce= BatchNormalization()
+        #self.bn_reduce= BatchNormalization()
         self.k=tf.constant(k)
 
         super().__init__(k, channels=channels, return_selection=return_selection, activation=activation,
                 kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer, kernel_constraint=kernel_constraint,
                 **kwargs)
 
-        self.assignment_fc= Dense(1)
+        self.assignment_fc= Dense(self.k)
 
     def build(self, input_shape):
         in_channels = input_shape[0][-1]
@@ -184,11 +184,11 @@ class RegularizedDiffPool(DiffPool):
     def select(self, x, a, i, fltr=None, mask=None):
 
         s = self.assignment_fc(x)
-        #s = activations.softmax(s, axis=-1)
-        s_1 = activations.sigmoid(s)
-        s_2 = tf.ones(s_1.shape)
-        s_2 = tf.subtract(s_2,s_1)
-        s= tf.concat([s_1, s_2], axis=2)
+        s = activations.softmax(s, axis=-1)
+        # s_1 = activations.sigmoid(s)
+        # s_2 = tf.ones(s_1.shape)
+        # s_2 = tf.subtract(s_2,s_1)
+        # s= tf.concat([s_1, s_2], axis=2)
 
         if mask is not None:
             s *= mask[0]
@@ -203,8 +203,8 @@ class RegularizedDiffPool(DiffPool):
 
         column_loss=tf.multiply(self.column_lambda,column_loss)
         entr_loss= tf.multiply(self.entr_lambda,entr_loss)
-        print('column loss='+str(column_loss))
-        print('entr loss='+str(entr_loss))
+        #print('column loss='+str(column_loss))
+        #print('entr loss='+str(entr_loss))
         self.add_loss(column_loss)
         self.add_loss(entr_loss)
 
@@ -230,7 +230,37 @@ class RegularizedDiffPool(DiffPool):
         return inv_entr_sum
 
 class MultifilterDiffPool(RegularizedDiffPool):
-    pass
+    def __init__(self, k, channels=None, return_selection=False, activation='relu', kernel_initializer="glorot_uniform",
+        kernel_regularizer=None, kernel_constraint=None, column_lambda=1, entr_lambda=1, **kwargs):
+
+        super().__init__(k, column_lambda=column_lambda, entr_lambda=entr_lambda, channels=channels, return_selection=return_selection, activation=activation,
+                kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer, kernel_constraint=kernel_constraint,
+                **kwargs)
+        self.assignment_fc= Dense(k)
+
+    def select(self, x, a, i, fltr=None, mask=None):
+
+        s = self.assignment_fc(x)
+        s = activations.softmax(s, axis=-1)
+
+        if mask is not None:
+            s *= mask[0]
+
+        # Auxiliary losses
+        column_loss= self.column_entropy(s)
+        entr_loss = self.entropy_loss(s)
+
+        if K.ndim(x) == 3:
+            column_loss = K.mean(column_loss)
+            entr_loss = K.mean(entr_loss)
+
+        column_loss=tf.multiply(self.column_lambda,column_loss)
+        entr_loss= tf.multiply(self.entr_lambda,entr_loss)
+        self.add_loss(column_loss)
+        self.add_loss(entr_loss)
+
+        return s
+
 
 class SigmoidalDiffPool(RegularizedDiffPool):
     def __init__(self, channels=None, return_selection=False, activation='relu', kernel_initializer="glorot_uniform",
@@ -469,7 +499,6 @@ class ModifiedCrystalConv(CrystalConv):
         return output
 
 
-
 class HNetConcat(Model):
     def __init__(self, task, num_classes, embedding_size=52, d1=0, d2=0, el=1, cl=1, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
         super().__init__()
@@ -575,16 +604,29 @@ class HNetMultifilter(Model):
         x_in, a_in, e_in, i_in = inputs
         #print(self.conv1.built)
         x= self.embedding(x_in)
-        x= self.conv1([x, a, e])
+        x= self.conv1([x, a_in, e_in])
         x= tf.nn.softplus(x)
-        x= self.conv2([x, a, e])
+        x= self.conv2([x, a_in, e_in])
         x= tf.nn.softplus(x)
-        x= self.conv3([x, a, e])
+        x= self.conv3([x, a_in, e_in])
         x= tf.nn.softplus(x)
 
+        x_assign= self.embedding(x_in)
+        x_assign= self.assign_conv1([x_assign, a_in, e_in])
+        x_assign= tf.nn.softplus(x_assign)
+        x_assign= self.assign_conv2([x_assign, a_in, e_in])
+        x_assign= tf.nn.softplus(x_assign)
+        x_assign= self.assign_conv3([x_assign, a_in, e_in])
+        x_assign= tf.nn.softplus(x_assign)
+
+
         x= self.dropout1(x)
-        batch_X, batch_A= self.disjoint2batch([x, a, i])
-        x_orig, a, s= self.pool([batch_X, batch_A])
+        batch_X, batch_A= self.disjoint2batch([x, a_in, i_in])
+        batch_X_assign, batch_A_assign= self.disjoint2batch([x_assign, a_in, i_in])
+
+        x_assign_pooled, a_assign_pooled, s= self.pool([batch_X_assign, batch_A_assign])
+
+        x_orig= ops.modal_dot(s, batch_X, transpose_a=True)
 
         w= tf.constant([1.0,-1.0], dtype=tf.float32)
         x=tf.multiply(x_orig, w[:,tf.newaxis])

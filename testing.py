@@ -158,9 +158,9 @@ def bin_histogram(filename, bins):
 file_list= ['','1','12','123','1234','12345','123456']
 for file in file_list:
     try:
-           file_extractor('./results_1/1withsigmoid'+str(file)+'/debugging/debugging.txt')
+           file_extractor('./multifilter_results/0seed'+str(file)+'/debugging/debugging.txt')
 
     except:
         print(file)
-df.to_csv('noz_sigmoid_1.csv')
-identify_best('noz_sigmoid_1.csv', 'noz_sigmoid_valavgs_1.csv')
+df.to_csv('noz_multifilter.csv')
+identify_best('noz_multifilter.csv', 'noz_multifilter_valavgs.csv')
