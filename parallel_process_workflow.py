@@ -110,7 +110,7 @@ def train_step(inputs, target, model, loss_fn, optimizer):
 
         return loss, sca, outputtxt
 
-def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testelement, valelement, lr, specialindex, model_list, performance_list, d1, d2, el, cl, l2_1=None, l2_2= None, l2_3=None, decay_rate=0, decay_steps=0, testing=False):
+def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testelement, valelement, lr, specialindex, model_list, performance_list, d1, d2, el, cl, d1b, decay_rate=0, decay_steps=0, testing=False):
 
         textlist.append('----NEW EXP----, TE='+str(testelement)+', VA='+str(valelement))
         init_time= time.time()
@@ -141,7 +141,7 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
         else:
             print(args.task, ' is not c or r.')
 
-        model= HNetMultifilter(args.task, args.num_classes, d1=d1, d2=d2, el=el, cl=cl, return_s=True, random_seed=args.random_seed)
+        model= HNetMultifilter(args.task, args.num_classes, d1a=d1, d1b= d1b, d2=d2, el=el, cl=cl, return_s=True, random_seed=args.random_seed)
 
         textlist.append('evaluation on train set before training:')
         print(testelement, valelement)
@@ -317,13 +317,13 @@ def split_for_prashuns_data(data, test_element, val_element):
 
 def lhs(data, printlock):
     atomic_num_list=[33, 83, 51]
-    sampler = qmc.LatinHypercube(d=6)
+    sampler = qmc.LatinHypercube(d=7)
     quantity=2
     sample = sampler.random(n=quantity)
 
-    #lr param, dr1, dr2, el, cl, l2_1, l2_2, l2_3, lr_decay_rate, lr_decay_steps
-    l_bounds= [2, 0, 0, 0, 0, 0]#, 0, 0, 0]
-    u_bounds= [8, 5, 1, 1, 4, 4]#, 4, 4, 4]
+    #bs, lr, dr1a, dr2, el, cl, dr1b
+    l_bounds= [2, 0, 0, 0, 0, 0, 0]#, 0, 0, 0]
+    u_bounds= [8, 5, 1, 1, 4, 4, 1]#, 4, 4, 4]
     scaled_sample= qmc.scale(sample, l_bounds, u_bounds)
 
     parameter_sets= []
@@ -340,6 +340,7 @@ def lhs(data, printlock):
                         row[4]= 10**row[4]
                         row[5]= 10**row[5]
 
+
                         param_set= [te, va]+ row
                         print(param_set)
                         parameter_sets.append(param_set)
@@ -347,7 +348,7 @@ def lhs(data, printlock):
     manager = Manager()
     performance_dict= manager.dict()
     model_dict = manager.dict()
-    parameter_sets= [parameter_sets[0]]
+    #parameter_sets= [parameter_sets[0]]
     #training and validation
     for i in range(len(parameter_sets)):
         current_params=parameter_sets[i]
@@ -359,7 +360,7 @@ def lhs(data, printlock):
         d2= current_params[5]
         el= current_params[6]
         cl= current_params[7]
-
+        d1b= current_params[8]
         if args.dataset=='prashun':
             data_tr, data_va, data_te, data_ex= split_for_prashuns_data(data, test_element, val_element)
         else:
@@ -383,7 +384,7 @@ def lhs(data, printlock):
         loader_va = DisjointLoader(PartitionedData(data_va), batch_size=len(data_va))
         loader_te = DisjointLoader(PartitionedData(data_te), batch_size=len(data_te))
 
-        p= Process(target=full_training_loop, args=(printlock, loader_tr, loader_va, loader_te, textlist, test_element, val_element, lr, i, model_dict, performance_dict, d1, d2, el, cl))#, r1, r2, r3))
+        p= Process(target=full_training_loop, args=(printlock, loader_tr, loader_va, loader_te, textlist, test_element, val_element, lr, i, model_dict, performance_dict, d1, d2, el, cl, d1b))#, r1, r2, r3))
 
         processlist.append(p)
 

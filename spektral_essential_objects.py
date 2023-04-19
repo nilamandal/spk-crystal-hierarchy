@@ -566,11 +566,11 @@ class HNetConcat(Model):
 
 
 class HNetMultifilter(Model):
-    def __init__(self, task, num_classes, embedding_size=52, d1=0, d2=0, el=1, cl=1, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+    def __init__(self, task, num_classes, embedding_size=52, d1a=0, d1b=0, d2=0, el=1, cl=1, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
         super().__init__()
         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
         he_initializer= initializers.he_uniform(seed=random_seed)
-
+        print(d1a, d1b, d2)
         self.return_s=return_s
         self.task=task
         self.num_classes=num_classes
@@ -586,9 +586,11 @@ class HNetMultifilter(Model):
         self.assign_conv3= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
 
         self.disjoint2batch= Disjoint2Batch()
-        self.dropout1= Dropout(d1)
+        self.dropout1= Dropout(d1a)
 
-        self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
+        self.dropout1_assign= Dropout(d1b)
+
+        self.pool= MultifilterDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
         self.finalpool= GlobalSumPool()
 
         self.dropout2= Dropout(d2)
@@ -621,6 +623,8 @@ class HNetMultifilter(Model):
 
 
         x= self.dropout1(x)
+        x_assign= self.dropout1_assign(x_assign)
+        
         batch_X, batch_A= self.disjoint2batch([x, a_in, i_in])
         batch_X_assign, batch_A_assign= self.disjoint2batch([x_assign, a_in, i_in])
 
