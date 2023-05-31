@@ -1,9 +1,3 @@
-#import tensorflow as tf
-#from tensorflow.keras import Model
-#from tensorflow.keras.optimizers import SGD, Adam
-#from tensorflow.keras.layers import Dense
-#from tensorflow.keras.losses import MeanSquaredError, SparseCategoricalCrossentropy
-#from tensorflow.keras.metrics import sparse_categorical_accuracy, mean_squared_error
 import numpy as np
 import pandas as pd
 import os
@@ -150,17 +144,73 @@ def bin_histogram(filename, bins):
     plt.ylabel('count')
     plt.savefig('./bayes51_211_33_s_'+str(bins)+'bins.png')
 
-#bin_histogram('bayes51_211_33_sweights.npy', 20)
-#bin_histogram('bayes51_211_33_sweights.npy', 15)
-#bin_histogram('bayes51_211_33_sweights.npy', 10)
-#read_test('./noabsdiff_results/test_results/test83/debugging/debugging.txt')
-# #read_test('./noabsdiff_results/test_results/test51/debugging/debugging.txt')
-file_list= ['','1','12','123','1234','12345','123456']
-for file in file_list:
-    try:
-           file_extractor('./multifilter_results/0seed'+str(file)+'/debugging/debugging.txt')
 
-    except:
-        print(file)
-df.to_csv('noz_multifilter.csv')
-identify_best('noz_multifilter.csv', 'noz_multifilter_valavgs.csv')
+def ratio():
+    df_cgcnn=pd.read_csv('../cgcnn-pretrained-models/test_results_final/test_results_from_0_83.csv', names=['cif', 'real', 'pred'])
+    df_ours= pd.read_csv('../oldspk/4000_results/noz4_4_out_og.csv')
+    df_cgcnn['cgcnndiff']=np.abs(df_cgcnn['real']-df_cgcnn['pred'])
+    df_ours['oursdiff']=np.abs(df_ours['real']-df_ours['pred'])
+    df_joined= pd.merge(df_ours, df_cgcnn, on='cif', how='inner')
+    print(df_joined)
+    plt.scatter(df_joined['oursdiff'],df_joined['cgcnndiff'])
+    x=np.linspace(0,1,100)
+    y=x
+    plt.plot(x,y)
+    plt.xlabel('error on our model')
+    plt.ylabel('error on cgcnn')
+    plt.show()
+    #df_joined.to_csv('comparison.csv')
+
+def threshold1():
+    df=pd.read_csv('./comparisons_with_decomp.csv')
+    decomp_threshold= 2000
+    our_mse=1
+    cgcnn_mse=0.5
+    threshold_list=[]
+    ours_list=[]
+    cgcnn_list=[]
+    while our_mse>cgcnn_mse:
+        decomp_threshold-=.5
+        df_threshold=df[df['Edecomp']<=decomp_threshold]
+        df_threshold['temp']=(df_threshold['real_y']-df_threshold['pred_y'])**2
+        our_mse=np.mean(df_threshold['sq error'])
+        cgcnn_mse=np.mean(df_threshold['temp'])
+        print(decomp_threshold, our_mse, cgcnn_mse)
+        threshold_list.append(decomp_threshold)
+        ours_list.append(our_mse)
+        cgcnn_list.append(cgcnn_mse)
+    plt.plot(threshold_list,ours_list, label='our model')
+    plt.plot(threshold_list,cgcnn_list, label='cgcnn')
+    plt.xlabel('decomposition energy threshold')
+    plt.ylabel('mean squared error on crystals below threshold')
+    plt.title("Crystal decomposition energy vs prediction mse")
+    plt.legend()
+    plt.show()
+
+def threshold2():
+    df=pd.read_csv('./ext_with_correct_decomp.csv')
+    #df=df[df['Edecomp (meV/atom)']>0]
+    #df=df[df['Edecomp (meV/atom)']>=-500]
+    #ax = plt.subplot()
+    scatter= plt.scatter(df['diff1'],df['diff2'], c=df['Edecomp (meV/atom)'])
+    plt.colorbar(scatter)
+
+    x=np.linspace(0,5,100)
+    y=x
+    plt.plot(x,y)
+    plt.title('Error for All Extrapolation Structures')
+    plt.xlabel('absolute error on our model')
+    plt.ylabel('absolute error on cgcnn')
+
+    plt.show()
+    # errorbar=0.1
+    # while errorbar<10:
+    #     df2=df[df['diff1']<=errorbar]
+    #     df_ours= df2[df2['diff1']<df2['diff2']]
+    #     df_theirs= df2[df2['diff1']>df2['diff2']]
+    #     print(errorbar, len(df2),len(df_ours),len(df_theirs))
+    #     errorbar+=.1
+
+threshold2()
+
+#

@@ -1,6 +1,6 @@
 from spektral.data import Graph, Dataset, DisjointLoader
 from spektral.data.utils import to_batch
-from spektral.utils import reorder
+from spektral.utils import reorder, sp_matrix_to_sp_tensor
 from spektral.layers import CrystalConv, DiffPool, ops, GlobalSumPool, GlobalAvgPool, Disjoint2Batch
 import tensorflow as tf
 from tensorflow.keras import Model
@@ -73,7 +73,7 @@ class MyDataset(Dataset):
         super().__init__()
 
     def read(self):
-        df = pd.read_csv(os.path.join(self.datadir,self.filename), names=['id','target'], header=None)
+        df = pd.read_csv(os.path.join(self.datadir,self.filename), names=['id','target', 'prototype'], header=None)
 
         df = df.sample(frac=1).reset_index(drop=True)
 
@@ -90,7 +90,6 @@ class MyDataset(Dataset):
                 crystal= Structure.from_file(os.path.join(self.datadir,c))
             num_atoms=len(crystal)
 
-            #ari = AtomCustomJSONInitializer(os.path.join(self.datadir,'atom_init.json'))#check atom initializer
             atomic_numbers=[crystal[i].specie.number for i in range(len(crystal))]
 
             atom_fea=[]
@@ -103,10 +102,7 @@ class MyDataset(Dataset):
                 atom_hot=np.concatenate((group_encoding, row_encoding))
                 atom_fea.append(atom_hot)
 
-
             atom_fea= np.vstack(atom_fea)
-
-            #atom_fea = np.vstack([ari.get_atom_fea(crystal[i].specie.number) for i in range(len(crystal))]) #the features of each element in the atom, in no particular order
             all_nbrs = crystal.get_all_neighbors(self.radius_angstroms, include_index=True)
             all_nbrs = [sorted(nbrs, key=lambda x: x[1]) for nbrs in all_nbrs]
             nbr_fea_idx, nbr_fea = [], []
@@ -166,7 +162,6 @@ class RegularizedDiffPool(DiffPool):
 
         self.column_lambda= tf.constant(column_lambda, dtype=tf.float32)
         self.entr_lambda= tf.constant(entr_lambda, dtype=tf.float32)
-        #self.bn_reduce= BatchNormalization()
         self.k=tf.constant(k)
 
         super().__init__(k, channels=channels, return_selection=return_selection, activation=activation,
@@ -185,10 +180,6 @@ class RegularizedDiffPool(DiffPool):
 
         s = self.assignment_fc(x)
         s = activations.softmax(s, axis=-1)
-        # s_1 = activations.sigmoid(s)
-        # s_2 = tf.ones(s_1.shape)
-        # s_2 = tf.subtract(s_2,s_1)
-        # s= tf.concat([s_1, s_2], axis=2)
 
         if mask is not None:
             s *= mask[0]
@@ -203,8 +194,6 @@ class RegularizedDiffPool(DiffPool):
 
         column_loss=tf.multiply(self.column_lambda,column_loss)
         entr_loss= tf.multiply(self.entr_lambda,entr_loss)
-        #print('column loss='+str(column_loss))
-        #print('entr loss='+str(entr_loss))
         self.add_loss(column_loss)
         self.add_loss(entr_loss)
 
@@ -218,10 +207,8 @@ class RegularizedDiffPool(DiffPool):
         return ops.modal_dot(s, x, transpose_a=True)
 
     def column_entropy(self, s):
-
         column_sums=tf.math.reduce_sum(s, axis=1)#this should give shape(batch size, k)
         column_means=tf.math.divide(column_sums,s.shape[1])#this should give shape(batch size, k)
-        #print(column_means)
         column_logs=tf.math.log(column_means+ K.epsilon())
         #we want to maximize the column entropy to encourage distributing nodes into different pools
         inv_entr = tf.reduce_sum(tf.multiply(column_means, column_logs),axis=-1)
@@ -477,12 +464,9 @@ class HNetSigmoid(Model):
 class ModifiedCrystalConv(CrystalConv):
      def __init__(self, activation= None, kernel_initializer= None, **kwargs):
          super().__init__(self, activation=activation, kernel_initializer=kernel_initializer, **kwargs)
-         #print('init complete')
-         #print(self.activation)
          self.agg = deserialize_scatter('sum')
          self.bn1= BatchNormalization()
          self.bn2= BatchNormalization()
-
 
      def message(self, x, e=None):
         x_i = self.get_targets(x)
@@ -495,7 +479,6 @@ class ModifiedCrystalConv(CrystalConv):
         z= self.bn1(z)
         nbr_sumed = self.dense_s(z) * self.dense_f(z)
         output= self.bn2(nbr_sumed)
-        #print(output.shape)
         return output
 
 
@@ -540,9 +523,12 @@ class HNetConcat(Model):
         x= tf.nn.softplus(x)
         x= self.conv3([x, a, e])
         x= tf.nn.softplus(x)
-
+        #print(x,a,i)
         x= self.dropout1(x)
+        #print(x,a,i)
         batch_X, batch_A= self.disjoint2batch([x, a, i])
+        #print(batch_X.shape)
+        #print(batch_A.shape)
         x_orig, a, s= self.pool([batch_X, batch_A])
 
         w= tf.constant([1.0,-1.0], dtype=tf.float32)
@@ -558,7 +544,7 @@ class HNetConcat(Model):
         x= self.dropout2(x_new)
         x= self.fc(x)
         x=self.out_layer(x)
-
+        #print(x.shape)
         if self.return_s:
             return x, s
         else:
@@ -624,7 +610,7 @@ class HNetMultifilter(Model):
 
         x= self.dropout1(x)
         x_assign= self.dropout1_assign(x_assign)
-        
+
         batch_X, batch_A= self.disjoint2batch([x, a_in, i_in])
         batch_X_assign, batch_A_assign= self.disjoint2batch([x_assign, a_in, i_in])
 
@@ -776,3 +762,149 @@ class HNetElementProduct(Model):
             return x, s
         else:
             return x
+
+class HNetRecurrent(Model):
+    def __init__(self, task, num_classes, embedding_size=52, fc1=23, d1=0, el=1, cl=1, return_s=False, k=2, random_seed=0, **kwargs):
+        super().__init__()
+        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+        he_initializer= initializers.he_uniform(seed=random_seed)
+
+        self.return_s=return_s
+        self.task=task
+        self.num_classes=num_classes
+
+        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer)
+
+        self.conv1= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+        self.conv2= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+        self.conv3= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+
+
+        self.disjoint2batch= Disjoint2Batch()
+        self.pool= RegularizedDiffPool(k=k, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
+
+        self.finalpool= GlobalSumPool()
+        self.fc_afterpool= Dense(fc1, activation='softplus', kernel_initializer=he_initializer)
+
+        if self.task=='c':
+            self.dropout= Dropout(d1)
+            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
+        elif self.task=='r':
+            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
+
+    def call(self, inputs):
+        x, a, e, i = inputs
+
+        x= self.embedding(x)
+        x= self.conv1([x, a, e])
+        x= self.conv2([x, a, e])
+        x= self.conv3([x, a, e])
+
+        batch_X, batch_A= self.disjoint2batch([x, a, i])
+        x_pooled, a_pooled, s= self.pool([batch_X, batch_A])
+        e_pooled= self.edgepool(e, a, s, i, a_pooled)
+        x, a, e, i = self.batch2disjoint(x_pooled, e_pooled, a_pooled)
+
+        x= self.conv1([x, a, e])
+        x= self.conv2([x, a, e])
+        x= self.conv3([x, a, e])
+
+        x= self.finalpool([x, i])
+        x= self.fc_afterpool(x)
+
+        if self.task=='c':
+            x= self.dropout(x)
+        x=self.out_layer(x)
+        if self.return_s:
+            return x, s
+        else:
+            return x
+
+
+    def batch2disjoint(self, batch_x, batch_e, batch_a):
+        x_shape=batch_x.shape
+        i= []
+        for j in range(x_shape[0]):
+            for k in range(x_shape[1]):
+                i.append(j)
+        disjoint_x= tf.concat(tf.unstack(batch_x), axis=0)
+
+        temp_a= tf.unstack(batch_a)
+        total_nodes=disjoint_x.shape[0]
+        disjoint_a= np.zeros((total_nodes, total_nodes))
+        begin=0
+        step=len(temp_a[0])
+        end=begin+step
+
+        for j in temp_a:
+            disjoint_a[begin:end, begin:end]=j
+            begin= begin+step
+            end= begin+step
+        disjoint_a= tf.sparse.from_dense(disjoint_a)
+
+        disjoint_e= np.zeros((total_nodes, total_nodes, batch_e.shape[-1]))
+
+        temp_e= tf.unstack(batch_e)
+        begin=0
+        step=len(temp_e[0])
+        end=begin+step
+        for j in temp_e:
+            disjoint_e[begin:end, begin:end]=j
+            begin= begin+step
+            end= begin+step
+        dummy_e= []
+        adj_indices=disjoint_a.indices
+
+        for idx in adj_indices:
+            dummy_e.append(disjoint_e[idx[0], idx[1]])
+
+        edge_idx, edges= reorder(edge_index=np.array(adj_indices), edge_features=np.array(dummy_e))
+
+        #drop zero padding
+        #can we use learned clusters to identify similar structures
+        return disjoint_x, disjoint_a, edges, tf.cast(i, tf.int32)
+
+    def edgepool(self, e, a, s, i, a_pooled):
+        indices = a.indices
+        values = a.values
+        i_nodes, j_nodes = indices[:, 0], indices[:, 1]
+
+        graph_sizes = tf.math.segment_sum(tf.ones_like(i), i)
+        max_n_nodes = tf.reduce_max(graph_sizes)
+        n_graphs = tf.shape(graph_sizes)[0]
+        relative_j_nodes = j_nodes - self._vectorised_get_cum_graph_size(j_nodes, graph_sizes)
+
+        new_indices = tf.transpose(tf.stack([i_nodes, relative_j_nodes]))
+
+        new_indices = tf.cast(new_indices, tf.int32)
+        n_graphs = tf.cast(n_graphs, tf.int32)
+        max_n_nodes = tf.cast(max_n_nodes, tf.int32)
+
+        dense_edge = tf.scatter_nd(
+            new_indices, e, (n_graphs * max_n_nodes, max_n_nodes, 41)
+        )
+
+        batch_edge = tf.reshape(dense_edge, (n_graphs, max_n_nodes, max_n_nodes, 41))
+        batch_edge = tf.cast(batch_edge, tf.float32)
+
+        temp=tf.einsum('bijk,bil->bilk',batch_edge,s)
+        e_pooled=tf.einsum('bmn,bilk->bnlk',s,temp)
+
+        a_extended= tf.stack([a_pooled] * 41, axis=3)
+        e_pooled= tf.divide(e_pooled, a_extended)
+
+        return e_pooled
+
+    def _vectorised_get_cum_graph_size(self, nodes, graph_sizes):
+        """Takes a list of node ids and graph sizes ordered by segment ID and returns the number of nodes contained in graphs with smaller segment ID.
+        :param nodes: List of node ids of shape (nodes)
+        :param graph_sizes: List of graph sizes (i.e. tf.math.segment_sum(tf.ones_like(I), I) where I are the segment IDs).
+        :return: A list of shape (nodes) where each entry corresponds to the number of nodes contained in graphs with smaller segment ID for each node.
+        """
+        def get_cum_graph_size(node):
+            cum_graph_sizes = tf.cumsum(graph_sizes, exclusive=True)
+            indicator_if_smaller = tf.cast(node - cum_graph_sizes >= 0, tf.int32)
+            graph_id = tf.reduce_sum(indicator_if_smaller) - 1
+            return tf.cumsum(graph_sizes, exclusive=True)[graph_id]
+
+        return tf.map_fn(get_cum_graph_size, nodes)
