@@ -23,7 +23,7 @@ begin_time = time.time()
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 
 parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='../cgcnn-pretrained-models/data/10atom_relaxed_cifs')
+        help='Directory where dataset is located', default='../Main_fol_Zintl/')
 
 parser.add_argument('--filename', dest='filename',
                     help='csv where data is located', default='id_prop.csv')
@@ -49,6 +49,27 @@ parser.add_argument('--batch-size', dest='batch_size', type=int,
 parser.add_argument('--task', choices=['r', 'c'],
                     default='r', help='complete a regression or '
                         'classification task (default: regression)')
+
+def random_split(dataset):
+    data_tr=[]
+    data_va=[]
+    data_te=[]
+    split= int(len(dataset)/5)
+    split_2= split*2
+    #print(split)
+    data_te=dataset[:split]
+    data_va= dataset[split:split_2]
+    data_tr=dataset[split_2:len(dataset)]
+    print(len(data_te))
+    print(len(data_va))
+    print(len(data_tr))
+    loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=32, epochs=1)
+    loader_va = DisjointLoader(PartitionedData(data_va), batch_size=len(data_va))
+    loader_te = DisjointLoader(PartitionedData(data_te), batch_size=len(data_te))
+    print(data_te)
+    for d in data_te:
+        print(d._cif)
+    return loader_tr, loader_va, loader_te
 
 def split_for_prashuns_data(data, test_element, val_element):
     data_tr=[]
@@ -105,26 +126,43 @@ def evaluate(loader, model, cifs, color='#000000', label=''):
             output = np.array(output)
             return np.average(output), s_tensor, pred#, b
 
-checkpoint_path = "./multifilter_results/0seed1/debugging/5/goodmodel.ckpt"
+checkpoint_path = "./checking_maxt/best/goodmodel.ckpt.index"
 
 checkpoint_dir = os.path.dirname(checkpoint_path)
 
 args = parser.parse_args(sys.argv[1:])
 
-data = MyDataset(args.datadir,args.filename, args.radius_angstroms, args.num_nbrs, args.task)
+
+val_df = pd.read_csv(os.path.join(args.datadir,'test.csv'), names=['id','target'], header=0)
+data= MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
+loader_va= DisjointLoader(data, shuffle=False, batch_size=len(val_df))
 cifs=data.get_cifs()
+print(data)
+# loader_tr, loader_va, loader_te=random_split(data)
+# datasettime=time.time()-begin_time
+#
+paramsdict={
+  "batch_size": 51,
+  "column_lambda": 107737.40447048211,
+  "dr1": 0.1463320841469229,
+  "dr2": 0.1085045744491121,
+  "embedding_size": 1,
+  "entropy_lambda": 10510249.86746278,
+  "lr": 0.06561934100289303
+}
 
-datasettime=time.time()-begin_time
 
-loader = DisjointLoader(data, batch_size=args.batch_size, shuffle=False)
-
-model= HNetMultifilter(args.task, args.num_classes, return_s=True)
-sys.stdout = open('./mf_0_1_5_fullassignments.txt', 'w')
-#print(checkpoint_dir)
+model= HNetConcat('r', 1, embedding_size=paramsdict['embedding_size'], d1=paramsdict['dr1'], d2=paramsdict['dr2'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], return_s=True)
+#sys.stdout = open('./debug_max_t.txt', 'w')
+# #print(checkpoint_dir)
 latest = tf.train.latest_checkpoint(checkpoint_dir)
-#print(latest)
+print(latest)
+#inputs, target = loader_va.__next__()
+#x= model(inputs, training=False)
 model.load_weights(latest)
-result, s_tensors, pred=evaluate(loader,model, cifs)
+print(model)
+result, s_tensors, pred=evaluate(loader_va ,model, cifs)
+# print(result)
 # for layer in model.layers:
 #      print(layer.name, layer)
 #      if layer.name == 'dense_2':

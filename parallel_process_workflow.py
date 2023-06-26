@@ -18,22 +18,23 @@ from pymatgen.core.structure import Structure
 import json
 import argparse
 import time
-from spektral_essential_objects import GaussianDistance, MyDataset, PartitionedData, HNetConcat, RegularizedDiffPool, MultifilterDiffPool, HNetMultifilter
+from spektral_essential_objects import GaussianDistance, MyDataset, PartitionedData, HNetConcat, RegularizedDiffPool, MultifilterDiffPool, HNetRecurrent
 from multiprocessing import Process, Lock, Value, Manager, Semaphore
 from scipy.stats import qmc
 import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
 
 begin_time = time.time()
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 
 parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='../cgcnn-pretrained-models/data/10atom_relaxed_cifs')
+        help='Directory where dataset is located', default='../Main_fol_Zintl/')
 parser.add_argument('--filename', dest='filename',
-                    help='csv where data is located', default='id_mini.csv')
+                    help='csv where data is located', default='id_prop.csv')
 parser.add_argument('--file-out', dest='file_out',
                     help='output file name', default='debugging')
 parser.add_argument('--path-out', dest='path',
-                    help='output path', default='./justdebugging')
+                    help='output path', default='./timer')
 parser.add_argument('--num-atoms', dest='num_atoms', type=int,
                     help='Maximum number of nodes', default=200)
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
@@ -44,9 +45,9 @@ parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
                     help='search radius for neighbors', default=10)
 parser.add_argument('--random-seed', dest='random_seed', type=int,
                     help='random seed for numpy', default=0)
-parser.add_argument('--optim', default='SGD', type=str, metavar='SGD',
+parser.add_argument('--optim', default='Adam', type=str, metavar='SGD',
                         help='choose an optimizer, SGD or Adam, (default: SGD)')
-parser.add_argument('--epochs', default=3, type=int, metavar='N',
+parser.add_argument('--epochs', default=1000, type=int, metavar='N',
                     help='number of total epochs to run (default: 30)')
 parser.add_argument('--task', choices=['r', 'c'],
                     default='r', help='complete a regression or '
@@ -110,7 +111,7 @@ def train_step(inputs, target, model, loss_fn, optimizer):
 
         return loss, sca, outputtxt
 
-def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testelement, valelement, lr, specialindex, model_list, performance_list, d1, d2, el, cl, d1b, decay_rate=0, decay_steps=0, testing=False):
+def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testelement, valelement, lr, specialindex, model_list, performance_list, testing=False):
 
         textlist.append('----NEW EXP----, TE='+str(testelement)+', VA='+str(valelement))
         init_time= time.time()
@@ -141,7 +142,7 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
         else:
             print(args.task, ' is not c or r.')
 
-        model= HNetMultifilter(args.task, args.num_classes, d1a=d1, d1b= d1b, d2=d2, el=el, cl=cl, return_s=True, random_seed=args.random_seed)
+        model= HNetConcat(args.task, args.num_classes, return_s=True, random_seed=args.random_seed)
 
         textlist.append('evaluation on train set before training:')
         print(testelement, valelement)
@@ -169,6 +170,7 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
                     is_nan= np.isnan(loss)
                     #loss = 0
                     val_loss, val_metric = evaluate(load_va, model, loss_fn)
+                    val_is_nan= np.isnan(val_loss)
                     if val_loss<best_val_loss:
                         model.save_weights(checkpoint_path)
                         best_val_loss= val_loss
@@ -188,7 +190,7 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
                     epoch+=1
                     textlist.append('epoch='+str(epoch))
 
-                    if is_nan:
+                    if is_nan or val_is_nan:
                         model_list[specialindex]= str(checkpoint_path)
                         performance_list[specialindex] = best_val_loss
                         break
@@ -317,50 +319,51 @@ def split_for_prashuns_data(data, test_element, val_element):
 
 def lhs(data, printlock):
     atomic_num_list=[33, 83, 51]
-    sampler = qmc.LatinHypercube(d=7)
-    quantity=2
-    sample = sampler.random(n=quantity)
+    # sampler = qmc.LatinHypercube(d=7)
+    # quantity=2
+    # sample = sampler.random(n=quantity)
+    #
+    # #bs, lr, dr1a, dr2, el, cl, dr1b
+    # l_bounds= [2, 0, 0, 0, 0, 0, 0]#, 0, 0, 0]
+    # u_bounds= [8, 5, 1, 1, 4, 4, 1]#, 4, 4, 4]
+    # scaled_sample= qmc.scale(sample, l_bounds, u_bounds)
 
-    #bs, lr, dr1a, dr2, el, cl, dr1b
-    l_bounds= [2, 0, 0, 0, 0, 0, 0]#, 0, 0, 0]
-    u_bounds= [8, 5, 1, 1, 4, 4, 1]#, 4, 4, 4]
-    scaled_sample= qmc.scale(sample, l_bounds, u_bounds)
-
-    parameter_sets= []
-
-    for i in range(len(atomic_num_list)):
-        te=atomic_num_list[i]
-        for j in range(len(atomic_num_list)):
-            va=atomic_num_list[j]
-            if te!=va:
-                for row in scaled_sample:
-                        row=list(row)
-                        row[0]=int(2**np.ceil(row[0]))
-                        row[1]= 10**(-1*row[1])
-                        row[4]= 10**row[4]
-                        row[5]= 10**row[5]
-
-
-                        param_set= [te, va]+ row
-                        print(param_set)
-                        parameter_sets.append(param_set)
+    # parameter_sets= []
+    #
+    # for i in range(len(atomic_num_list)):
+    #     te=atomic_num_list[i]
+    #     for j in range(len(atomic_num_list)):
+    #         va=atomic_num_list[j]
+    #         if te!=va:
+    #             for row in scaled_sample:
+    #                     row=list(row)
+    #                     row[0]=int(2**np.ceil(row[0]))
+    #                     row[1]= 10**(-1*row[1])
+    #                     row[4]= 10**row[4]
+    #                     row[5]= 10**row[5]
+    #
+    #
+    #                     param_set= [te, va]+ row
+    #                     print(param_set)
+    #                     parameter_sets.append(param_set)
 
     manager = Manager()
     performance_dict= manager.dict()
     model_dict = manager.dict()
-    #parameter_sets= [parameter_sets[0]]
+    parameter_sets= [[33,83,0.001,32,52,23],
+                    [33,51,0.001,32,52,23],
+                    [83,33,0.001,32,52,23],
+                    [83,51,0.001,32,52,23],
+                    [51,83,0.001,32,52,23],
+                    [51,33,0.001,32,52,23]]
     #training and validation
     for i in range(len(parameter_sets)):
         current_params=parameter_sets[i]
         test_element= current_params[0]
         val_element= current_params[1]
-        bs= current_params[2]
-        lr= current_params[3]
-        d1= current_params[4]
-        d2= current_params[5]
-        el= current_params[6]
-        cl= current_params[7]
-        d1b= current_params[8]
+        lr= current_params[2]
+        bs= current_params[3]
+
         if args.dataset=='prashun':
             data_tr, data_va, data_te, data_ex= split_for_prashuns_data(data, test_element, val_element)
         else:
@@ -376,15 +379,15 @@ def lhs(data, printlock):
         textlist.append(data_ex)
         textlist.append('lr='+str(lr))
         textlist.append('bs='+str(bs))
-        textlist.append('dropouts='+str(d1)+','+str(d2))
-        textlist.append('entropy lambda='+str(el))
-        textlist.append('column lambda='+str(cl))
+        # textlist.append('dropouts='+str(d1)+','+str(d2))
+        # textlist.append('entropy lambda='+str(el))
+        # textlist.append('column lambda='+str(cl))
 
         loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=bs, epochs=args.epochs)
         loader_va = DisjointLoader(PartitionedData(data_va), batch_size=len(data_va))
         loader_te = DisjointLoader(PartitionedData(data_te), batch_size=len(data_te))
 
-        p= Process(target=full_training_loop, args=(printlock, loader_tr, loader_va, loader_te, textlist, test_element, val_element, lr, i, model_dict, performance_dict, d1, d2, el, cl, d1b))#, r1, r2, r3))
+        p= Process(target=full_training_loop, args=(printlock, loader_tr, loader_va, loader_te, textlist, test_element, val_element, lr, i, model_dict, performance_dict))#, r1, r2, r3))
 
         processlist.append(p)
 
@@ -400,6 +403,23 @@ def lhs(data, printlock):
     print(performance_dict)
     print('---')
 
+def random_split(dataset):
+    data_tr=[]
+    data_va=[]
+    data_te=[]
+    split= int(len(dataset)/5)
+    split_2= split*2
+    #print(split)
+    data_te=dataset[:split]
+    data_va= dataset[split:split_2]
+    data_tr=dataset[split_2:len(dataset)]
+    print(len(data_te))
+    print(len(data_va))
+    print(len(data_tr))
+    loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=32, epochs=args.epochs)
+    loader_va = DisjointLoader(PartitionedData(data_va), batch_size=len(data_va))
+    loader_te = DisjointLoader(PartitionedData(data_te), batch_size=len(data_te))
+    return loader_tr, loader_va, loader_te
 
 if __name__ == '__main__':
     printlock= Lock()
@@ -409,49 +429,27 @@ if __name__ == '__main__':
     np.random.seed(args.random_seed)
     if not os.path.exists(args.path+'/'+args.file_out):
         os.makedirs(args.path+'/'+args.file_out)
-    sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
+    #sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
 
     print(args)
-    data= MyDataset(args.datadir,args.filename, args.radius_angstroms, args.num_nbrs, args.task)
-    datasettime=time.time()-begin_time
-    print('datset generated: time=', str(datasettime))
+    df = pd.read_csv(os.path.join(args.datadir,'train.csv'), names=['id','target'], header=0)
+    train_data= DisjointLoader(MyDataset(df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=1, epochs=args.epochs)
+    val_df = pd.read_csv(os.path.join(args.datadir,'val.csv'), names=['id','target'], header=0)
+    val_data= DisjointLoader(MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=len(val_df))
 
+    test_df = pd.read_csv(os.path.join(args.datadir,'test.csv'), names=['id','target'], header=0)
+    test_data= DisjointLoader(MyDataset(test_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=len(test_df))
+    print(train_data)
+    print(val_data)
+    print(test_data)
 
-    lhs(data,printlock)
-    args.path= args.path+'1'
-    if not os.path.exists(args.path+'/'+args.file_out):
-        os.makedirs(args.path+'/'+args.file_out)
-    sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
-    processlist=[]
-    lhs(data,printlock)
-    args.path= args.path+'2'
-    if not os.path.exists(args.path+'/'+args.file_out):
-        os.makedirs(args.path+'/'+args.file_out)
-    sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
-    processlist=[]
-    lhs(data,printlock)
-    args.path= args.path+'3'
-    if not os.path.exists(args.path+'/'+args.file_out):
-        os.makedirs(args.path+'/'+args.file_out)
-    sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
-    processlist=[]
-    lhs(data,printlock)
-    args.path= args.path+'4'
-    if not os.path.exists(args.path+'/'+args.file_out):
-        os.makedirs(args.path+'/'+args.file_out)
-    sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
-    processlist=[]
-    lhs(data,printlock)
-    args.path= args.path+'5'
-    if not os.path.exists(args.path+'/'+args.file_out):
-        os.makedirs(args.path+'/'+args.file_out)
-    sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
-    processlist=[]
-    lhs(data,printlock)
-    args.path= args.path+'6'
-    if not os.path.exists(args.path+'/'+args.file_out):
-        os.makedirs(args.path+'/'+args.file_out)
-    sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
-    processlist=[]
-    lhs(data,printlock)
-    #full_training_loop(printlock, loader_tr, loader_te, [], textlist, 0, te, lr, str(te)+'_', {}, {}, dr1, dr2, el, cl, r1, r2, r3, testing=True)
+    full_training_loop(printlock, train_data, val_data, test_data, [], 'random split', 'random split', 0.0018, 0, {}, {})#, r1, r2, r3))
+    print('total time')
+    print(time.time()-begin_time)
+#    lhs(data,printlock)
+    # args.path= args.path+'1'
+    # if not os.path.exists(args.path+'/'+args.file_out):
+    #     os.makedirs(args.path+'/'+args.file_out)
+    # sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
+    # processlist=[]
+    # lhs(data,printlock)

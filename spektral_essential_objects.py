@@ -63,9 +63,9 @@ class PartitionedData(Dataset):
 
 class MyDataset(Dataset):
 
-    def __init__(self, datadir, filename, r_a, num_nbrs, task):
-        self.datadir=datadir
-        self.filename=filename
+    def __init__(self, df, datadir, r_a, num_nbrs, task):
+        self.dataframe=df
+        self.datadir= datadir
         self.radius_angstroms= r_a
         self.num_nbrs= num_nbrs
         self.task= task
@@ -73,10 +73,9 @@ class MyDataset(Dataset):
         super().__init__()
 
     def read(self):
-        df = pd.read_csv(os.path.join(self.datadir,self.filename), names=['id','target', 'prototype'], header=None)
-
-        df = df.sample(frac=1).reset_index(drop=True)
-
+        df = self.dataframe.sample(frac=1).reset_index(drop=True)
+        #print('in object')
+        #print(df)
         allgraphs=[]
         cifs=list(df['id'])
         self.cifs=cifs
@@ -177,8 +176,11 @@ class RegularizedDiffPool(DiffPool):
         super(DiffPool, self).build(input_shape)
 
     def select(self, x, a, i, fltr=None, mask=None):
-
+        #print('START OF DIFFPOOL')
+        #print(x)
         s = self.assignment_fc(x)
+        #print('S MATRIX')
+        #print(x)
         s = activations.softmax(s, axis=-1)
 
         if mask is not None:
@@ -468,6 +470,7 @@ class ModifiedCrystalConv(CrystalConv):
          self.bn1= BatchNormalization()
          self.bn2= BatchNormalization()
 
+
      def message(self, x, e=None):
         x_i = self.get_targets(x)
         x_j = self.get_sources(x)
@@ -482,8 +485,59 @@ class ModifiedCrystalConv(CrystalConv):
         return output
 
 
+class SuperCgcnn(CrystalConv):
+    def __init__(self, activation= None, kernel_initializer= None, **kwargs):
+        super().__init__(self, activation=activation, kernel_initializer=kernel_initializer, **kwargs)
+        self.transfer_weights=kwargs['transfers']
+        self.transfer_idx=kwargs['transfer_idx']
+
+
+    def build(self, input_shape):
+        assert len(input_shape) >= 2
+        layer_kwargs = dict(
+            kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer,
+            kernel_regularizer=self.kernel_regularizer,
+            bias_regularizer=self.bias_regularizer,
+            kernel_constraint=self.kernel_constraint,
+            bias_constraint=self.bias_constraint,
+            dtype=self.dtype,
+        )
+        channels = input_shape[0][-1] * 2
+
+        self.dense_fc = Dense(channels, **layer_kwargs)
+        #self.dense_s = Dense(channels, activation=self.activation, **layer_kwargs)
+
+        bn1_w= 'bn1_w_'+self.transfer_idx
+        bn1_b= 'bn1_b_'+self.transfer_idx
+        bn2_w= 'bn2_w_'+self.transfer_idx
+        bn2_b= 'bn2_b_'+self.transfer_idx
+        #initializers.constant(self.transfer_weights[bn1_w])
+        self.agg = deserialize_scatter('sum')
+        self.bn1= BatchNormalization(beta_initializer=initializers.constant(self.transfer_weights[bn1_w]) ,gamma_initializer=initializers.constant(self.transfer_weights[bn1_b]))
+        self.bn2= BatchNormalization(beta_initializer=initializers.constant(self.transfer_weights[bn2_w]) ,gamma_initializer=initializers.constant(self.transfer_weights[bn2_b]))
+        self.built = True
+
+    def message(self, x, e=None):
+       x_i = self.get_targets(x)
+       x_j = self.get_sources(x)
+
+       to_concat = [x_i, x_j]
+       if e is not None:
+           to_concat += [e]
+       z = K.concatenate(to_concat, axis=-1)
+       z= self.dense_fc(z)
+       z= self.bn1(z)
+       #print(z.shape)
+       nbr_filter, nbr_core= tf.split(z, 2, axis=1)
+       nbr_filter= tf.sigmoid(nbr_filter)
+       nbr_core= tf.keras.activations.softplus(nbr_core)
+       nbr_sumed=nbr_filter * nbr_core
+       output= tf.keras.activations.softplus(tf.math.add(x_i, self.bn2(nbr_sumed)))
+       return output
+
 class HNetConcat(Model):
-    def __init__(self, task, num_classes, embedding_size=52, d1=0, d2=0, el=1, cl=1, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+    def __init__(self, task, num_classes, embedding_size=52, d1=0.578, d2=0.302, el=427, cl=265, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
         super().__init__()
         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
         he_initializer= initializers.he_uniform(seed=random_seed)
@@ -769,16 +823,19 @@ class HNetRecurrent(Model):
         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
         he_initializer= initializers.he_uniform(seed=random_seed)
 
+        transfer_weights= np.load('/Users/nilamandal/Desktop/spk-crystal-hierarchy/total_energy_cgcnn_params.npz')
+        #for x in transfer_weights:
+        #    print(x)
+
         self.return_s=return_s
         self.task=task
         self.num_classes=num_classes
 
-        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer)
+        self.embedding= Dense(embedding_size, kernel_initializer=initializers.constant(transfer_weights['embed']))
 
-        self.conv1= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
-        self.conv2= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
-        self.conv3= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
-
+        self.conv1= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_0']), bias_initializer=initializers.constant(transfer_weights['fc_b_0']), transfers=transfer_weights, transfer_idx='0')
+        self.conv2= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_1']), bias_initializer=initializers.constant(transfer_weights['fc_b_1']), transfers=transfer_weights, transfer_idx='1')
+        self.conv3= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_2']), bias_initializer=initializers.constant(transfer_weights['fc_b_2']), transfers=transfer_weights, transfer_idx='2')
 
         self.disjoint2batch= Disjoint2Batch()
         self.pool= RegularizedDiffPool(k=k, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
@@ -794,14 +851,27 @@ class HNetRecurrent(Model):
 
     def call(self, inputs):
         x, a, e, i = inputs
-
+        #print('INITIAL VALS')
+        #print(x)
         x= self.embedding(x)
+        #print('EMBEDDED VALS')
+        #print(x)
         x= self.conv1([x, a, e])
+        #print('CONV1 VALS')
+        #print(x)
         x= self.conv2([x, a, e])
+        #print('CONV2 VALS')
+        #print(x)
         x= self.conv3([x, a, e])
+        #print('CONV3 VALS')
+        #print(x)
 
         batch_X, batch_A= self.disjoint2batch([x, a, i])
+        #print('BATCHED')
+        #print(batch_X)
         x_pooled, a_pooled, s= self.pool([batch_X, batch_A])
+        #print('POOLED')
+        #print(x_pooled)
         e_pooled= self.edgepool(e, a, s, i, a_pooled)
         x, a, e, i = self.batch2disjoint(x_pooled, e_pooled, a_pooled)
 
@@ -815,6 +885,7 @@ class HNetRecurrent(Model):
         if self.task=='c':
             x= self.dropout(x)
         x=self.out_layer(x)
+        #print('----')
         if self.return_s:
             return x, s
         else:
@@ -866,7 +937,7 @@ class HNetRecurrent(Model):
 
     def edgepool(self, e, a, s, i, a_pooled):
         indices = a.indices
-        values = a.values
+        #values = a.values
         i_nodes, j_nodes = indices[:, 0], indices[:, 1]
 
         graph_sizes = tf.math.segment_sum(tf.ones_like(i), i)
@@ -908,3 +979,44 @@ class HNetRecurrent(Model):
             return tf.cumsum(graph_sizes, exclusive=True)[graph_id]
 
         return tf.map_fn(get_cum_graph_size, nodes)
+
+class HNetLasagna(HNetRecurrent):
+    def __init__(self, task, num_classes, embedding_size=52, fc1=23, d1=0, el=1, cl=1, return_s=False, k=2, random_seed=0, **kwargs):
+        super().__init__(task, num_classes, embedding_size, fc1, d1, el, cl, return_s, k, random_seed, **kwargs)
+        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+        he_initializer= initializers.he_uniform(seed=random_seed)
+
+        transfer_weights= np.load('/Users/nilamandal/Desktop/spk-crystal-hierarchy/total_energy_cgcnn_params.npz')
+
+        self.conv4= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_0']), bias_initializer=initializers.constant(transfer_weights['fc_b_0']), transfers=transfer_weights, transfer_idx='0')
+        self.conv5= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_1']), bias_initializer=initializers.constant(transfer_weights['fc_b_1']), transfers=transfer_weights, transfer_idx='1')
+        self.conv6= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_2']), bias_initializer=initializers.constant(transfer_weights['fc_b_2']), transfers=transfer_weights, transfer_idx='2')
+
+    def call(self, inputs):
+        x, a, e, i = inputs
+        x= self.embedding(x)
+        x= self.conv1([x, a, e])
+        x= self.conv2([x, a, e])
+        x= self.conv3([x, a, e])
+
+        batch_X, batch_A= self.disjoint2batch([x, a, i])
+
+        x_pooled, a_pooled, s= self.pool([batch_X, batch_A])
+        e_pooled= self.edgepool(e, a, s, i, a_pooled)
+        x, a, e, i = self.batch2disjoint(x_pooled, e_pooled, a_pooled)
+
+        x= self.conv4([x, a, e])
+        x= self.conv5([x, a, e])
+        x= self.conv6([x, a, e])
+
+        x= self.finalpool([x, i])
+        x= self.fc_afterpool(x)
+
+        if self.task=='c':
+            x= self.dropout(x)
+        x=self.out_layer(x)
+        #print('----')
+        if self.return_s:
+            return x, s
+        else:
+            return x
