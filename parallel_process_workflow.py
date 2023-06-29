@@ -1,0 +1,455 @@
+from spektral.data import Graph, Dataset, DisjointLoader
+from spektral.data.utils import to_batch
+from spektral.layers import CrystalConv, DiffPool, ops, GlobalMaxPool#, Disjoint2Batch
+import tensorflow as tf
+from tensorflow.keras import Model
+from tensorflow.keras.optimizers import SGD, Adam
+from tensorflow.keras.optimizers.schedules import ExponentialDecay, PiecewiseConstantDecay
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.losses import MeanSquaredError, SparseCategoricalCrossentropy
+from tensorflow.keras.metrics import sparse_categorical_accuracy, mean_squared_error
+from sklearn.metrics import confusion_matrix
+import numpy as np
+import pandas as pd
+import os
+import sys
+import random
+from pymatgen.core.structure import Structure
+import json
+import argparse
+import time
+from spektral_essential_objects import GaussianDistance, MyDataset, PartitionedData, HNetConcat, RegularizedDiffPool, MultifilterDiffPool, HNetRecurrent
+from multiprocessing import Process, Lock, Value, Manager, Semaphore
+from scipy.stats import qmc
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+
+begin_time = time.time()
+parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
+
+parser.add_argument('--datadir', dest='datadir',
+        help='Directory where dataset is located', default='../Main_fol_Zintl/')
+parser.add_argument('--filename', dest='filename',
+                    help='csv where data is located', default='id_prop.csv')
+parser.add_argument('--file-out', dest='file_out',
+                    help='output file name', default='debugging')
+parser.add_argument('--path-out', dest='path',
+                    help='output path', default='./timer')
+parser.add_argument('--num-atoms', dest='num_atoms', type=int,
+                    help='Maximum number of nodes', default=200)
+parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
+                    help='num neighbors per atom', default=12)
+parser.add_argument('--num-classes', dest='num_classes', type=int,
+                    help='Number of label classes', default=3)
+parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
+                    help='search radius for neighbors', default=10)
+parser.add_argument('--random-seed', dest='random_seed', type=int,
+                    help='random seed for numpy', default=0)
+parser.add_argument('--optim', default='Adam', type=str, metavar='SGD',
+                        help='choose an optimizer, SGD or Adam, (default: SGD)')
+parser.add_argument('--epochs', default=2, type=int, metavar='N',
+                    help='number of total epochs to run (default: 30)')
+parser.add_argument('--task', choices=['r', 'c'],
+                    default='r', help='complete a regression or '
+                        'classification task (default: regression)')
+parser.add_argument('--dataset', choices=['prashun', 'mp'],
+                    default='prashun')
+#parser.add_argument('--patience', dest='patience',default=30, type=int,
+#                    help='num epochs for early stopping')
+
+def test_eval(loader_te,model,loss_fn,textlist):
+    test_loss, test_metric = evaluate(loader_te, model, loss_fn, True)
+    textlist.append("Done. Test loss: {}".format(test_loss))
+    if args.task=='r':
+        textlist.append('test mse=')
+    elif args.task=='c':
+        textlist.append('test_acc=')
+    textlist.append(test_metric)
+    return textlist
+
+def evaluate(loader, model, loss_fn, test=False):
+    output = []
+    step = 0
+    while step < loader.steps_per_epoch:
+        step += 1
+        inputs, target = loader.__next__()
+        pred, s = model(inputs, training=False)
+        if args.task=='c':
+            outs = (
+                loss_fn(target, pred),
+                tf.reduce_mean(sparse_categorical_accuracy(target, pred)),
+                len(target),  # Keep track of batch size
+            )
+        elif args.task=='r':
+            outs = (
+                loss_fn(target, pred),
+                tf.reduce_mean(mean_squared_error(target, pred)),
+                len(target),  # Keep track of batch size
+            )
+        output.append(outs)
+        if step == loader.steps_per_epoch:
+            if test==True and args.task=='c':
+                print('TEST confusion_matrix')
+                print(confusion_matrix(target,np.argmax(pred, axis=1)))
+            output = np.array(output)
+            return np.average(output[:, :-1], 0, weights=output[:, -1])
+
+def train_step(inputs, target, model, loss_fn, optimizer):
+    outputtxt=[]
+    with tf.GradientTape() as tape:
+        predictions, s = model(inputs, training=True)
+        loss = loss_fn(target, predictions)
+
+    gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+    if args.task=='r':
+        mse = tf.reduce_mean((target-predictions)**2)
+        return loss, mse, outputtxt
+    if args.task=='c':
+        sca= tf.reduce_mean(sparse_categorical_accuracy(target, predictions))
+        outputtxt.append(confusion_matrix(target,np.argmax(predictions, axis=1)))
+
+        return loss, sca, outputtxt
+
+def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testelement, valelement, lr, specialindex, model_list, performance_list, testing=False):
+
+        textlist.append('----NEW EXP----, TE='+str(testelement)+', VA='+str(valelement))
+        init_time= time.time()
+        if testing:
+            fullpath=args.path+'/'+args.file_out+'_testing'+'/'+str(specialindex)
+        else:
+            fullpath=args.path+'/'+args.file_out+'/'+str(specialindex)
+        print(fullpath)
+        if not os.path.exists(fullpath):
+            os.makedirs(fullpath)
+
+        checkpoint_path=fullpath+'/goodmodel.ckpt'
+        #
+        #lr_schedule = ExponentialDecay(
+        #    initial_learning_rate=lr,
+        #    decay_steps=decay_steps,
+        #    decay_rate=decay_rate)
+
+
+        if args.optim=='Adam':
+            optimizer = Adam(learning_rate=lr)
+        elif args.optim=='SGD':
+            optimizer = SGD(learning_rate=lr)
+        if args.task=='c':
+            loss_fn= SparseCategoricalCrossentropy()
+        elif args.task=='r':
+            loss_fn = MeanSquaredError()
+        else:
+            print(args.task, ' is not c or r.')
+
+        model= HNetConcat(args.task, args.num_classes, return_s=True, random_seed=args.random_seed)
+
+        textlist.append('evaluation on train set before training:')
+        print(testelement, valelement)
+        temp=evaluate(load_tr, model, loss_fn)
+        textlist.append(str(temp))
+
+        textlist.append('evaluation on val set before training:')
+        temp=evaluate(load_va, model, loss_fn)
+        textlist.append(str(temp))
+
+        early_stop_counter= 0
+
+        epoch = step = 0
+        best_val_loss = np.inf
+        best_weights = None
+        results = []
+        for batch in load_tr:
+                step += 1
+                loss, metric, outputtxt = train_step(*batch, model, loss_fn, optimizer)
+                textlist= textlist + outputtxt
+                if step == load_tr.steps_per_epoch:
+                    step = 0
+                    loss_str="Loss: {}".format(loss / load_tr.steps_per_epoch)
+                    textlist.append(loss_str)
+                    is_nan= np.isnan(loss)
+                    #loss = 0
+                    val_loss, val_metric = evaluate(load_va, model, loss_fn)
+                    val_is_nan= np.isnan(val_loss)
+                    if val_loss<best_val_loss:
+                        model.save_weights(checkpoint_path)
+                        best_val_loss= val_loss
+                        early_stop_counter=0
+                    else:
+                        early_stop_counter+=1
+                    if args.task=='r':
+                        textlist.append('train mse='+str(metric))
+                        textlist.append('val loss and mse')
+                    elif args.task=='c':
+                        textlist.append('train accuracy='+str(metric))
+                        textlist.append('val loss and acc')
+                    textlist.append(str(val_loss))
+                    textlist.append(str(val_metric))
+
+
+                    epoch+=1
+                    textlist.append('epoch='+str(epoch))
+
+                    if is_nan or val_is_nan:
+                        model_list[specialindex]= str(checkpoint_path)
+                        performance_list[specialindex] = best_val_loss
+                        break
+
+
+        textlist.append('training time=')
+        textlist.append(str(time.time()-init_time))
+
+        model_list[specialindex]= str(checkpoint_path)
+        performance_list[specialindex] = best_val_loss
+        textlist.append('----EXP OVER----')
+        printlock.acquire()
+        try:
+            print(textlist, flush=True)
+            gen_plots(textlist, specialindex, fullpath)
+
+        finally:
+            printlock.release()
+
+
+def gen_plots(textlist, specialindex, fullpath):
+    print('plots pls')
+    plt.figure()
+    train_metric=[]
+    val_metric=[]
+    test_el=''
+    val_el=''
+    lr=''
+    bs=''
+    dr_rates=''
+    for line_num in range(len(textlist)):
+        if 'train mse' in textlist[line_num]:
+            value=float(textlist[line_num].split('(')[1].split(',')[0])
+            train_metric.append(value)
+        elif 'val loss and mse' in textlist[line_num]:
+            val_metric.append(float(textlist[line_num+2]))
+        elif 'dropouts' in  textlist[line_num]:
+            dr_rates=textlist[line_num]
+        elif 'lr=' in textlist[line_num]:
+            lr=textlist[line_num]
+        elif 'bs=' in textlist[line_num]:
+            bs=textlist[line_num]
+        elif 'test element' in textlist[line_num]:
+            test_el= textlist[line_num]
+        elif 'val element' in textlist[line_num]:
+            val_el= textlist[line_num]
+        elif 'evaluation on train set before training:' in textlist[line_num]:
+            value=float(textlist[line_num+1][1:-1].split(' ')[0])
+            train_metric.append(value)
+        elif 'evaluation on val set before training:' in textlist[line_num]:
+            value=float(textlist[line_num+1][1:-1].split(' ')[0])
+            val_metric.append(value)
+    epochs=list(range(len(train_metric)))
+    min_train= 'train min='+str(np.round(np.min(train_metric), decimals=3))+','
+    min_val= 'val min='+str(np.round(np.min(val_metric), decimals=3))
+    plt.plot(epochs, np.log(train_metric), label='training loss')
+    plt.plot(epochs, np.log(val_metric), label='val loss')
+
+    titleline= test_el+', '+val_el+', '+lr+', '+bs+', '+dr_rates
+    figtitle=fullpath+'/result.png'
+
+    plt.title(titleline, wrap=True)
+    plt.xlabel('epochs')
+    plt.legend()
+    plt.ylabel('log of mean square error ')
+    plt.savefig(figtitle)
+
+
+def split_for_mp(data):
+    elements_in_formation_energy_set={9: 5086, 90: 345, 57: 1393, 60: 893, 65: 592, 70: 581, 67: 684, 62: 808, 38: 1657, 56: 2332, 69: 522, 39: 1066, 68: 666, 19: 2468, 89: 76, 59: 757, 8: 26390, 71: 496, 37: 1417, 58: 705, 21: 701, 40: 938, 20: 1670, 11: 3185, 64: 330, 91: 77, 72: 584, 13: 1958, 17: 1849, 63: 274, 92: 686, 3: 10455, 12: 1428, 66: 670, 22: 2164, 94: 78, 82: 932, 14: 3238, 4: 398, 73: 757, 55: 1070, 5: 2448, 93: 112, 61: 120, 23: 3528, 34: 1668, 41: 1358, 74: 939, 24: 2185, 7: 2124, 49: 1242, 83: 1413, 31: 1156, 35: 827, 25: 4209, 6: 2146, 15: 6782, 75: 426, 52: 1493, 26: 4206, 30: 1354, 16: 3271, 81: 943, 79: 796, 50: 1810, 27: 2786, 28: 2630, 1: 3248, 29: 2754, 32: 1605, 48: 878, 51: 1823, 46: 917, 47: 1149, 42: 965, 45: 789, 33: 1337, 53: 987, 44: 701, 76: 315, 80: 698, 77: 593, 78: 728, 43: 169, 2: 2, 54: 46, 36: 8}
+    data_tr = []
+    data_va = []
+    data_te = []
+    data_ex= []
+    test_element=[]
+    val_element=[]
+    sum=0
+    while sum<7000:
+        element, quant= elements_in_formation_energy_set.popitem()
+        if quant+sum<9000:
+            test_element.append(element)
+            sum+=quant
+
+    sum=0
+    while sum<7000:
+        element, quant= elements_in_formation_energy_set.popitem()
+        if quant+sum<9000:
+            val_element.append(element)
+            sum+=quant
+
+    test_element=set(test_element)
+    val_element=set(val_element)
+    for d in data:
+        atomset= set(d._atomlist)
+        if (atomset & test_element):
+            if (atomset & val_element):
+                data_ex.append(d._cif)
+            else:
+                data_te.append(d)
+        elif (atomset & val_element):
+            data_va.append(d)
+        else:
+            data_tr.append(d)
+
+    return data_tr, data_va, data_te, data_ex, test_element, val_element
+
+def split_for_prashuns_data(data, test_element, val_element):
+    data_tr=[]
+    data_va=[]
+    data_te=[]
+    data_ex=[]
+    for d in data:
+        atomset= set(d._atomlist)
+        if test_element in atomset:
+            if val_element in atomset:
+                data_ex.append(d._cif)
+            else:
+                data_te.append(d)
+        elif val_element in atomset:
+            data_va.append(d)
+        else:
+            data_tr.append(d)
+    #print(data_tr)
+    return data_tr, data_va, data_te, data_ex
+
+
+def lhs(data, printlock):
+    atomic_num_list=[33, 83, 51]
+    # sampler = qmc.LatinHypercube(d=7)
+    # quantity=2
+    # sample = sampler.random(n=quantity)
+    #
+    # #bs, lr, dr1a, dr2, el, cl, dr1b
+    # l_bounds= [2, 0, 0, 0, 0, 0, 0]#, 0, 0, 0]
+    # u_bounds= [8, 5, 1, 1, 4, 4, 1]#, 4, 4, 4]
+    # scaled_sample= qmc.scale(sample, l_bounds, u_bounds)
+
+    # parameter_sets= []
+    #
+    # for i in range(len(atomic_num_list)):
+    #     te=atomic_num_list[i]
+    #     for j in range(len(atomic_num_list)):
+    #         va=atomic_num_list[j]
+    #         if te!=va:
+    #             for row in scaled_sample:
+    #                     row=list(row)
+    #                     row[0]=int(2**np.ceil(row[0]))
+    #                     row[1]= 10**(-1*row[1])
+    #                     row[4]= 10**row[4]
+    #                     row[5]= 10**row[5]
+    #
+    #
+    #                     param_set= [te, va]+ row
+    #                     print(param_set)
+    #                     parameter_sets.append(param_set)
+
+    manager = Manager()
+    performance_dict= manager.dict()
+    model_dict = manager.dict()
+    parameter_sets= [[33,83,0.001,32,52,23],
+                    [33,51,0.001,32,52,23],
+                    [83,33,0.001,32,52,23],
+                    [83,51,0.001,32,52,23],
+                    [51,83,0.001,32,52,23],
+                    [51,33,0.001,32,52,23]]
+    #training and validation
+    for i in range(len(parameter_sets)):
+        current_params=parameter_sets[i]
+        test_element= current_params[0]
+        val_element= current_params[1]
+        lr= current_params[2]
+        bs= current_params[3]
+
+        if args.dataset=='prashun':
+            data_tr, data_va, data_te, data_ex= split_for_prashuns_data(data, test_element, val_element)
+        else:
+            data_tr, data_va, data_te, data_ex= split_for_mp(data, test_element, val_element)
+        textlist=[]
+        textlist.append('model # '+str(i))
+        textlist.append('test element='+str(test_element))
+        textlist.append('test size='+str(len(data_te)))
+        textlist.append('val element='+str(val_element))
+        textlist.append('val size='+str(len(data_va)))
+        textlist.append('train size='+str(len(data_tr)))
+        textlist.append('excluded to prevent data leakage:')
+        textlist.append(data_ex)
+        textlist.append('lr='+str(lr))
+        textlist.append('bs='+str(bs))
+        # textlist.append('dropouts='+str(d1)+','+str(d2))
+        # textlist.append('entropy lambda='+str(el))
+        # textlist.append('column lambda='+str(cl))
+
+        loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=bs, epochs=args.epochs)
+        loader_va = DisjointLoader(PartitionedData(data_va), batch_size=len(data_va))
+        loader_te = DisjointLoader(PartitionedData(data_te), batch_size=len(data_te))
+
+        p= Process(target=full_training_loop, args=(printlock, loader_tr, loader_va, loader_te, textlist, test_element, val_element, lr, i, model_dict, performance_dict))#, r1, r2, r3))
+
+        processlist.append(p)
+
+    for pr in processlist:
+        pr.start()
+        print(pr, ' started', flush=True)
+    for pr in processlist:
+        pr.join()
+        print(pr)
+        print('complete')
+
+    print(model_dict)
+    print(performance_dict)
+    print('---')
+
+def random_split(dataset):
+    data_tr=[]
+    data_va=[]
+    data_te=[]
+    split= int(len(dataset)/5)
+    split_2= split*2
+    #print(split)
+    data_te=dataset[:split]
+    data_va= dataset[split:split_2]
+    data_tr=dataset[split_2:len(dataset)]
+    print(len(data_te))
+    print(len(data_va))
+    print(len(data_tr))
+    loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=32, epochs=args.epochs)
+    loader_va = DisjointLoader(PartitionedData(data_va), batch_size=len(data_va))
+    loader_te = DisjointLoader(PartitionedData(data_te), batch_size=len(data_te))
+    return loader_tr, loader_va, loader_te
+
+if __name__ == '__main__':
+    printlock= Lock()
+    processlist=[]
+    args = parser.parse_args(sys.argv[1:])
+
+    np.random.seed(args.random_seed)
+    if not os.path.exists(args.path+'/'+args.file_out):
+        os.makedirs(args.path+'/'+args.file_out)
+    #sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
+
+    print(args)
+    df = pd.read_csv(os.path.join(args.datadir,'train.csv'), names=['id','target'], header=0)
+    train_data= DisjointLoader(MyDataset(df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=2, epochs=args.epochs)
+    val_df = pd.read_csv(os.path.join(args.datadir,'val.csv'), names=['id','target'], header=0)
+    val_data= DisjointLoader(MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=2)
+
+    test_df = pd.read_csv(os.path.join(args.datadir,'test.csv'), names=['id','target'], header=0)
+    test_data= DisjointLoader(MyDataset(test_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=2)
+    print(train_data)
+    print(val_data)
+    print(test_data)
+
+    full_training_loop(printlock, train_data, val_data, test_data, [], 'random split', 'random split', 0.0018, 0, {}, {})#, r1, r2, r3))
+    print('total time')
+    print(time.time()-begin_time)
+#    lhs(data,printlock)
+    # args.path= args.path+'1'
+    # if not os.path.exists(args.path+'/'+args.file_out):
+    #     os.makedirs(args.path+'/'+args.file_out)
+    # sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
+    # processlist=[]
+    # lhs(data,printlock)
