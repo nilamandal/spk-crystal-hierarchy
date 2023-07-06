@@ -34,7 +34,7 @@ parser.add_argument('--filename', dest='filename',
 parser.add_argument('--file-out', dest='file_out',
                     help='output file name', default='debugging')
 parser.add_argument('--path-out', dest='path',
-                    help='output path', default='./timer')
+                    help='output path', default='./debug')
 parser.add_argument('--num-atoms', dest='num_atoms', type=int,
                     help='Maximum number of nodes', default=200)
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
@@ -111,7 +111,7 @@ def train_step(inputs, target, model, loss_fn, optimizer):
 
         return loss, sca, outputtxt
 
-def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testelement, valelement, lr, specialindex, model_list, performance_list, testing=False):
+def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testelement, valelement, lr, specialindex, el, cl, model_list, performance_list, testing=False):
 
         textlist.append('----NEW EXP----, TE='+str(testelement)+', VA='+str(valelement))
         init_time= time.time()
@@ -142,7 +142,7 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
         else:
             print(args.task, ' is not c or r.')
 
-        model= HNetConcat(args.task, args.num_classes, return_s=True, random_seed=args.random_seed)
+        model= HNetConcat(args.task, args.num_classes, el=el, cl=cl, return_s=True, random_seed=args.random_seed)
 
         textlist.append('evaluation on train set before training:')
         print(testelement, valelement)
@@ -206,6 +206,9 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
         try:
             print(textlist, flush=True)
             gen_plots(textlist, specialindex, fullpath)
+            newfile= open(fullpath+'/out.txt', 'w')
+            for x in textlist:
+                newfile.write(x)
 
         finally:
             printlock.release()
@@ -443,9 +446,34 @@ if __name__ == '__main__':
     print(val_data)
     print(test_data)
 
-    full_training_loop(printlock, train_data, val_data, test_data, [], 'random split', 'random split', 0.0018, 0, {}, {})#, r1, r2, r3))
-    print('total time')
-    print(time.time()-begin_time)
+
+    my_params=[[45190760.83, 4591.426365,0.000425127],
+                [91491872.27,	271474.2146,	0.000658106],
+                [27179518.38,	13005.18489,	0.000416647],
+                [43992427.11,	6001.060802,	0.000453878],
+                [60438465.94,	1875.199872,	0.000579498],
+                [42.78066552,	0.102313329,	0.000699724],
+                [50184930.53,	1340.970412,	0.000388497],
+                [12230081.79,	106456.2378,	0.000188191],
+                [90114962.39,	30983.47897,	0.00102]]
+    for i in range(len(my_params)):
+        cl= my_params[i][0]
+        el= my_params[i][1]
+        lr= my_params[i][2]
+        p= Process(target=full_training_loop, args=(printlock, train_data, val_data, test_data, [], 'random split', 'random split', lr, i, el, cl, {}, {}))#, r1, r2, r3))
+        #full_training_loop(printlock, train_data, val_data, test_data, [], , 0.0018, 0, {}, {})#, r1, r2, r3))
+        processlist.append(p)
+
+    for pr in processlist:
+        pr.start()
+        print(pr, ' started', flush=True)
+    for pr in processlist:
+        pr.join()
+        print(pr)
+        print('complete')
+
+    #print('total time')
+    #print(time.time()-begin_time)
 #    lhs(data,printlock)
     # args.path= args.path+'1'
     # if not os.path.exists(args.path+'/'+args.file_out):
