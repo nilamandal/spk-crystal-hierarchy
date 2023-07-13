@@ -573,14 +573,7 @@ class HNetConcat(Model):
 
     def call(self, inputs):
         x, a, e, i = inputs
-        #print(i)
-        #print(x.shape)
-        #x=tf.zeros(x.shape)
-        #print(e.shape)
-        #e=tf.zeros(e.shape)
-        #print(i.shape)
 
-        #print(self.conv1.built)
         x= self.embedding(x)
         x= self.conv1([x, a, e])
         x= tf.nn.softplus(x)
@@ -588,21 +581,12 @@ class HNetConcat(Model):
         x= tf.nn.softplus(x)
         x= self.conv3([x, a, e])
         x= tf.nn.softplus(x)
-        #print(x,a,i)
+
         x= self.dropout1(x)
-        #print(x,a,i)
+
         batch_X, batch_A= self.disjoint2batch([x, a, i])
-        #print(batch_X.shape)
-        #print(batch_A.shape)
+
         x_orig, a, i, s= self.pool([batch_X, batch_A, i])
-        #print(np.count_nonzero(i))
-        # for j in range(2):
-        #     if j==0:
-        #         print(len(i)-np.count_nonzero(i))
-        #     else:
-        #         print(np.count_nonzero(i))
-        #     print(s[j])
-        #     print('---')
 
         w= tf.constant([1.0,-1.0], dtype=tf.float32)
         x=tf.multiply(x_orig, w[:,tf.newaxis])
@@ -617,7 +601,6 @@ class HNetConcat(Model):
         x= self.dropout2(x_new)
         x= self.fc(x)
         x=self.out_layer(x)
-        #print(x.shape)
         if self.return_s:
             return x, s
         else:
@@ -1034,6 +1017,86 @@ class HNetLasagna(HNetRecurrent):
         if self.task=='c':
             x= self.dropout(x)
         x=self.out_layer(x)
+        #print('----')
+        if self.return_s:
+            return x, s
+        else:
+            return x
+
+
+
+class HNetConcatPretrained(HNetConcat):
+    def __init__(self, task, num_classes, embedding_size=52, d1=0.578, d2=0.302, el=427, cl=265, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+        super().__init__(task, num_classes, embedding_size, d1, d2, el, cl, regularizer, return_s, random_seed)
+
+        transfer_weights= np.load('/Users/nilamandal/Desktop/spk-crystal-hierarchy/total_energy_cgcnn_params.npz')
+        self.conv1= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_0']), bias_initializer=initializers.constant(transfer_weights['fc_b_0']), transfers=transfer_weights, transfer_idx='0')
+        self.conv2= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_1']), bias_initializer=initializers.constant(transfer_weights['fc_b_1']), transfers=transfer_weights, transfer_idx='1')
+        self.conv3= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_2']), bias_initializer=initializers.constant(transfer_weights['fc_b_2']), transfers=transfer_weights, transfer_idx='2')
+
+
+
+class HNetConcatJanossy(Model):
+    def __init__(self, task, num_classes, embedding_size=52, d1=0.578, el=427, cl=265, fc_size=23, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+        super().__init__()
+        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+        he_initializer= initializers.he_uniform(seed=random_seed)
+
+        self.return_s=return_s
+        self.task=task
+        self.num_classes=num_classes
+
+        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
+
+        self.conv1= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)#does this l2 have a lambda
+        self.conv2= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+        self.conv3= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+
+        self.disjoint2batch= Disjoint2Batch()
+        self.dropout1= Dropout(d1)
+
+        self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
+
+
+        #self.dropout2= Dropout(d2)
+        self.fc= Dense(fc_size, activation='softplus', kernel_initializer=he_initializer)
+        self.meanpool= GlobalAvgPool()
+        #we should have a dropout after aggregating crystal features
+        if self.task=='c':
+            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
+        elif self.task=='r':
+            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
+
+
+    def call(self, inputs):
+        x, a, e, i = inputs
+
+        x= self.embedding(x)
+        x= self.conv1([x, a, e])
+        x= tf.nn.softplus(x)
+        x= self.conv2([x, a, e])
+        x= tf.nn.softplus(x)
+        x= self.conv3([x, a, e])
+        x= tf.nn.softplus(x)
+
+        x= self.dropout1(x)
+
+        batch_X, batch_A= self.disjoint2batch([x, a, i])
+
+        x_pool_1, a, i, s= self.pool([batch_X, batch_A, i])
+        x_pool_2= tf.reverse(x_pool_1, [1])
+
+        x_1= self.fc(x_pool_1)
+        x_2= self.fc(x_pool_2)
+
+        temp_concat=tf.stack([x_1,x_2],axis=-1)
+        x_mean= tf.math.reduce_mean(temp_concat, axis=3)
+
+
+        x_mean= self.meanpool(x_mean)
+        #print(x_mean.shape)
+        x=self.out_layer(x_mean)
+        #print(x.shape)
         #print('----')
         if self.return_s:
             return x, s

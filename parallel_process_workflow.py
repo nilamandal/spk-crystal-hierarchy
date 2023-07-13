@@ -18,7 +18,7 @@ from pymatgen.core.structure import Structure
 import json
 import argparse
 import time
-from spektral_essential_objects import GaussianDistance, MyDataset, PartitionedData, HNetConcat, RegularizedDiffPool, MultifilterDiffPool, HNetRecurrent
+from spektral_essential_objects import GaussianDistance, MyDataset, HNetConcat, RegularizedDiffPool, HNetConcatJanossy
 from multiprocessing import Process, Lock, Value, Manager, Semaphore
 from scipy.stats import qmc
 import matplotlib.pyplot as plt
@@ -32,9 +32,9 @@ parser.add_argument('--datadir', dest='datadir',
 parser.add_argument('--filename', dest='filename',
                     help='csv where data is located', default='id_prop.csv')
 parser.add_argument('--file-out', dest='file_out',
-                    help='output file name', default='debugging')
+                    help='output file name', default='janossy')
 parser.add_argument('--path-out', dest='path',
-                    help='output path', default='./debug')
+                    help='output path', default='./janossy_exps2')
 parser.add_argument('--num-atoms', dest='num_atoms', type=int,
                     help='Maximum number of nodes', default=200)
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
@@ -47,7 +47,7 @@ parser.add_argument('--random-seed', dest='random_seed', type=int,
                     help='random seed for numpy', default=0)
 parser.add_argument('--optim', default='Adam', type=str, metavar='SGD',
                         help='choose an optimizer, SGD or Adam, (default: SGD)')
-parser.add_argument('--epochs', default=2, type=int, metavar='N',
+parser.add_argument('--epochs', default=1000, type=int, metavar='N',
                     help='number of total epochs to run (default: 30)')
 parser.add_argument('--task', choices=['r', 'c'],
                     default='r', help='complete a regression or '
@@ -142,10 +142,10 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
         else:
             print(args.task, ' is not c or r.')
 
-        model= HNetConcat(args.task, args.num_classes, el=el, cl=cl, return_s=True, random_seed=args.random_seed)
+        model= HNetConcatJanossy(args.task, args.num_classes, return_s=True, random_seed=args.random_seed)
 
         textlist.append('evaluation on train set before training:')
-        print(testelement, valelement)
+        #print(testelement, valelement)
         temp=evaluate(load_tr, model, loss_fn)
         textlist.append(str(temp))
 
@@ -161,7 +161,10 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
         results = []
         for batch in load_tr:
                 step += 1
+                print(epoch, step, flush=True)
                 loss, metric, outputtxt = train_step(*batch, model, loss_fn, optimizer)
+                print('batch train mse:', flush=True)
+                print(loss, flush=True)
                 textlist= textlist + outputtxt
                 if step == load_tr.steps_per_epoch:
                     step = 0
@@ -171,6 +174,8 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
                     #loss = 0
                     val_loss, val_metric = evaluate(load_va, model, loss_fn)
                     val_is_nan= np.isnan(val_loss)
+                    print('val mse:', flush=True)
+                    print(val_loss, flush=True)
                     if val_loss<best_val_loss:
                         model.save_weights(checkpoint_path)
                         best_val_loss= val_loss
@@ -432,45 +437,46 @@ if __name__ == '__main__':
     np.random.seed(args.random_seed)
     if not os.path.exists(args.path+'/'+args.file_out):
         os.makedirs(args.path+'/'+args.file_out)
-    #sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
+    sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
 
     print(args)
     df = pd.read_csv(os.path.join(args.datadir,'train.csv'), names=['id','target'], header=0)
+    #df= df.head(10)
     train_data= DisjointLoader(MyDataset(df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=2, epochs=args.epochs)
     val_df = pd.read_csv(os.path.join(args.datadir,'val.csv'), names=['id','target'], header=0)
-    val_data= DisjointLoader(MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=2)
+    #val_df= val_df.head(10)
+    val_data= DisjointLoader(MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=len(val_df))
 
     test_df = pd.read_csv(os.path.join(args.datadir,'test.csv'), names=['id','target'], header=0)
-    test_data= DisjointLoader(MyDataset(test_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=2)
-    print(train_data)
-    print(val_data)
-    print(test_data)
+    #test_df= test_df.head(10)
+    test_data= DisjointLoader(MyDataset(test_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=len(test_df))
 
-
-    my_params=[[45190760.83, 4591.426365,0.000425127],
-                [91491872.27,	271474.2146,	0.000658106],
-                [27179518.38,	13005.18489,	0.000416647],
-                [43992427.11,	6001.060802,	0.000453878],
-                [60438465.94,	1875.199872,	0.000579498],
-                [42.78066552,	0.102313329,	0.000699724],
-                [50184930.53,	1340.970412,	0.000388497],
-                [12230081.79,	106456.2378,	0.000188191],
-                [90114962.39,	30983.47897,	0.00102]]
-    for i in range(len(my_params)):
-        cl= my_params[i][0]
-        el= my_params[i][1]
-        lr= my_params[i][2]
-        p= Process(target=full_training_loop, args=(printlock, train_data, val_data, test_data, [], 'random split', 'random split', lr, i, el, cl, {}, {}))#, r1, r2, r3))
-        #full_training_loop(printlock, train_data, val_data, test_data, [], , 0.0018, 0, {}, {})#, r1, r2, r3))
-        processlist.append(p)
-
-    for pr in processlist:
-        pr.start()
-        print(pr, ' started', flush=True)
-    for pr in processlist:
-        pr.join()
-        print(pr)
-        print('complete')
+    full_training_loop(printlock, train_data, val_data, test_data, [], '', '', 0.001, 0, 0, 0, {}, {})#, r1, r2, r3))
+    #
+    #
+    # my_params=[[45190760.83, 4591.426365,0.000425127],
+    #             [91491872.27,	271474.2146,	0.000658106],
+    #             [27179518.38,	13005.18489,	0.000416647],
+    #             [43992427.11,	6001.060802,	0.000453878],
+    #             [60438465.94,	1875.199872,	0.000579498],
+    #             [42.78066552,	0.102313329,	0.000699724],
+    #             [50184930.53,	1340.970412,	0.000388497],
+    #             [12230081.79,	106456.2378,	0.000188191],
+    #             [90114962.39,	30983.47897,	0.00102]]
+    # for i in range(len(my_params)):
+    #     cl= my_params[i][0]
+    #     el= my_params[i][1]
+    #     lr= my_params[i][2]
+    #     p= Process(target=full_training_loop, args=(printlock, train_data, val_data, test_data, [], 'random split', 'random split', lr, i, el, cl, {}, {}))#, r1, r2, r3))
+    #     processlist.append(p)
+    #
+    # for pr in processlist:
+    #     pr.start()
+    #     print(pr, ' started', flush=True)
+    # for pr in processlist:
+    #     pr.join()
+    #     print(pr)
+    #     print('complete')
 
     #print('total time')
     #print(time.time()-begin_time)
