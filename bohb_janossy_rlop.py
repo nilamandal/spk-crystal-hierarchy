@@ -2,7 +2,7 @@ import tensorflow as tf
 import os
 import sys
 import argparse
-from spektral_essential_objects import GaussianDistance, MyDataset, RegularizedDiffPool, HNetConcat
+from spektral_essential_objects import GaussianDistance, MyDataset, HNetConcat, HNetConcatJanossy, ModifiedReduceLROnPlateau
 from spektral.data import DisjointLoader
 from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.losses import MeanSquaredError
@@ -16,6 +16,7 @@ import pandas as pd
 import ConfigSpace
 from hpbandster.optimizers.config_generators.bohb import BOHB
 import matplotlib.pyplot as plt
+from tensorflow.keras.callbacks import CallbackList, CSVLogger
 
 
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
@@ -31,8 +32,6 @@ parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
 parser.add_argument('--task', choices=['r', 'c'],
                     default='r', help='complete a regression or classification task (default: regression)')
 args = parser.parse_args(sys.argv[1:])
-
-df = pd.read_csv(args.datadir+'/'+args.filename, names=['id','target', 'prototype'], header=None)
 
 
 def evaluate(loader, model, loss_fn, test=False):
@@ -73,51 +72,46 @@ def train_step(inputs, target, model, loss_fn, optimizer):
         sca= tf.reduce_mean(sparse_categorical_accuracy(target, predictions))
         return loss, sca
 
-def random_split(dataset,batch_size, epochs):
-    data_tr=[]
-    data_va=[]
-    data_te=[]
-    split= int(len(dataset)/5)
-    split_2= split*2
-    #print(split)
-    data_te=dataset[:split]
-    data_va= dataset[split:split_2]
-    data_tr=dataset[split_2:len(dataset)]
-    #print(len(data_te))
-    #print(len(data_va))
-    #print(len(data_tr))
-    loader_tr = DisjointLoader(PartitionedData(data_tr), batch_size=batch_size, epochs=epochs)
-    loader_va = DisjointLoader(PartitionedData(data_va), batch_size=len(data_va))
-    loader_te = DisjointLoader(PartitionedData(data_te), batch_size=len(data_te))
-    return loader_tr, loader_va, loader_te
-
 def train_model(config):
     checkpoint_path='./goodmodel.ckpt'
-    batch_size = 8
-    epochs = 1000
+    epochs = 500
 
-
+    embedding_size= config['embedding_size']
+    batch_size= config['batch_size']
+    dr1= config['dr1']
+    fc_size= config['fc_size']
     entropy_lambda= config['entropy_lambda']
     column_lambda= config['column_lambda']
-    lr= config['lr']
+    lr= config['start_lr']
+    lr_factor= config['lr_factor']
+    lr_patience= config['lr_patience']
 
     # Load data and train model code here...
     train_df = pd.read_csv(os.path.join(args.datadir,'train.csv'), names=['id','target'], header=None)
+    #train_df= train_df.head(100)
     train_data= MyDataset(train_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     load_tr= DisjointLoader(train_data, batch_size=batch_size, epochs=epochs)
 
     val_df = pd.read_csv(os.path.join(args.datadir,'val.csv'), names=['id','target'], header=None)
+    #val_df= val_df.head(10)
     val_data= MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     load_va= DisjointLoader(val_data, batch_size=len(val_data))
 
-    #test_df = pd.read_csv(os.path.join(args.datadir,'test.csv'), names=['id','target'], header=None)
-    #test_data= MyDataset(test_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
-    #load_te= DisjointLoader(test_data, batch_size=len(test_data))
-
-    model= HNetConcat('r', 1, el=entropy_lambda, cl=column_lambda)
+    model= HNetConcatJanossy('r', 1, embedding_size=embedding_size, d1=dr1, el=entropy_lambda, cl=column_lambda, fc_size=fc_size)
 
     optim=Adam(lr)
     loss_fn= MeanSquaredError()
+
+    csv_log = CSVLogger("./callback_results.csv")
+    reduce_lr = ModifiedReduceLROnPlateau(
+        monitor='val_loss',
+        factor= lr_factor,
+        patience=lr_patience,
+        min_lr=1e-9,
+        optim= optim,
+        verbose=2
+    )
+    all_callbacks= CallbackList([csv_log, reduce_lr], add_history=True, model=model)
 
     train_metric=[]
     val_metric_list=[]
@@ -126,10 +120,15 @@ def train_model(config):
     best_val_loss = np.inf
     best_weights = None
     results = []
+    logs = {}
+    all_callbacks.on_train_begin(logs=logs)
     for batch in load_tr:
+            if step==0:
+                all_callbacks.on_epoch_begin(epoch, logs=logs)
             step += 1
+            all_callbacks.on_train_batch_begin(step)
             loss, metric = train_step(*batch, model, loss_fn, optim)
-            #train_metric.append(metric)
+            all_callbacks.on_train_batch_end(step, logs)
 
             if step == load_tr.steps_per_epoch:
                 step = 0
@@ -144,9 +143,17 @@ def train_model(config):
                     early_stop_counter=0
                 else:
                     early_stop_counter+=1
+                all_callbacks.on_epoch_end(epoch, {'train_loss':metric, 'val_loss':val_loss, 'lr':optim._learning_rate.numpy()})
 
                 epoch+=1
+    all_callbacks.on_train_end(logs)
     gen_plots(train_metric, val_metric_list)
+    file = open('./full_train_deets.txt', 'w')
+    file.write('training: \n')
+    file.write(str(train_metric))
+    file.write('\n val: \n')
+    file.write(str(val_metric_list))
+    file.close()
     # Return final stats. You can also return intermediate progress
     # using ray.air.session.report() if needed.
     # To return your model, you could write it to storage and return its
@@ -176,29 +183,30 @@ def gen_plots(train_metric, val_metric):
 
 if __name__ == "__main__":
       NUM_MODELS = 200
-      sys.stdout = open('./concat_out.txt', 'w')
+      sys.stdout = open('./janossy_raytune_out.txt', 'w')
 
       trial_space = {
-            # This is an example parameter. You could replace it with filesystem paths,
-            # model types, or even full nested Python dicts of model configurations, etc.,
-            # that enumerate the set of trials to run.
-            #'embedding_size': tune.lograndint(1, 128, 2),
-            #'dr1': tune.uniform(0, 1),
+            'embedding_size': tune.lograndint(1, 128, 8),
+            'batch_size': tune.lograndint(1, 128, 8),
+            'dr1': tune.uniform(0, 1),
             #'dr2': tune.uniform(0, 1),
+            'fc_size': tune.lograndint(1, 128, 8),
             'entropy_lambda': tune.loguniform(1e-1, 1e8),
             'column_lambda': tune.loguniform(1e-1, 1e8),
-            'lr': tune.loguniform(1e-9, 1e-1)
+            'start_lr': tune.loguniform(1e-5, 1e-1),
+            'lr_factor': tune.loguniform(1e-4, 1e-1),
+            'lr_patience': tune.lograndint(10, 150, 10)
         }
 
       bohb_hyperband = HyperBandForBOHB(
         time_attr="training_iteration",
-        max_t=20,
+        max_t=5,
         reduction_factor=4,
         stop_last_trials=False,
       )
       bohb = TuneBOHB(metric='score', mode='min')
       #print(bayesopt)
-      train_model = tune.with_resources(train_model, {"cpu": 120})
+      train_model = tune.with_resources(train_model, {"cpu": 20})
       tuner = tune.Tuner(train_model, tune_config=tune.TuneConfig(
         search_alg=bohb, scheduler=bohb_hyperband, metric='score', mode='min', num_samples=NUM_MODELS), param_space=trial_space)
       results = tuner.fit()

@@ -155,6 +155,10 @@ for batch in load_tr:
             val_loss, val_metric = evaluate(load_va, model, loss_fn)
             val_metric_list.append(val_metric)
             train_metric.append(metric)
+            print('train mse:', flush=True)
+            print(loss_str, flush=True)
+            print('val mse:', flush=True)
+            print(val_loss, flush=True)
             if val_loss<best_val_loss:
                 model.save_weights(new_checkpoint_path)
                 best_val_loss= val_loss

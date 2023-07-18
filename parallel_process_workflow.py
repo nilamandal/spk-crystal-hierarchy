@@ -18,23 +18,24 @@ from pymatgen.core.structure import Structure
 import json
 import argparse
 import time
-from spektral_essential_objects import GaussianDistance, MyDataset, HNetConcat, RegularizedDiffPool, HNetConcatJanossy
+from spektral_essential_objects import GaussianDistance, MyDataset, HNetConcat, HNetConcatJanossy, ModifiedReduceLROnPlateau
 from multiprocessing import Process, Lock, Value, Manager, Semaphore
 from scipy.stats import qmc
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+from tensorflow.keras.callbacks import CallbackList, CSVLogger
 
 begin_time = time.time()
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 
 parser.add_argument('--datadir', dest='datadir',
         help='Directory where dataset is located', default='../Main_fol_Zintl/')
-parser.add_argument('--filename', dest='filename',
-                    help='csv where data is located', default='id_prop.csv')
+#parser.add_argument('--filename', dest='filename',
+#                    help='csv where data is located', default='id_prop.csv')
 parser.add_argument('--file-out', dest='file_out',
                     help='output file name', default='janossy')
 parser.add_argument('--path-out', dest='path',
-                    help='output path', default='./janossy_exps2')
+                    help='output path', default='./janossy_w_callbacks_full_train')
 parser.add_argument('--num-atoms', dest='num_atoms', type=int,
                     help='Maximum number of nodes', default=200)
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
@@ -95,7 +96,7 @@ def evaluate(loader, model, loss_fn, test=False):
             return np.average(output[:, :-1], 0, weights=output[:, -1])
 
 def train_step(inputs, target, model, loss_fn, optimizer):
-    outputtxt=[]
+    #outputtxt=[]
     with tf.GradientTape() as tape:
         predictions, s = model(inputs, training=True)
         loss = loss_fn(target, predictions)
@@ -104,16 +105,16 @@ def train_step(inputs, target, model, loss_fn, optimizer):
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     if args.task=='r':
         mse = tf.reduce_mean((target-predictions)**2)
-        return loss, mse, outputtxt
+        return loss, mse#, outputtxt
     if args.task=='c':
         sca= tf.reduce_mean(sparse_categorical_accuracy(target, predictions))
         outputtxt.append(confusion_matrix(target,np.argmax(predictions, axis=1)))
 
-        return loss, sca, outputtxt
+        return loss, sca#, outputtxt
 
 def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testelement, valelement, lr, specialindex, el, cl, model_list, performance_list, testing=False):
 
-        textlist.append('----NEW EXP----, TE='+str(testelement)+', VA='+str(valelement))
+        textlist.append('----NEW EXP----')
         init_time= time.time()
         if testing:
             fullpath=args.path+'/'+args.file_out+'_testing'+'/'+str(specialindex)
@@ -142,16 +143,28 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
         else:
             print(args.task, ' is not c or r.')
 
+        csv_log = CSVLogger(fullpath+"/callback_results.csv")
+        reduce_lr = ModifiedReduceLROnPlateau(
+            monitor='val_loss',
+            factor=0.2,
+            patience=2,
+            min_lr=0.00001,
+            optim= optimizer,
+            verbose=2
+        )
         model= HNetConcatJanossy(args.task, args.num_classes, return_s=True, random_seed=args.random_seed)
+
+        all_callbacks= CallbackList([csv_log, reduce_lr], add_history=True, model=model)
+
 
         textlist.append('evaluation on train set before training:')
         #print(testelement, valelement)
-        temp=evaluate(load_tr, model, loss_fn)
-        textlist.append(str(temp))
+        temp_tr=evaluate(load_tr, model, loss_fn)
+        textlist.append(str(temp_tr))
 
         textlist.append('evaluation on val set before training:')
-        temp=evaluate(load_va, model, loss_fn)
-        textlist.append(str(temp))
+        temp_va=evaluate(load_va, model, loss_fn)
+        textlist.append(str(temp_va))
 
         early_stop_counter= 0
 
@@ -159,17 +172,26 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
         best_val_loss = np.inf
         best_weights = None
         results = []
+        logs = {}
+        all_callbacks.on_train_begin(logs=logs)
         for batch in load_tr:
+                #print(epoch, step, flush=True)
+                if step==0:
+                    all_callbacks.on_epoch_begin(epoch, logs=logs)
                 step += 1
-                print(epoch, step, flush=True)
-                loss, metric, outputtxt = train_step(*batch, model, loss_fn, optimizer)
-                print('batch train mse:', flush=True)
-                print(loss, flush=True)
-                textlist= textlist + outputtxt
+                all_callbacks.on_train_batch_begin(step)
+
+                loss, metric = train_step(*batch, model, loss_fn, optimizer)
+                all_callbacks.on_train_batch_end(step, logs)
+
+                #textlist= textlist + outputtxt
                 if step == load_tr.steps_per_epoch:
                     step = 0
-                    loss_str="Loss: {}".format(loss / load_tr.steps_per_epoch)
+                    tr_loss=loss / load_tr.steps_per_epoch
+                    loss_str="Loss: {}".format(tr_loss)
                     textlist.append(loss_str)
+                    print('train mse:', flush=True)
+                    print(loss_str, flush=True)
                     is_nan= np.isnan(loss)
                     #loss = 0
                     val_loss, val_metric = evaluate(load_va, model, loss_fn)
@@ -190,6 +212,8 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
                         textlist.append('val loss and acc')
                     textlist.append(str(val_loss))
                     textlist.append(str(val_metric))
+                    #print(optimizer._learning_rate.numpy())
+                    all_callbacks.on_epoch_end(epoch, {'train_loss':tr_loss, 'val_loss':val_loss, 'lr':optimizer._learning_rate.numpy()})
 
 
                     epoch+=1
@@ -198,9 +222,11 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
                     if is_nan or val_is_nan:
                         model_list[specialindex]= str(checkpoint_path)
                         performance_list[specialindex] = best_val_loss
+                        all_callbacks.on_train_end(logs)
+
                         break
 
-
+        all_callbacks.on_train_end(logs)
         textlist.append('training time=')
         textlist.append(str(time.time()-init_time))
 
@@ -442,7 +468,7 @@ if __name__ == '__main__':
     print(args)
     df = pd.read_csv(os.path.join(args.datadir,'train.csv'), names=['id','target'], header=0)
     #df= df.head(10)
-    train_data= DisjointLoader(MyDataset(df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=2, epochs=args.epochs)
+    train_data= DisjointLoader(MyDataset(df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=16, epochs=args.epochs)
     val_df = pd.read_csv(os.path.join(args.datadir,'val.csv'), names=['id','target'], header=0)
     #val_df= val_df.head(10)
     val_data= DisjointLoader(MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=len(val_df))
@@ -452,31 +478,6 @@ if __name__ == '__main__':
     test_data= DisjointLoader(MyDataset(test_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=len(test_df))
 
     full_training_loop(printlock, train_data, val_data, test_data, [], '', '', 0.001, 0, 0, 0, {}, {})#, r1, r2, r3))
-    #
-    #
-    # my_params=[[45190760.83, 4591.426365,0.000425127],
-    #             [91491872.27,	271474.2146,	0.000658106],
-    #             [27179518.38,	13005.18489,	0.000416647],
-    #             [43992427.11,	6001.060802,	0.000453878],
-    #             [60438465.94,	1875.199872,	0.000579498],
-    #             [42.78066552,	0.102313329,	0.000699724],
-    #             [50184930.53,	1340.970412,	0.000388497],
-    #             [12230081.79,	106456.2378,	0.000188191],
-    #             [90114962.39,	30983.47897,	0.00102]]
-    # for i in range(len(my_params)):
-    #     cl= my_params[i][0]
-    #     el= my_params[i][1]
-    #     lr= my_params[i][2]
-    #     p= Process(target=full_training_loop, args=(printlock, train_data, val_data, test_data, [], 'random split', 'random split', lr, i, el, cl, {}, {}))#, r1, r2, r3))
-    #     processlist.append(p)
-    #
-    # for pr in processlist:
-    #     pr.start()
-    #     print(pr, ' started', flush=True)
-    # for pr in processlist:
-    #     pr.join()
-    #     print(pr)
-    #     print('complete')
 
     #print('total time')
     #print(time.time()-begin_time)
