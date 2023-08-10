@@ -18,10 +18,11 @@ from hpbandster.optimizers.config_generators.bohb import BOHB
 import matplotlib.pyplot as plt
 
 
+
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 
 parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='/home/nim18004/Main_fol_Zintl')
+        help='Directory where dataset is located', default='/Users/nilamandal/desktop/Main_fol_Zintl')
 parser.add_argument('--filename', dest='filename',
                     help='csv where data is located', default='id_prop.csv')
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
@@ -81,6 +82,7 @@ def train_model(config):
     batch_size= config['batch_size']
     dr1= config['dr1']
     fc_size= config['fc_size']
+    fc_num= config['fc_num']
     entropy_lambda= config['entropy_lambda']
     column_lambda= config['column_lambda']
     lr= config['lr']
@@ -94,7 +96,7 @@ def train_model(config):
     val_data= MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     load_va= DisjointLoader(val_data, batch_size=len(val_data))
 
-    model= HNetConcatJanossy('r', 1, embedding_size=embedding_size, d1=dr1, el=entropy_lambda, cl=column_lambda, fc_size=fc_size)
+    model= HNetConcatJanossy('r', 1, embedding_size=embedding_size, d1=dr1, el=entropy_lambda, cl=column_lambda, fc_num=fc_num, fc_size=fc_size)
 
     optim=Adam(lr)
     loss_fn= MeanSquaredError()
@@ -136,6 +138,7 @@ def train_model(config):
 
 
 def gen_plots(train_metric, val_metric):
+    plt.switch_backend('Agg')
     print('plots pls')
     plt.figure()
 
@@ -156,14 +159,15 @@ def gen_plots(train_metric, val_metric):
 
 if __name__ == "__main__":
       NUM_MODELS = 200
-      sys.stdout = open('./janossy_out_1.txt', 'w')
+      #sys.stdout = open('./janossy_te_morelayers.txt', 'w')
 
       trial_space = {
-            'embedding_size': tune.lograndint(1, 128, 8),
-            'batch_size': tune.lograndint(1, 128, 8),
+            'embedding_size': tune.choice([4,8,16,32,64,128]),
+            'batch_size': tune.choice([1,2,4,8,16,32,64]),
             'dr1': tune.uniform(0, 1),
             #'dr2': tune.uniform(0, 1),
-            'fc_size': tune.lograndint(1, 128, 8),
+            'fc_size': tune.choice([4,8,16,32,64]),
+            'fc_num': tune.choice([1,2,3,4]),
             'entropy_lambda': tune.loguniform(1e-1, 1e8),
             'column_lambda': tune.loguniform(1e-1, 1e8),
             'lr': tune.loguniform(1e-5, 1e-1)
@@ -171,13 +175,13 @@ if __name__ == "__main__":
 
       bohb_hyperband = HyperBandForBOHB(
         time_attr="training_iteration",
-        max_t=10,
+        max_t=5,
         reduction_factor=4,
         stop_last_trials=False,
       )
       bohb = TuneBOHB(metric='score', mode='min')
       #print(bayesopt)
-      train_model = tune.with_resources(train_model, {"cpu": 36})
+      train_model = tune.with_resources(train_model, {"cpu": 20})
       tuner = tune.Tuner(train_model, tune_config=tune.TuneConfig(
         search_alg=bohb, scheduler=bohb_hyperband, metric='score', mode='min', num_samples=NUM_MODELS), param_space=trial_space)
       results = tuner.fit()

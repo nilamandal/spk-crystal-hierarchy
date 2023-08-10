@@ -1037,7 +1037,7 @@ class HNetConcatPretrained(HNetConcat):
 
 
 class HNetConcatJanossy(Model):
-    def __init__(self, task, num_classes, embedding_size=52, d1=0.578, el=427, cl=265, fc_size=23, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+    def __init__(self, task, num_classes, embedding_size=52, d1=0.578, el=427, cl=265, fc_num=1, fc_size=23, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
         super().__init__()
         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
         he_initializer= initializers.he_uniform(seed=random_seed)
@@ -1057,7 +1057,10 @@ class HNetConcatJanossy(Model):
 
         self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
 
-        self.fc= Dense(fc_size, activation='softplus', kernel_initializer=he_initializer)
+        self.janossy_fc_list=[]
+        for i in range(fc_num):
+            fc= Dense(fc_size, activation='softplus', kernel_initializer=he_initializer)
+            self.janossy_fc_list.append(fc)
         self.meanpool= GlobalAvgPool()
         #we should have a dropout after aggregating crystal features
         if self.task=='c':
@@ -1086,9 +1089,12 @@ class HNetConcatJanossy(Model):
 
         x_1=tf.reshape(x_pool_1, [x_pool_1.shape[0],x_pool_1.shape[1]*x_pool_1.shape[2]])
         x_2=tf.reshape(x_pool_2, [x_pool_2.shape[0],x_pool_2.shape[1]*x_pool_2.shape[2]])
-        #print(x_1.shape, x_2.shape)
-        x_1= self.fc(x_1)
-        x_2= self.fc(x_2)
+        #print(self.janossy_fc_list)
+        #print(len(self.janossy_fc_list))
+        for layer in self.janossy_fc_list:
+            #print(layer)
+            x_1= layer(x_1)
+            x_2= layer(x_2)
 
         temp_concat=tf.stack([x_1,x_2],axis=-2)
 
