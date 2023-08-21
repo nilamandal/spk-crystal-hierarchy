@@ -1056,11 +1056,12 @@ class HNetConcatJanossy(Model):
         self.dropout1= Dropout(d1)
 
         self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
-
-        self.janossy_fc_list=[]
-        for i in range(fc_num):
-            fc= Dense(fc_size, activation='softplus', kernel_initializer=he_initializer)
-            self.janossy_fc_list.append(fc)
+        #self.bn1= BatchNormalization()
+        #self.janossy_fc_list=[]
+        #for i in range(fc_num):
+        #    fc= Dense(fc_size, activation='softplus', kernel_initializer=he_initializer)
+        #    self.janossy_fc_list.append(fc)
+        self.fc= Dense(fc_size, activation='softplus', kernel_initializer=he_initializer)
         self.meanpool= GlobalAvgPool()
         #we should have a dropout after aggregating crystal features
         if self.task=='c':
@@ -1085,16 +1086,21 @@ class HNetConcatJanossy(Model):
         batch_X, batch_A= self.disjoint2batch([x, a, i])
 
         x_pool_1, a, i, s= self.pool([batch_X, batch_A, i])
+        x_pool_print= tf.identity(x_pool_1)
+
+        #x_pool_1= self.bn1(x_pool_1)
         x_pool_2= tf.reverse(x_pool_1, [1])
 
         x_1=tf.reshape(x_pool_1, [x_pool_1.shape[0],x_pool_1.shape[1]*x_pool_1.shape[2]])
         x_2=tf.reshape(x_pool_2, [x_pool_2.shape[0],x_pool_2.shape[1]*x_pool_2.shape[2]])
         #print(self.janossy_fc_list)
+        x_1= self.fc(x_1)
+        x_2= self.fc(x_2)
         #print(len(self.janossy_fc_list))
-        for layer in self.janossy_fc_list:
+        #for layer in self.janossy_fc_list:
             #print(layer)
-            x_1= layer(x_1)
-            x_2= layer(x_2)
+        #    x_1= layer(x_1)
+        #    x_2= layer(x_2)
 
         temp_concat=tf.stack([x_1,x_2],axis=-2)
 
@@ -1104,7 +1110,7 @@ class HNetConcatJanossy(Model):
         # #print(x.shape)
         # #print('----')
         if self.return_s:
-            return x, s
+            return x, s, x_pool_print
         else:
             return x
 
