@@ -12,7 +12,7 @@ import sys
 from pymatgen.core.structure import Structure
 import json
 import argparse
-from spektral_essential_objects import GaussianDistance,MyDataset, HNetConcat, PartitionedData, HNetConcatJanossy
+from spektral_essential_objects import GaussianDistance,MyDataset, HNetDoubleJanossy, PartitionedData, HNetConcatJanossy
 from sklearn import svm
 import pylab as pl
 
@@ -53,11 +53,11 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
     while step < loader.steps_per_epoch:
         step += 1
         inputs, target = loader.__next__()
-        rep_csv= open(main_checkpoint_path+'learned_reps.csv','w+')
+        #rep_csv= open(main_checkpoint_path+'learned_reps.csv','w+')
         outfile_main=open(main_checkpoint_path+'pooling_eval.csv','w+')
         outfile_main.write('name,abs_error,pool_margin,perfect,avg_acc \n')
-        pred, s_tensor, learned_rep = model(inputs, training=False)
-        rep_csv.write('cif,pool_num,f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11 \n')
+        pred, s_tensor = model(inputs, training=False)
+        #rep_csv.write('cif,pool_num,f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11 \n')
         #print(learned_rep.shape)
         #print(list(learned_rep.numpy()))
         num_perfect=0
@@ -72,20 +72,20 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
         crystal_size=[]
         for j in range(len(s_tensor)):
                 assign= s_tensor[j]
-                rep= learned_rep[j].numpy()
+                #rep= learned_rep[j].numpy()
                 individual_error= np.abs(target[j]-pred[j])
                 maes_for_plot.append(individual_error)
                 crystal= Structure.from_file(os.path.join(args.datadir,cifs[i]))
                 crystal_size.append(len(crystal))
 
-                line0="{},0,{},{},{},{},{},{},{},{},{},{},{},{} \n".format(cifs[i],rep[0,0],rep[0,1],rep[0,2],rep[0,3],rep[0,4],rep[0,5],rep[0,6],rep[0,7],rep[0,8],rep[0,9],rep[0,10],rep[0,11])
-                line1="{},1,{},{},{},{},{},{},{},{},{},{},{},{} \n".format(cifs[i],rep[1,0],rep[1,1],rep[1,2],rep[1,3],rep[1,4],rep[1,5],rep[1,6],rep[1,7],rep[1,8],rep[1,9],rep[1,10],rep[1,11])
+                #line0="{},0,{},{},{},{},{},{},{},{},{},{},{},{} \n".format(cifs[i],rep[0,0],rep[0,1],rep[0,2],rep[0,3],rep[0,4],rep[0,5],rep[0,6],rep[0,7],rep[0,8],rep[0,9],rep[0,10],rep[0,11])
+                #line1="{},1,{},{},{},{},{},{},{},{},{},{},{},{} \n".format(cifs[i],rep[1,0],rep[1,1],rep[1,2],rep[1,3],rep[1,4],rep[1,5],rep[1,6],rep[1,7],rep[1,8],rep[1,9],rep[1,10],rep[1,11])
 
                 #print(line0)
                 #print(line1)
                 #line0="{},1,{},{},{},{},{},{},{} \n".format(cifs[i])
-                rep_csv.write(line0)
-                rep_csv.write(line1)
+                #rep_csv.write(line0)
+                #rep_csv.write(line1)
 
 
                 ground_truth_P1= df_reference[df_reference['Id']==cifs[i]].P1.values[0]
@@ -274,7 +274,7 @@ def main(main_checkpoint_path):
 
     checkpoint_dir = os.path.dirname(checkpoint_path)
     #print(checkpoint_dir)
-    val_df = pd.read_csv(os.path.join(args.datadir,'train.csv'), names=['id','target'], header=0)
+    val_df = pd.read_csv(os.path.join(args.datadir,'val_old.csv'), names=['id','target'], header=0)
     #val_df= val_df.head(10)
     #val_df = val_df.sample(frac=1).reset_index(drop=True)
     data= MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
@@ -284,7 +284,7 @@ def main(main_checkpoint_path):
     paramsdict= json.load(open(checkpoint_dir+'/params.json'))
     #print(paramsdict)
     #model= HNetConcatJanossy('r', 1, embedding_size=paramsdict['embedding_size'], d1=paramsdict['dr1'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], fc_num=paramsdict['fc_num'],fc_size=paramsdict['fc_size'], return_s=True)
-    model= HNetConcatJanossy('r', 1, embedding_size=paramsdict['embedding_size'], d1=paramsdict['dr1'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], fc_size=paramsdict['fc_size'], return_s=True)
+    model= HNetDoubleJanossy('r', 1, embedding_size=paramsdict['embedding_size'], d1=paramsdict['dr1'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], fc_num=paramsdict['fc_num'], fc_size=paramsdict['fc_size'], fc_size2=paramsdict['fc_size2'], fc_num2=paramsdict['fc_num2'], return_s=True)
 
     print(model)
 
@@ -295,18 +295,18 @@ def main(main_checkpoint_path):
     return result_dict
 
 if __name__ == '__main__':
-    crazylist=['train_model_a363460a_1_batch_size=8,column_lambda=2569099.8214,dr1=0.5332,embedding_size=12,entropy_lambda=6419201.9280,fc_size=14_2023-07-13_18-39-04']
+    crazylist= ['train_model_139e64da_5_batch_size=8,column_lambda=163.0991,dr1=0.2538,embedding_size=4,entropy_lambda=4.5524,fc_num=1,fc_num2=3,fc_2023-08-22_06-38-41']
     df_master_dict={}
     for path in crazylist:
         #print(path)
-        fullpath='./zintl_janossy_constant/'+path+'/'
-        #try:
-        result_dict= main(fullpath)
-        df_master_dict[fullpath]=result_dict
-        #except:
-        #    df_master_dict[fullpath]={}
-    #df_master_dict= pd.DataFrame.from_dict(df_master_dict)
-    #df_master_dict.to_csv('./janossy_fcs/large_eval.csv')
+        fullpath='./train_model_2023-08-21_19-00-27/'+path+'/'
+        try:
+            result_dict= main(fullpath)
+            df_master_dict[fullpath]=result_dict
+        except:
+            df_master_dict[fullpath]={}
+    df_master_dict= pd.DataFrame.from_dict(df_master_dict)
+    df_master_dict.to_csv('./train_model_2023-08-21_19-00-27/large_eval.csv')
     #temp='./janossy_arch_longmodel_a363460a/'
     #
 # # for layer in model.layers:

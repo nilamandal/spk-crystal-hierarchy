@@ -2,7 +2,7 @@ import tensorflow as tf
 import os
 import sys
 import argparse
-from spektral_essential_objects import GaussianDistance, MyDataset, RegularizedDiffPool, HNetConcatJanossy
+from spektral_essential_objects import GaussianDistance, MyDataset, RegularizedDiffPool, HNetDoubleJanossy
 from spektral.data import DisjointLoader
 from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.losses import MeanSquaredError
@@ -83,6 +83,8 @@ def train_model(config):
     dr1= config['dr1']
     fc_size= config['fc_size']
     fc_num= config['fc_num']
+    fc_size2= config['fc_size2']
+    fc_num2= config['fc_num2']
     entropy_lambda= config['entropy_lambda']
     column_lambda= config['column_lambda']
     lr= config['lr']
@@ -96,7 +98,7 @@ def train_model(config):
     val_data= MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     load_va= DisjointLoader(val_data, batch_size=len(val_data))
 
-    model= HNetConcatJanossy('r', 1, embedding_size=embedding_size, d1=dr1, el=entropy_lambda, cl=column_lambda, fc_num=fc_num, fc_size=fc_size)
+    model= HNetDoubleJanossy('r', 1, embedding_size=embedding_size, d1=dr1, el=entropy_lambda, cl=column_lambda, fc_num=fc_num, fc_size=fc_size, fc_size2=fc_size2, fc_num2=fc_num2)
 
     optim=Adam(lr)
     loss_fn= MeanSquaredError()
@@ -159,17 +161,18 @@ def gen_plots(train_metric, val_metric):
 
 if __name__ == "__main__":
       NUM_MODELS = 200
-      #sys.stdout = open('./janossy_te_morelayers.txt', 'w')
+      sys.stdout = open('./double.txt', 'w')
 
       trial_space = {
             'embedding_size': tune.choice([4,8,16,32,64,128]),
             'batch_size': tune.choice([1,2,4,8,16,32,64]),
             'dr1': tune.uniform(0, 1),
-            #'dr2': tune.uniform(0, 1),
-            'fc_size': tune.choice([4,8,16,32,64]),
-            'fc_num': tune.choice([1,2,3,4]),
             'entropy_lambda': tune.loguniform(1e-1, 1e8),
             'column_lambda': tune.loguniform(1e-1, 1e8),
+            'fc_size': tune.choice([4,8,16,32,64]),
+            'fc_num': tune.choice([1,2,3]),
+            'fc_size2': tune.choice([4,8,16,32,64]),
+            'fc_num2': tune.choice([1,2,3]),
             'lr': tune.loguniform(1e-5, 1e-1)
         }
 

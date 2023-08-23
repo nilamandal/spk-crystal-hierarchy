@@ -18,7 +18,7 @@ from pymatgen.core.structure import Structure
 import json
 import argparse
 import time
-from spektral_essential_objects import GaussianDistance, MyDataset, HNetConcat, HNetConcatJanossy, ModifiedReduceLROnPlateau
+from spektral_essential_objects import GaussianDistance, MyDataset, HNetConcat, HNetConcatJanossy, ModifiedReduceLROnPlateau, HNetDoubleJanossy
 from multiprocessing import Process, Lock, Value, Manager, Semaphore
 from scipy.stats import qmc
 import matplotlib.pyplot as plt
@@ -33,9 +33,9 @@ parser.add_argument('--datadir', dest='datadir',
 #parser.add_argument('--filename', dest='filename',
 #                    help='csv where data is located', default='id_prop.csv')
 parser.add_argument('--file-out', dest='file_out',
-                    help='output file name', default='janossy')
+                    help='output file name', default='doublejanossy')
 parser.add_argument('--path-out', dest='path',
-                    help='output path', default='./janossy_w_callbacks_full_train')
+                    help='output path', default='./doublejanossy')
 parser.add_argument('--num-atoms', dest='num_atoms', type=int,
                     help='Maximum number of nodes', default=200)
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
@@ -144,17 +144,17 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
             print(args.task, ' is not c or r.')
 
         csv_log = CSVLogger(fullpath+"/callback_results.csv")
-        reduce_lr = ModifiedReduceLROnPlateau(
-            monitor='val_loss',
-            factor=0.2,
-            patience=2,
-            min_lr=0.00001,
-            optim= optimizer,
-            verbose=2
-        )
-        model= HNetConcatJanossy(args.task, args.num_classes, return_s=True, random_seed=args.random_seed)
+        # reduce_lr = ModifiedReduceLROnPlateau(
+        #     monitor='val_loss',
+        #     factor=0.2,
+        #     patience=2,
+        #     min_lr=0.00001,
+        #     optim= optimizer,
+        #     verbose=2
+        # )
+        model= HNetDoubleJanossy(args.task, args.num_classes, return_s=True, random_seed=args.random_seed)
 
-        all_callbacks= CallbackList([csv_log, reduce_lr], add_history=True, model=model)
+        all_callbacks= CallbackList([csv_log], add_history=True, model=model)
 
 
         textlist.append('evaluation on train set before training:')
