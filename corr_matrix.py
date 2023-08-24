@@ -9,33 +9,35 @@ electroneg={'H':2.20, 'Li': 0.98, 'Na': 0.93, 'K': 0.82, 'Rb': 0.82, 'Cs': 0.79,
     'Se':2.55, 'Br':2.96, 'In':1.78, 'Sn':1.96, 'Sb':2.05, 'Te':2.1, 'I':2.66, 'Tl':1.62, 'Pb':1.87, 'Bi':2.02, 'Mn':1.55, 'Fe':1.83, 'Co': 1.88,
     'Ni':1.91, 'Cu':1.9, 'Zn':1.65, 'Yb':1.1, 'Cd':1.69, 'Hg':2.0}
 
-df= pd.read_csv('./zintl_janossy_constant/train_model_a363460a_1_batch_size=8,column_lambda=2569099.8214,dr1=0.5332,embedding_size=12,entropy_lambda=6419201.9280,fc_size=14_2023-07-13_18-39-04/learned_reps_val_set.csv')
+df= pd.read_csv('./past_results/zintl_janossy_constant/train_model_a363460a_1_batch_size=8,column_lambda=2569099.8214,dr1=0.5332,embedding_size=12,entropy_lambda=6419201.9280,fc_size=14_2023-07-13_18-39-04/learned_reps_val_set.csv')
 # #df=df[df['pool_num']==1]
 df0=df[df['pool_num']==0]
-df1=df[df['pool_num']==1]
+#df1=df[df['pool_num']==1]
 # for i in range(2,50):
+plt.rcParams.update({'font.size': 20})
 #     for j in (.1,.2,.3,.4,.5,.6,.7,.8,.9):
 plt.figure()
-# reducer = umap.UMAP()
-# embedding=reducer.fit_transform(df[['f0', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11']], df['total_energy'])
-# df['embedding0']=embedding[:, 0]
-# df['embedding1']=embedding[:, 1]
-# df.to_csv('./zintl_janossy_constant/train_model_a363460a_1_batch_size=8,column_lambda=2569099.8214,dr1=0.5332,embedding_size=12,entropy_lambda=6419201.9280,fc_size=14_2023-07-13_18-39-04/learned_reps_val_set.csv')
+reducer = umap.UMAP(random_state=42)
+embedding=reducer.fit_transform(df0[['f0', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11']], df0['total_energy'])
+df0['embedding0']=embedding[:, 0]
+df0['embedding1']=embedding[:, 1]
+df0.to_csv('umap_embeddings.csv')
 
 
 # print(df0)
 # print(df1)
 # #     #print(embedding.shape)
-plt.scatter(df0['embedding0'], df0['embedding1'], c='#a0093e', s=10)
+plt.scatter(embedding[:, 0], embedding[:, 1], c=df0.total_energy, cmap='Spectral', s=50)
 # # #     #plt.gca().set_aspect('equal', 'datalim')
+plt.colorbar(boundaries=np.arange(-6,0), label= "total energy (eV/atom)")
 # # plt.colorbar()
-plt.title('UMAP projection of embeddings for pool 0 only')
+plt.title('UMAP projection of embeddings for both pools')
 plt.xlabel('Component 1')
 # plt.xlim(2,20)
 plt.ylabel('Component 2')
 # plt.ylim(-4,12)
-# plt.show()
-#
+plt.show()
+
 # plt.figure()
 # plt.scatter(df1['embedding0'], df1['embedding1'], c='#663fbe', s=10)
 # # #     #plt.gca().set_aspect('equal', 'datalim')

@@ -35,7 +35,7 @@ parser.add_argument('--datadir', dest='datadir',
 parser.add_argument('--file-out', dest='file_out',
                     help='output file name', default='doublejanossy')
 parser.add_argument('--path-out', dest='path',
-                    help='output path', default='./doublejanossy')
+                    help='output path', default='./doublejanossycorrected')
 parser.add_argument('--num-atoms', dest='num_atoms', type=int,
                     help='Maximum number of nodes', default=200)
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
@@ -466,15 +466,16 @@ if __name__ == '__main__':
     sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
 
     print(args)
-    df = pd.read_csv(os.path.join(args.datadir,'train.csv'), names=['id','target'], header=0)
-    #df= df.head(10)
+    df = pd.read_csv(os.path.join(args.datadir,'train_with_counts.csv'))
+    df = df[df['num_elements']<=3]
+    #print(df)
     train_data= DisjointLoader(MyDataset(df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=16, epochs=args.epochs)
-    val_df = pd.read_csv(os.path.join(args.datadir,'val.csv'), names=['id','target'], header=0)
-    #val_df= val_df.head(10)
+    val_df = pd.read_csv(os.path.join(args.datadir,'val_with_counts.csv'))
+    val_df = val_df[val_df['num_elements']<=3]
     val_data= DisjointLoader(MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=len(val_df))
 
-    test_df = pd.read_csv(os.path.join(args.datadir,'test.csv'), names=['id','target'], header=0)
-    #test_df= test_df.head(10)
+    test_df = pd.read_csv(os.path.join(args.datadir,'test_with_counts.csv'))
+    test_df = test_df[test_df['num_elements']<=3]
     test_data= DisjointLoader(MyDataset(test_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=len(test_df))
 
     full_training_loop(printlock, train_data, val_data, test_data, [], '', '', 0.001, 0, 0, 0, {}, {})#, r1, r2, r3))

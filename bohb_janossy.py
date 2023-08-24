@@ -90,11 +90,13 @@ def train_model(config):
     lr= config['lr']
 
     # Load data and train model code here...
-    train_df = pd.read_csv(os.path.join(args.datadir,'train.csv'), names=['id','target'], header=None)
+    train_df = pd.read_csv(os.path.join(args.datadir,'train_with_counts.csv'))
+    train_df = train_df[train_df['num_elements']<=3]
     train_data= MyDataset(train_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     load_tr= DisjointLoader(train_data, batch_size=batch_size, epochs=epochs)
 
-    val_df = pd.read_csv(os.path.join(args.datadir,'val.csv'), names=['id','target'], header=None)
+    val_df = pd.read_csv(os.path.join(args.datadir,'val_with_counts.csv'))
+    val_df = val_df[val_df['num_elements']<=3]
     val_data= MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     load_va= DisjointLoader(val_data, batch_size=len(val_data))
 
@@ -178,11 +180,12 @@ if __name__ == "__main__":
 
       bohb_hyperband = HyperBandForBOHB(
         time_attr="training_iteration",
-        max_t=5,
+        max_t=100,
         reduction_factor=4,
         stop_last_trials=False,
       )
       bohb = TuneBOHB(metric='score', mode='min')
+      bohb = tune.search.ConcurrencyLimiter(bohb, max_concurrent=15)
       #print(bayesopt)
       train_model = tune.with_resources(train_model, {"cpu": 20})
       tuner = tune.Tuner(train_model, tune_config=tune.TuneConfig(

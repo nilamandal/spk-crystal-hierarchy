@@ -151,6 +151,7 @@ class MyDataset(Dataset):
 
     def get_cifs(self):
         return np.asarray(self.cifs , dtype=object)
+  
 
 class RegularizedDiffPool(DiffPool):
     def __init__(self, k, channels=None, return_selection=False, activation='relu', kernel_initializer="glorot_uniform",
@@ -220,6 +221,70 @@ class RegularizedDiffPool(DiffPool):
         inv_entr_sum=tf.reduce_sum(inv_entr)
 
         return inv_entr_sum
+
+class DoubleJanossyDiffPool(RegularizedDiffPool):
+    def __init__(self, k, channels=None, return_selection=False, activation='relu', kernel_initializer="glorot_uniform",
+        kernel_regularizer=None, kernel_constraint=None, column_lambda=1, entr_lambda=1, **kwargs):
+
+        super().__init__(k, channels, return_selection, activation, kernel_initializer, kernel_regularizer, kernel_constraint, column_lambda, entr_lambda, **kwargs)
+
+    def call(self, inputs, mask=None):
+        x, a, i, element_idx = inputs
+        self.n_nodes = tf.shape(x)[-2]
+
+        # Graph filter for GNNs
+        if K.is_sparse(a):
+            i_n = tf.sparse.eye(self.n_nodes, dtype=a.dtype)
+            a_ = tf.sparse.add(a, i_n)
+        else:
+            i_n = tf.eye(self.n_nodes, dtype=a.dtype)
+            a_ = a + i_n
+        fltr = ops.normalize_A(a_)
+
+        output = self.pool(x, a, i, element_idx=element_idx, fltr=fltr, mask=mask)
+        return output
+
+    def reduce(self, x, s, i=[], element_idx=[], fltr=None):
+        x = ops.modal_dot(fltr, x)
+        all_pools=np.zeros((x.shape[0],3,2,x.shape[2]))
+        ta_all = tf.TensorArray(tf.float32, size=0, dynamic_size=True,clear_after_read=False)
+        start_idx=0
+
+        for j in range(x.shape[0]):
+            #current_crystal= np.zeros((3,2,x.shape[2]))
+            ta_crystal = tf.TensorArray(tf.float32, size=0, dynamic_size=True, clear_after_read=False)
+
+            count= tf.math.count_nonzero(i==j)
+            current_id=element_idx[start_idx:start_idx+count]
+            start_idx+=count
+            unique, u_idx, u_count= tf.unique_with_counts(current_id)
+            for k in range(len(unique)):
+                idx= tf.where(tf.equal(u_idx,k))[:,0]
+                e_pool=ops.modal_dot(tf.gather(s[j], idx), tf.gather(x[j], idx), transpose_a=True)
+                #e_pool= tf.reshape(e_pool, (1,e_pool.shape[0],e_pool.shape[1]))
+                ta_crystal.write(k,e_pool).mark_used()
+                #current_crystal[k]=e_pool
+
+            if len(unique)<3:
+                ta_crystal.write(2,tf.zeros((2,52))).mark_used()
+
+            ta_crystal_finished=ta_crystal.stack()
+
+            ta_all.write(j,ta_crystal_finished).mark_used()
+            #print(ta_all.element_shape)
+
+            all_pools[j]= ta_crystal_finished
+        ta_all_complete= ta_all.stack()
+        #print(ta_all_complete.shape)
+        #print('---')
+        #all_pools= tf.convert_to_tensor(all_pools)
+        #print(ta_crystal)
+        #print(type(ta_crystal))
+        #print(ta_crystal.shape)
+
+        return ta_all_complete
+
+
 
 class MultifilterDiffPool(RegularizedDiffPool):
     def __init__(self, k, channels=None, return_selection=False, activation='relu', kernel_initializer="glorot_uniform",
@@ -1259,7 +1324,7 @@ class HNetDoubleJanossy(Model):
         self.disjoint2batch= Disjoint2Batch()
         self.dropout1= Dropout(d1)
 
-        self.pool= RegularizedDiffPool(k=3, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
+        self.pool= DoubleJanossyDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
         #self.bn1= BatchNormalization()
         self.janossy_orange_list=[]
         for i in range(fc_num):
@@ -1286,6 +1351,10 @@ class HNetDoubleJanossy(Model):
 
     def call(self, inputs):
         x, a, e, i = inputs
+        element_idx=np.empty((len(x)))
+        for id in range(len(x)):
+            temp=np.nonzero(x[id])[0]
+            element_idx[id]=int(str(temp[0])+str(temp[1]))
 
         x= self.embedding(x)
         x= self.conv1([x, a, e])
@@ -1299,26 +1368,39 @@ class HNetDoubleJanossy(Model):
 
         batch_X, batch_A= self.disjoint2batch([x, a, i])
 
-        x_pool_1, a, i, s= self.pool([batch_X, batch_A, i])
-        x_pool_2= tf.stack([x_pool_1[:,0],x_pool_1[:,2],x_pool_1[:,1]], axis=1)
-        x_pool_3= tf.stack([x_pool_1[:,1],x_pool_1[:,0],x_pool_1[:,2]], axis=1)
-        x_pool_4= tf.stack([x_pool_1[:,1],x_pool_1[:,2],x_pool_1[:,0]], axis=1)
-        x_pool_5= tf.stack([x_pool_1[:,2],x_pool_1[:,0],x_pool_1[:,1]], axis=1)
-        x_pool_6= tf.stack([x_pool_1[:,2],x_pool_1[:,1],x_pool_1[:,0]], axis=1)
+        x_pool_all, a, i, s= self.pool([batch_X, batch_A, i, element_idx])
 
-        x_1o=tf.reshape(x_pool_1, [x_pool_1.shape[0],x_pool_1.shape[1]*x_pool_1.shape[2]])
-        x_2o=tf.reshape(x_pool_2, [x_pool_2.shape[0],x_pool_2.shape[1]*x_pool_2.shape[2]])
-        x_3o=tf.reshape(x_pool_3, [x_pool_3.shape[0],x_pool_3.shape[1]*x_pool_3.shape[2]])
-        x_4o=tf.reshape(x_pool_4, [x_pool_4.shape[0],x_pool_4.shape[1]*x_pool_4.shape[2]])
-        x_5o=tf.reshape(x_pool_5, [x_pool_5.shape[0],x_pool_5.shape[1]*x_pool_5.shape[2]])
-        x_6o=tf.reshape(x_pool_6, [x_pool_6.shape[0],x_pool_6.shape[1]*x_pool_6.shape[2]])
+        x_pool_p0=x_pool_all[:,:,0]
+        x_pool_p1=x_pool_all[:,:,1]
+        #print(x_pool_p0.shape)
+        #print(x_pool_p1.shape)
 
-        x_1g=tf.reshape(x_pool_1, [x_pool_1.shape[0],x_pool_1.shape[1]*x_pool_1.shape[2]])
-        x_2g=tf.reshape(x_pool_2, [x_pool_2.shape[0],x_pool_2.shape[1]*x_pool_2.shape[2]])
-        x_3g=tf.reshape(x_pool_3, [x_pool_3.shape[0],x_pool_3.shape[1]*x_pool_3.shape[2]])
-        x_4g=tf.reshape(x_pool_4, [x_pool_4.shape[0],x_pool_4.shape[1]*x_pool_4.shape[2]])
-        x_5g=tf.reshape(x_pool_5, [x_pool_5.shape[0],x_pool_5.shape[1]*x_pool_5.shape[2]])
-        x_6g=tf.reshape(x_pool_6, [x_pool_6.shape[0],x_pool_6.shape[1]*x_pool_6.shape[2]])
+        x_2o= tf.stack([x_pool_p0[:,0],x_pool_p0[:,2],x_pool_p0[:,1]], axis=1)
+        x_3o= tf.stack([x_pool_p0[:,1],x_pool_p0[:,0],x_pool_p0[:,2]], axis=1)
+        x_4o= tf.stack([x_pool_p0[:,1],x_pool_p0[:,2],x_pool_p0[:,0]], axis=1)
+        x_5o= tf.stack([x_pool_p0[:,2],x_pool_p0[:,0],x_pool_p0[:,1]], axis=1)
+        x_6o= tf.stack([x_pool_p0[:,2],x_pool_p0[:,1],x_pool_p0[:,0]], axis=1)
+
+        x_1o=tf.reshape(x_pool_p0, [x_pool_p0.shape[0],x_pool_p0.shape[1]*x_pool_p0.shape[2]])
+        x_2o=tf.reshape(x_2o, [x_2o.shape[0],x_2o.shape[1]*x_2o.shape[2]])
+        x_3o=tf.reshape(x_3o, [x_3o.shape[0],x_3o.shape[1]*x_3o.shape[2]])
+        x_4o=tf.reshape(x_4o, [x_4o.shape[0],x_4o.shape[1]*x_4o.shape[2]])
+        x_5o=tf.reshape(x_5o, [x_5o.shape[0],x_5o.shape[1]*x_5o.shape[2]])
+        x_6o=tf.reshape(x_6o, [x_6o.shape[0],x_6o.shape[1]*x_6o.shape[2]])
+
+        x_2g= tf.stack([x_pool_p1[:,0],x_pool_p1[:,2],x_pool_p1[:,1]], axis=1)
+        x_3g= tf.stack([x_pool_p1[:,1],x_pool_p1[:,0],x_pool_p1[:,2]], axis=1)
+        x_4g= tf.stack([x_pool_p1[:,1],x_pool_p1[:,2],x_pool_p1[:,0]], axis=1)
+        x_5g= tf.stack([x_pool_p1[:,2],x_pool_p1[:,0],x_pool_p1[:,1]], axis=1)
+        x_6g= tf.stack([x_pool_p1[:,2],x_pool_p1[:,1],x_pool_p1[:,0]], axis=1)
+
+        x_1g=tf.reshape(x_pool_p1, [x_pool_p1.shape[0],x_pool_p1.shape[1]*x_pool_p1.shape[2]])
+        x_2g=tf.reshape(x_2g, [x_2g.shape[0],x_2g.shape[1]*x_2g.shape[2]])
+        x_3g=tf.reshape(x_3g, [x_3g.shape[0],x_3g.shape[1]*x_3g.shape[2]])
+        x_4g=tf.reshape(x_4g, [x_4g.shape[0],x_4g.shape[1]*x_4g.shape[2]])
+        x_5g=tf.reshape(x_5g, [x_5g.shape[0],x_5g.shape[1]*x_5g.shape[2]])
+        x_6g=tf.reshape(x_6g, [x_6g.shape[0],x_6g.shape[1]*x_6g.shape[2]])
+
 
         for layer in self.janossy_orange_list:
             x_1o= layer(x_1o)
