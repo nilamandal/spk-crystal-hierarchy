@@ -15,6 +15,7 @@ import argparse
 from spektral_essential_objects import GaussianDistance,MyDataset, HNetDoubleJanossy, PartitionedData, HNetConcatJanossy
 from sklearn import svm
 import pylab as pl
+from tensorflow.keras import backend as K
 
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 
@@ -43,6 +44,25 @@ parser.add_argument('--task', choices=['r', 'c'],
                     default='r', help='complete a regression or '
                         'classification task (default: regression)')
 
+def entropy_loss(s):
+    entr = tf.negative(
+        tf.reduce_sum(tf.multiply(s, K.log(s + K.epsilon())), axis=-1)
+    )
+    entr_loss = tf.reduce_sum(entr, axis=-1)
+    return entr_loss
+
+def both_entropy(s):
+    #print(s)
+    row= entropy_loss(s)
+    #print(row)
+    column_means=tf.divide(tf.reduce_sum(s, axis=0),s.shape[0])
+    #print(column_means)
+    column_entropy = tf.reduce_sum(tf.multiply(column_means, K.log(column_means + K.epsilon())), axis=-1)
+    #print(column_entropy)
+    #raw_column_entropy= tf.reduce_sum(tf.reduce_sum(tf.multiply(s, K.log(s + K.epsilon())), axis=-1),axis=-1)
+    #print(raw_column_entropy)
+    return column_entropy, row
+
 def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, color='#000000', label=''):
     output = []
     step = 0
@@ -55,11 +75,10 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
         inputs, target = loader.__next__()
         #rep_csv= open(main_checkpoint_path+'learned_reps.csv','w+')
         outfile_main=open(main_checkpoint_path+'pooling_eval.csv','w+')
-        outfile_main.write('name,abs_error,pool_margin,perfect,avg_acc \n')
+        outfile_main.write('name,abs_error,pool_margin,perfect,avg_acc,row_entropy,neg_col_entropy \n')
         pred, s_tensor = model(inputs, training=False)
         #rep_csv.write('cif,pool_num,f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11 \n')
-        #print(learned_rep.shape)
-        #print(list(learned_rep.numpy()))
+
         num_perfect=0
         list_perfect=[]
         num_imperfect=0
@@ -81,17 +100,20 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
                 #line0="{},0,{},{},{},{},{},{},{},{},{},{},{},{} \n".format(cifs[i],rep[0,0],rep[0,1],rep[0,2],rep[0,3],rep[0,4],rep[0,5],rep[0,6],rep[0,7],rep[0,8],rep[0,9],rep[0,10],rep[0,11])
                 #line1="{},1,{},{},{},{},{},{},{},{},{},{},{},{} \n".format(cifs[i],rep[1,0],rep[1,1],rep[1,2],rep[1,3],rep[1,4],rep[1,5],rep[1,6],rep[1,7],rep[1,8],rep[1,9],rep[1,10],rep[1,11])
 
-                #print(line0)
-                #print(line1)
+
                 #line0="{},1,{},{},{},{},{},{},{} \n".format(cifs[i])
                 #rep_csv.write(line0)
                 #rep_csv.write(line1)
 
 
-                ground_truth_P1= df_reference[df_reference['Id']==cifs[i]].P1.values[0]
+
+                ground_truth_P1= df_reference[df_reference['id']==cifs[i]].P1.values[0]
+
+                tempcifname= cifs[i].split('/')[-1]
+
                 savepath=os.path.join(args.datadir,os.path.dirname(cifs[i]))
                 assign=assign[:len(crystal)]
-                outfile= open(savepath+'/pool.dat', 'w+')
+                outfile= open(savepath+'/'+tempcifname+'pool.dat', 'w+')
                 outfile.write('num,species,a,b,c,P1,P2,ground_truth_P1,SVM_pred_P1\n')
 
                 binary_feats=[]
@@ -105,9 +127,12 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
                     binary_targets.append(truth_val)
                     binary_feats.append(assign[k].numpy())
                     #
-
                 C, score, margin, svc_pred= evaluate_pool(binary_feats, binary_targets)
-
+                column_entropy, row_entropy= both_entropy(np.array(binary_feats))
+                #except:
+                #    print(cifs[i])
+                #    print(binary_feats)
+                #    print(binary_targets)
                 for k in range(len(crystal)):
                     if str(crystal[k].specie) in ground_truth_P1:
                         truth_val=1
@@ -122,13 +147,13 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
 
                 if np.isnan(score):
                     num_imperfect+=1
-                    mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',0,'+str(score)+'\n'
+                    mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',0,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+'\n'
                 elif score<1:
                     num_imperfect+=1
-                    mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',0,'+str(score)+'\n'
+                    mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',0,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+'\n'
                 else:
                     num_perfect+=1
-                    mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',1,'+str(score)+'\n'
+                    mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',1,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+'\n'
                 outfile_main.write(mainline)
                 line= 'pool accuracy='+str(score)+'C='+str(C)+'\n'
                 outfile.write(line)
@@ -138,7 +163,8 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
                 line= '\n '+ args.datadir+','+cifs[i]
                 outfile.close()
                 if score==1:
-                    poolfile= args.datadir+cifs[i][:-7]+'pool.dat'
+                    #poolfile= args.datadir+cifs[i][:-7]+'pool.dat'
+                    poolfile= args.datadir+os.path.dirname(cifs[i])+'/pool.dat'
                     df= pd.read_csv(poolfile)
                     an_mean=np.mean(df[df['ground_truth_P1']==1.0]['P1'])
                     cat_mean=np.mean(df[df['ground_truth_P1']==0.0]['P1'])
@@ -150,8 +176,7 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
                 i+=1
 
         plus75= [x for x in class_accuracies_for_plot if x>=0.75]
-        #print('greater than 75% accuracy')
-        #print(len(plus75)/len(class_accuracies_for_plot))
+
         pl.figure()
         pl.scatter(maes_for_plot, class_accuracies_for_plot, alpha=.33)
         pl.xlabel('Absolute error (eV/atom)')
@@ -265,7 +290,7 @@ def evaluate_pool(binary_feats, binary_targets):
         return best_C, best_score, best_margin, best_pred
 
 def main(main_checkpoint_path):
-    df_reference= pd.read_csv('../Main_fol_Zintl/ICSD_Zintl_TE_pooling.csv')
+    df_reference= pd.read_csv('../Main_fol_Zintl/val_with_counts_complete.csv')
     args = parser.parse_args(sys.argv[1:])
 
 
@@ -274,7 +299,8 @@ def main(main_checkpoint_path):
 
     checkpoint_dir = os.path.dirname(checkpoint_path)
     #print(checkpoint_dir)
-    val_df = pd.read_csv(os.path.join(args.datadir,'val_old.csv'), names=['id','target'], header=0)
+    val_df = pd.read_csv(os.path.join(args.datadir,'val_with_counts_complete.csv'), header=0)
+    val_df = val_df[val_df['num_elements']<=3]
     #val_df= val_df.head(10)
     #val_df = val_df.sample(frac=1).reset_index(drop=True)
     data= MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
@@ -282,9 +308,10 @@ def main(main_checkpoint_path):
     cifs=data.get_cifs()
 
     paramsdict= json.load(open(checkpoint_dir+'/params.json'))
-    #print(paramsdict)
+
     #model= HNetConcatJanossy('r', 1, embedding_size=paramsdict['embedding_size'], d1=paramsdict['dr1'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], fc_num=paramsdict['fc_num'],fc_size=paramsdict['fc_size'], return_s=True)
     model= HNetDoubleJanossy('r', 1, embedding_size=paramsdict['embedding_size'], d1=paramsdict['dr1'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], fc_num=paramsdict['fc_num'], fc_size=paramsdict['fc_size'], fc_size2=paramsdict['fc_size2'], fc_num2=paramsdict['fc_num2'], return_s=True)
+    #model= HNetDoubleJanossy('r', 1, el=100, cl=1000, return_s=True)
 
     print(model)
 
@@ -295,18 +322,19 @@ def main(main_checkpoint_path):
     return result_dict
 
 if __name__ == '__main__':
-    crazylist= ['train_model_139e64da_5_batch_size=8,column_lambda=163.0991,dr1=0.2538,embedding_size=4,entropy_lambda=4.5524,fc_num=1,fc_num2=3,fc_2023-08-22_06-38-41']
+    crazylist= ['train_model_788b9e03_20_batch_size=4,column_lambda=29.3114,dr1=0.5516,embedding_size=64,entropy_lambda=233985.0324,fc_num=1,fc_num_2023-09-02_05-27-27']
     df_master_dict={}
     for path in crazylist:
         #print(path)
-        fullpath='./train_model_2023-08-21_19-00-27/'+path+'/'
-        try:
-            result_dict= main(fullpath)
-            df_master_dict[fullpath]=result_dict
-        except:
-            df_master_dict[fullpath]={}
-    df_master_dict= pd.DataFrame.from_dict(df_master_dict)
-    df_master_dict.to_csv('./train_model_2023-08-21_19-00-27/large_eval.csv')
+        fullpath='./dj_updated_entropy/'+path+'/'
+        #fullpath=path
+        #try:
+        result_dict= main(fullpath)
+        df_master_dict[fullpath]=result_dict
+        #except:
+        #    df_master_dict[fullpath]={}
+    #df_master_dict= pd.DataFrame.from_dict(df_master_dict)
+    #df_master_dict.to_csv('./dj_updated_entropy/large_eval.csv')
     #temp='./janossy_arch_longmodel_a363460a/'
     #
 # # for layer in model.layers:

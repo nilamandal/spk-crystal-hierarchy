@@ -151,7 +151,7 @@ class MyDataset(Dataset):
 
     def get_cifs(self):
         return np.asarray(self.cifs , dtype=object)
-  
+
 
 class RegularizedDiffPool(DiffPool):
     def __init__(self, k, channels=None, return_selection=False, activation='relu', kernel_initializer="glorot_uniform",
@@ -182,8 +182,7 @@ class RegularizedDiffPool(DiffPool):
             s *= mask[0]
 
         # Auxiliary losses
-        column_loss= self.column_entropy(s, i)
-        entr_loss = self.entropy_loss(s)
+        column_loss, entr_loss= self.both_entropy(s, i)
 
         if K.ndim(x) == 3:
             column_loss = K.mean(column_loss)
@@ -198,29 +197,53 @@ class RegularizedDiffPool(DiffPool):
 
     def reduce(self, x, s, fltr=None):
         x = ops.modal_dot(fltr, x)
-        #z = self.activation(z)
-        #z = self.bn_reduce(z)
 
         return ops.modal_dot(s, x, transpose_a=True)
 
-    def column_entropy(self, s, i):
-        #print('in column entropy')
+    def both_entropy(self, s, i):
         batch_size= s.shape[0]
-        s_stack=[]
+        c_stack=[]
+        row_entropy_sum=0
         for g in range(batch_size):
             count= np.count_nonzero(i==g)
-            s_stack.append(s[g,:count])
-        s_stack= tf.concat(s_stack, axis=0) #this should give shape(num actual nodes, k)
+            s_g=s[g,:count]
+            #---
+            row= self.entropy_loss(s_g)
+            row_entropy_sum+=row
+            #---
+            column_means=tf.divide(tf.reduce_sum(s_g, axis=0),s_g.shape[0])
+            c_stack.append(column_means)
 
-        column_sums=tf.math.reduce_sum(s_stack, axis=0) #this gives shape (k)
-        column_means=tf.math.divide(column_sums,s_stack.shape[0])#this should give shape(batch size, k)
 
-        column_logs=tf.math.log(column_means+ K.epsilon())
-        #we want to maximize the column entropy to encourage distributing nodes into different pools
-        inv_entr = tf.reduce_sum(tf.multiply(column_means, column_logs),axis=-1)
-        inv_entr_sum=tf.reduce_sum(inv_entr)
+        c_stack= tf.stack(c_stack, axis=0) #this should give shape(num graphs, k)
+        column_entropy = tf.reduce_sum(tf.reduce_sum(tf.multiply(c_stack, K.log(c_stack + K.epsilon())), axis=-1), axis=-1)
+        #print(column_entropy, row_entropy_sum)
+        #print('--')
+        return column_entropy, row_entropy_sum
 
-        return inv_entr_sum
+    def entropy_loss(self, s):
+        entr = tf.negative(
+            tf.reduce_sum(tf.multiply(s, K.log(s + K.epsilon())), axis=-1)
+        )
+        entr_loss = tf.reduce_sum(entr, axis=-1)
+        return entr_loss
+
+    # def column_entropy(self, s, i):
+    #     #print('in column entropy')
+    #     batch_size= s.shape[0]
+    #     s_stack=[]
+    #     for g in range(batch_size):
+    #         count= np.count_nonzero(i==g)
+    #         s_stack.append(s[g,:count])
+    #     s_stack= tf.concat(s_stack, axis=0) #this should give shape(num actual nodes, k)
+    #     column_sums=tf.math.reduce_sum(s_stack, axis=0) #this gives shape (k)
+    #     column_means=tf.math.divide(column_sums,s_stack.shape[0])#this should give shape(k)
+    #     column_logs=tf.math.log(column_means+ K.epsilon())
+    #     #we want to maximize the column entropy to encourage distributing nodes into different pools
+    #     inv_entr = tf.reduce_sum(tf.multiply(column_means, column_logs),axis=-1)
+    #     inv_entr_sum=tf.reduce_sum(inv_entr)
+    #
+    #     return inv_entr_sum
 
 class DoubleJanossyDiffPool(RegularizedDiffPool):
     def __init__(self, k, channels=None, return_selection=False, activation='relu', kernel_initializer="glorot_uniform",
@@ -266,7 +289,7 @@ class DoubleJanossyDiffPool(RegularizedDiffPool):
                 #current_crystal[k]=e_pool
 
             if len(unique)<3:
-                ta_crystal.write(2,tf.zeros((2,52))).mark_used()
+                ta_crystal.write(2,tf.zeros((2,x.shape[2]))).mark_used()
 
             ta_crystal_finished=ta_crystal.stack()
 
@@ -275,12 +298,6 @@ class DoubleJanossyDiffPool(RegularizedDiffPool):
 
             all_pools[j]= ta_crystal_finished
         ta_all_complete= ta_all.stack()
-        #print(ta_all_complete.shape)
-        #print('---')
-        #all_pools= tf.convert_to_tensor(all_pools)
-        #print(ta_crystal)
-        #print(type(ta_crystal))
-        #print(ta_crystal.shape)
 
         return ta_all_complete
 
@@ -1372,8 +1389,6 @@ class HNetDoubleJanossy(Model):
 
         x_pool_p0=x_pool_all[:,:,0]
         x_pool_p1=x_pool_all[:,:,1]
-        #print(x_pool_p0.shape)
-        #print(x_pool_p1.shape)
 
         x_2o= tf.stack([x_pool_p0[:,0],x_pool_p0[:,2],x_pool_p0[:,1]], axis=1)
         x_3o= tf.stack([x_pool_p0[:,1],x_pool_p0[:,0],x_pool_p0[:,2]], axis=1)
