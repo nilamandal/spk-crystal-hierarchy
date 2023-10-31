@@ -1,0 +1,116 @@
+== Status ==
+Current time: 2023-10-31 13:01:16 (running for 00:00:10.45)
+Using HyperBand: num_stopped=0 total_brackets=1
+Round #0:
+  Bracket(Max Size (n)=64, Milestone (r)=1, completed=0.0%): {RUNNING: 1} 
+Logical resource usage: 1.0/8 CPUs, 0/0 GPUs
+Result logdir: /Users/nilamandal/ray_results/train_model_2023-10-31_13-00-58
+Number of trials: 1/50 (1 RUNNING)
++----------------------+----------+-----------------+--------------+-----------------+----------+------------------+------------------+----------+-----------+-----------+------------+-------------+
+| Trial name           | status   | loc             |   batch_size |   column_lambda |      dr1 |   embedding_size |   entropy_lambda |   fc_num |   fc_num2 |   fc_size |   fc_size2 |          lr |
+|----------------------+----------+-----------------+--------------+-----------------+----------+------------------+------------------+----------+-----------+-----------+------------+-------------|
+| train_model_6d36745f | RUNNING  | 127.0.0.1:31303 |           16 |          141871 | 0.602763 |               32 |          172.404 |        2 |         2 |        64 |         64 | 1.16824e-06 |
++----------------------+----------+-----------------+--------------+-----------------+----------+------------------+------------------+----------+-----------+-----------+------------+-------------+
+
+
+[2m[36m(train_model pid=31303)[0m if statement
+[2m[36m(train_model pid=31303)[0m 3174484.75 inf
+[2m[36m(train_model pid=31303)[0m 0
+[2m[36m(train_model pid=31303)[0m if statement
+[2m[36m(train_model pid=31303)[0m 1783885.25 3174484.75
+[2m[36m(train_model pid=31303)[0m 0
+[2m[36m(train_model pid=31303)[0m if statement
+[2m[36m(train_model pid=31303)[0m 1159597.0 1783885.25
+[2m[36m(train_model pid=31303)[0m 0
+== Status ==
+Current time: 2023-10-31 13:01:21 (running for 00:00:15.48)
+Using HyperBand: num_stopped=0 total_brackets=1
+Round #0:
+  Bracket(Max Size (n)=64, Milestone (r)=1, completed=0.0%): {RUNNING: 1} 
+Logical resource usage: 1.0/8 CPUs, 0/0 GPUs
+Result logdir: /Users/nilamandal/ray_results/train_model_2023-10-31_13-00-58
+Number of trials: 1/50 (1 RUNNING)
++----------------------+----------+-----------------+--------------+-----------------+----------+------------------+------------------+----------+-----------+-----------+------------+-------------+
+| Trial name           | status   | loc             |   batch_size |   column_lambda |      dr1 |   embedding_size |   entropy_lambda |   fc_num |   fc_num2 |   fc_size |   fc_size2 |          lr |
+|----------------------+----------+-----------------+--------------+-----------------+----------+------------------+------------------+----------+-----------+-----------+------------+-------------|
+| train_model_6d36745f | RUNNING  | 127.0.0.1:31303 |           16 |          141871 | 0.602763 |               32 |          172.404 |        2 |         2 |        64 |         64 | 1.16824e-06 |
++----------------------+----------+-----------------+--------------+-----------------+----------+------------------+------------------+----------+-----------+-----------+------------+-------------+
+
+
+[2m[36m(train_model pid=31303)[0m if statement
+[2m[36m(train_model pid=31303)[0m 815917.875 1159597.0
+[2m[36m(train_model pid=31303)[0m 0
+[2m[36m(train_model pid=31303)[0m if statement
+[2m[36m(train_model pid=31303)[0m 598966.125 815917.875
+[2m[36m(train_model pid=31303)[0m 0
+[2m[36m(train_model pid=31303)[0m if statement
+[2m[36m(train_model pid=31303)[0m 457967.25 598966.125
+[2m[36m(train_model pid=31303)[0m 0
+[2m[36m(train_model pid=31303)[0m if statement
+[2m[36m(train_model pid=31303)[0m 359582.53125 457967.25
+[2m[36m(train_model pid=31303)[0m 0
+[2m[36m(train_model pid=31303)[0m if statement
+[2m[36m(train_model pid=31303)[0m 287417.71875 359582.53125
+[2m[36m(train_model pid=31303)[0m 0
+== Status ==
+Current time: 2023-10-31 13:01:26 (running for 00:00:20.51)
+Using HyperBand: num_stopped=0 total_brackets=1
+Round #0:
+  Bracket(Max Size (n)=64, Milestone (r)=1, completed=0.0%): {RUNNING: 1} 
+Logical resource usage: 1.0/8 CPUs, 0/0 GPUs
+Result logdir: /Users/nilamandal/ray_results/train_model_2023-10-31_13-00-58
+Number of trials: 1/50 (1 RUNNING)
++----------------------+----------+-----------------+--------------+-----------------+----------+------------------+------------------+----------+-----------+-----------+------------+-------------+
+| Trial name           | status   | loc             |   batch_size |   column_lambda |      dr1 |   embedding_size |   entropy_lambda |   fc_num |   fc_num2 |   fc_size |   fc_size2 |          lr |
+|----------------------+----------+-----------------+--------------+-----------------+----------+------------------+------------------+----------+-----------+-----------+------------+-------------|
+| train_model_6d36745f | RUNNING  | 127.0.0.1:31303 |           16 |          141871 | 0.602763 |               32 |          172.404 |        2 |         2 |        64 |         64 | 1.16824e-06 |
++----------------------+----------+-----------------+--------------+-----------------+----------+------------------+------------------+----------+-----------+-----------+------------+-------------+
+
+
+[2m[36m(train_model pid=31303)[0m if statement
+[2m[36m(train_model pid=31303)[0m 233897.59375 287417.71875
+[2m[36m(train_model pid=31303)[0m 0
+[2m[36m(train_model pid=31303)[0m if statement
+[2m[36m(train_model pid=31303)[0m 192945.15624999994 233897.59375
+[2m[36m(train_model pid=31303)[0m 0
+[2m[36m(train_model pid=31303)[0m plots pls
+Result for train_model_6d36745f:
+  date: 2023-10-31_13-01-27
+  done: false
+  hostname: Nilas-MacBook-Pro.local
+  iterations_since_restore: 1
+  node_ip: 127.0.0.1
+  pid: 31303
+  score: 192945.15624999994
+  time_since_restore: 11.796541213989258
+  time_this_iter_s: 11.796541213989258
+  time_total_s: 11.796541213989258
+  timestamp: 1698771687
+  training_iteration: 1
+  trial_id: 6d36745f
+  
+[2m[36m(train_model pid=31303)[0m if statement
+[2m[36m(train_model pid=31303)[0m 99232848.0 inf
+[2m[36m(train_model pid=31303)[0m 0
+[2m[36m(train_model pid=31303)[0m if statement
+[2m[36m(train_model pid=31303)[0m 1285627.625 99232848.0
+[2m[36m(train_model pid=31303)[0m 0
+[2m[36m(train_model pid=31303)[0m if statement
+[2m[36m(train_model pid=31303)[0m 21498.921875 1285627.625
+[2m[36m(train_model pid=31303)[0m 0
+== Status ==
+Current time: 2023-10-31 13:01:33 (running for 00:00:27.53)
+Using HyperBand: num_stopped=0 total_brackets=1
+Round #0:
+  Bracket(Max Size (n)=64, Milestone (r)=1, completed=0.4%): {PAUSED: 1, RUNNING: 1} 
+Logical resource usage: 1.0/8 CPUs, 0/0 GPUs
+Current best trial: 6d36745f with score=192945.15624999994 and parameters={'embedding_size': 32, 'batch_size': 16, 'dr1': 0.6027633760716439, 'entropy_lambda': 172.40426024865192, 'column_lambda': 141871.01103672135, 'fc_size': 64, 'fc_num': 2, 'fc_size2': 64, 'fc_num2': 2, 'lr': 1.1682402109066343e-06}
+Result logdir: /Users/nilamandal/ray_results/train_model_2023-10-31_13-00-58
+Number of trials: 2/50 (1 PAUSED, 1 RUNNING)
++----------------------+----------+-----------------+--------------+-----------------+----------+------------------+------------------+----------+-----------+-----------+------------+-------------+--------+------------------+---------+
+| Trial name           | status   | loc             |   batch_size |   column_lambda |      dr1 |   embedding_size |   entropy_lambda |   fc_num |   fc_num2 |   fc_size |   fc_size2 |          lr |   iter |   total time (s) |   score |
+|----------------------+----------+-----------------+--------------+-----------------+----------+------------------+------------------+----------+-----------+-----------+------------+-------------+--------+------------------+---------|
+| train_model_723efa3e | RUNNING  | 127.0.0.1:31303 |           64 |         1945.13 | 0.568045 |              128 |        0.0513287 |        1 |         1 |        64 |         32 | 0.00912215  |        |                  |         |
+| train_model_6d36745f | PAUSED   | 127.0.0.1:31303 |           16 |       141871    | 0.602763 |               32 |      172.404     |        2 |         2 |        64 |         64 | 1.16824e-06 |      1 |          11.7965 |  192945 |
++----------------------+----------+-----------------+--------------+-----------------+----------+------------------+------------------+----------+-----------+-----------+------------+-------------+--------+------------------+---------+
+

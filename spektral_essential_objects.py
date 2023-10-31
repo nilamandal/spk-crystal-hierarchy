@@ -76,6 +76,7 @@ class MyDataset(Dataset):
         df = self.dataframe.sample(frac=1).reset_index(drop=True)
         allgraphs=[]
         cifs=list(df['id'])
+        #print(cifs)
         self.cifs=cifs
         all_atomic_numbers=[]
         for c in cifs:
@@ -175,14 +176,25 @@ class RegularizedDiffPool(DiffPool):
 
     def select(self, x, a, i, fltr=None, mask=None):
         x = ops.modal_dot(fltr, x)
+        #print('x in')
+        #for x_sub in x:
+        #    print(x_sub)
         s = self.assignment_fc(x)
+        #print('weights')
+        #print(self.assignment_fc.get_weights())
+        #print('x*weights')
+        #for x_sub in s:
+        #    print(x_sub)
         s = activations.softmax(s, axis=-1)
-
+        #print('s out')
+        #for s_sub in s:
+        #    print(s_sub)
         if mask is not None:
             s *= mask[0]
 
         # Auxiliary losses
-        column_loss, entr_loss= self.both_entropy(s, i)
+        column_loss, entr_loss= self.row_e_and_column_p(s, i)
+        #column_loss, entr_loss= self.both_entropy(s, i)
 
         if K.ndim(x) == 3:
             column_loss = K.mean(column_loss)
@@ -197,7 +209,6 @@ class RegularizedDiffPool(DiffPool):
 
     def reduce(self, x, s, fltr=None):
         x = ops.modal_dot(fltr, x)
-
         return ops.modal_dot(s, x, transpose_a=True)
 
     def both_entropy(self, s, i):
@@ -216,34 +227,42 @@ class RegularizedDiffPool(DiffPool):
 
 
         c_stack= tf.stack(c_stack, axis=0) #this should give shape(num graphs, k)
-        column_entropy = tf.reduce_sum(tf.reduce_sum(tf.multiply(c_stack, K.log(c_stack + K.epsilon())), axis=-1), axis=-1)
+        column_entropy = tf.reduce_sum(tf.reduce_sum(tf.multiply(c_stack, K.log(c_stack + 10**-30)), axis=-1), axis=-1)
         #print(column_entropy, row_entropy_sum)
         #print('--')
         return column_entropy, row_entropy_sum
 
     def entropy_loss(self, s):
         entr = tf.negative(
-            tf.reduce_sum(tf.multiply(s, K.log(s + K.epsilon())), axis=-1)
+            tf.reduce_sum(tf.multiply(s, K.log(s + 10**-30)), axis=-1)#should be
         )
-        entr_loss = tf.reduce_sum(entr, axis=-1)
+        #print(s.shape)
+        #print(entr)
+        #print('----')
+        entr_loss = tf.reduce_mean(entr, axis=-1)
+        #print(entr_loss)
+        #print('----')
         return entr_loss
 
-    # def column_entropy(self, s, i):
-    #     #print('in column entropy')
-    #     batch_size= s.shape[0]
-    #     s_stack=[]
-    #     for g in range(batch_size):
-    #         count= np.count_nonzero(i==g)
-    #         s_stack.append(s[g,:count])
-    #     s_stack= tf.concat(s_stack, axis=0) #this should give shape(num actual nodes, k)
-    #     column_sums=tf.math.reduce_sum(s_stack, axis=0) #this gives shape (k)
-    #     column_means=tf.math.divide(column_sums,s_stack.shape[0])#this should give shape(k)
-    #     column_logs=tf.math.log(column_means+ K.epsilon())
-    #     #we want to maximize the column entropy to encourage distributing nodes into different pools
-    #     inv_entr = tf.reduce_sum(tf.multiply(column_means, column_logs),axis=-1)
-    #     inv_entr_sum=tf.reduce_sum(inv_entr)
-    #
-    #     return inv_entr_sum
+    def row_e_and_column_p(self, s, i):
+        batch_size= s.shape[0]
+        column_prod_sum=0
+        row_entropy_sum=0
+        #print('The function is happening')
+        for g in range(batch_size):
+            count= np.count_nonzero(i==g)
+            s_g=s[g,:count]
+            #---
+            row= self.entropy_loss(s_g)
+            row_entropy_sum+=row
+            #---
+            #column_means=tf.divide(tf.reduce_sum(s_g, axis=0),s_g.shape[0])
+            column_product= tf.math.reduce_prod(tf.divide(tf.reduce_sum(s_g, axis=0),s_g.shape[0]))
+            column_prod_sum+= column_product
+
+        return -1*column_prod_sum, row_entropy_sum
+
+
 
 class DoubleJanossyDiffPool(RegularizedDiffPool):
     def __init__(self, k, channels=None, return_selection=False, activation='relu', kernel_initializer="glorot_uniform",
@@ -1322,7 +1341,7 @@ class ModifiedReduceLROnPlateau(Callback):
         return self.cooldown_counter > 0
 
 
-class HNetDoubleJanossy(Model):
+class HNetDoubleJanossyPredOnly(Model):
     def __init__(self, task, num_classes, embedding_size=52, d1=0.578, el=427, cl=265, fc_num=1, fc_size=23, fc_num2=1, fc_size2=23, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
         super().__init__()
         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
@@ -1374,6 +1393,7 @@ class HNetDoubleJanossy(Model):
             element_idx[id]=int(str(temp[0])+str(temp[1]))
 
         x= self.embedding(x)
+        embed_x, throwaway= self.disjoint2batch([x, a, i])
         x= self.conv1([x, a, e])
         x= tf.nn.softplus(x)
         x= self.conv2([x, a, e])
@@ -1408,6 +1428,146 @@ class HNetDoubleJanossy(Model):
         x_4g= tf.stack([x_pool_p1[:,1],x_pool_p1[:,2],x_pool_p1[:,0]], axis=1)
         x_5g= tf.stack([x_pool_p1[:,2],x_pool_p1[:,0],x_pool_p1[:,1]], axis=1)
         x_6g= tf.stack([x_pool_p1[:,2],x_pool_p1[:,1],x_pool_p1[:,0]], axis=1)
+
+
+        x_1g=tf.reshape(x_pool_p1, [x_pool_p1.shape[0],x_pool_p1.shape[1]*x_pool_p1.shape[2]])
+        x_2g=tf.reshape(x_2g, [x_2g.shape[0],x_2g.shape[1]*x_2g.shape[2]])
+        x_3g=tf.reshape(x_3g, [x_3g.shape[0],x_3g.shape[1]*x_3g.shape[2]])
+        x_4g=tf.reshape(x_4g, [x_4g.shape[0],x_4g.shape[1]*x_4g.shape[2]])
+        x_5g=tf.reshape(x_5g, [x_5g.shape[0],x_5g.shape[1]*x_5g.shape[2]])
+        x_6g=tf.reshape(x_6g, [x_6g.shape[0],x_6g.shape[1]*x_6g.shape[2]])
+
+
+        for layer in self.janossy_orange_list:
+            x_1o= layer(x_1o)
+            x_2o= layer(x_2o)
+            x_3o= layer(x_3o)
+            x_4o= layer(x_4o)
+            x_5o= layer(x_5o)
+            x_6o= layer(x_6o)
+
+        for layer in self.janossy_green_list:
+            x_1g= layer(x_1g)
+            x_2g= layer(x_2g)
+            x_3g= layer(x_3g)
+            x_4g= layer(x_4g)
+            x_5g= layer(x_5g)
+            x_6g= layer(x_6g)
+
+        x_o=tf.stack([x_1o,x_2o,x_3o,x_4o,x_5o,x_6o],axis=-2)
+        x_g=tf.stack([x_1g,x_2g,x_3g,x_4g,x_5g,x_6g],axis=-2)
+
+
+        x_o= self.meanpool(x_o)
+        x_g= self.meanpool(x_g)
+
+        x_og= tf.concat([x_o, x_g], axis=1)
+        x_go= tf.concat([x_g, x_o], axis=1)
+
+        for layer in self.janossy_2_list:
+            x_og = layer(x_og)
+            x_go = layer(x_go)
+        #print(x_og.shape)
+        x_final= tf.stack([x_og, x_go], axis=-2)
+
+        x_final=self.meanpool(x_final)
+
+        x=self.out_layer(x_final)
+        # #print(x.shape)
+        # #print('----')
+        if self.return_s:
+            print('fucking hello???')
+            return x, s, embed_x, batch_X
+        else:
+            return x
+
+
+class HNetDoubleJanossy(Model):
+    def __init__(self, task, num_classes, embedding_size=52, cgcnn_num=3, d1=0.578, el=427, cl=265, fc_num=1, fc_size=23, fc_num2=1, fc_size2=23, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+        super().__init__()
+        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+        he_initializer= initializers.he_uniform(seed=random_seed)
+
+        self.return_s=return_s
+        self.task=task
+        self.num_classes=num_classes
+
+        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
+
+        self.conv_list=[]
+        for i in range(cgcnn_num):
+            conv= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)#does this l2 have a lambda
+            self.conv_list.append(conv)
+
+        self.disjoint2batch= Disjoint2Batch()
+        self.dropout1= Dropout(d1)
+
+        self.pool= DoubleJanossyDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
+        #self.bn1= BatchNormalization()
+        self.janossy_orange_list=[]
+        for i in range(fc_num):
+            fc= Dense(fc_size, activation='softplus', kernel_initializer=he_initializer)
+            self.janossy_orange_list.append(fc)
+
+        self.janossy_green_list=[]
+        for i in range(fc_num):
+            fc= Dense(fc_size, activation='softplus', kernel_initializer=he_initializer)
+            self.janossy_green_list.append(fc)
+
+        self.janossy_2_list=[]
+        for i in range(fc_num2):
+            fc= Dense(fc_size2, activation='softplus', kernel_initializer=he_initializer)
+            self.janossy_2_list.append(fc)
+
+        self.meanpool= GlobalAvgPool()
+        #we should have a dropout after aggregating crystal features
+        if self.task=='c':
+            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
+        elif self.task=='r':
+            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
+
+
+    def call(self, inputs):
+        x, a, e, i = inputs
+        element_idx=np.empty((len(x)))
+        for id in range(len(x)):
+            temp=np.nonzero(x[id])[0]
+            element_idx[id]=int(str(temp[0])+str(temp[1]))
+
+        x= self.embedding(x)
+        #embed_x, throwaway= self.disjoint2batch([x, a, i])
+        for cgcnn in self.conv_list:
+            x= cgcnn([x, a, e])
+            x= tf.nn.softplus(x)
+
+        x= self.dropout1(x)
+
+        batch_X, batch_A= self.disjoint2batch([x, a, i])
+
+        x_pool_all, a, i, s= self.pool([batch_X, batch_A, i, element_idx])
+
+        x_pool_p0=x_pool_all[:,:,0]
+        x_pool_p1=x_pool_all[:,:,1]
+
+        x_2o= tf.stack([x_pool_p0[:,0],x_pool_p0[:,2],x_pool_p0[:,1]], axis=1)
+        x_3o= tf.stack([x_pool_p0[:,1],x_pool_p0[:,0],x_pool_p0[:,2]], axis=1)
+        x_4o= tf.stack([x_pool_p0[:,1],x_pool_p0[:,2],x_pool_p0[:,0]], axis=1)
+        x_5o= tf.stack([x_pool_p0[:,2],x_pool_p0[:,0],x_pool_p0[:,1]], axis=1)
+        x_6o= tf.stack([x_pool_p0[:,2],x_pool_p0[:,1],x_pool_p0[:,0]], axis=1)
+
+        x_1o=tf.reshape(x_pool_p0, [x_pool_p0.shape[0],x_pool_p0.shape[1]*x_pool_p0.shape[2]])
+        x_2o=tf.reshape(x_2o, [x_2o.shape[0],x_2o.shape[1]*x_2o.shape[2]])
+        x_3o=tf.reshape(x_3o, [x_3o.shape[0],x_3o.shape[1]*x_3o.shape[2]])
+        x_4o=tf.reshape(x_4o, [x_4o.shape[0],x_4o.shape[1]*x_4o.shape[2]])
+        x_5o=tf.reshape(x_5o, [x_5o.shape[0],x_5o.shape[1]*x_5o.shape[2]])
+        x_6o=tf.reshape(x_6o, [x_6o.shape[0],x_6o.shape[1]*x_6o.shape[2]])
+
+        x_2g= tf.stack([x_pool_p1[:,0],x_pool_p1[:,2],x_pool_p1[:,1]], axis=1)
+        x_3g= tf.stack([x_pool_p1[:,1],x_pool_p1[:,0],x_pool_p1[:,2]], axis=1)
+        x_4g= tf.stack([x_pool_p1[:,1],x_pool_p1[:,2],x_pool_p1[:,0]], axis=1)
+        x_5g= tf.stack([x_pool_p1[:,2],x_pool_p1[:,0],x_pool_p1[:,1]], axis=1)
+        x_6g= tf.stack([x_pool_p1[:,2],x_pool_p1[:,1],x_pool_p1[:,0]], axis=1)
+
 
         x_1g=tf.reshape(x_pool_p1, [x_pool_p1.shape[0],x_pool_p1.shape[1]*x_pool_p1.shape[2]])
         x_2g=tf.reshape(x_2g, [x_2g.shape[0],x_2g.shape[1]*x_2g.shape[2]])

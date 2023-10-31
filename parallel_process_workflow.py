@@ -35,7 +35,7 @@ parser.add_argument('--datadir', dest='datadir',
 parser.add_argument('--file-out', dest='file_out',
                     help='output file name', default='doublejanossy')
 parser.add_argument('--path-out', dest='path',
-                    help='output path', default='./debug')
+                    help='output path', default='./debug_entropy')
 parser.add_argument('--num-atoms', dest='num_atoms', type=int,
                     help='Maximum number of nodes', default=200)
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
@@ -68,13 +68,42 @@ def test_eval(loader_te,model,loss_fn,textlist):
     textlist.append(test_metric)
     return textlist
 
+def entropy_loss(s):
+    entr = tf.negative(
+        tf.reduce_sum(tf.multiply(s, tf.math.log(s + 10**-30)), axis=-1)
+    )
+    entr_loss = tf.reduce_mean(entr, axis=-1)
+    return entr_loss
+
+def row_e_and_column_p(s, i):
+    batch_size= s.shape[0]
+    column_prod_sum=0
+    row_entropy_sum=0
+    #print('The function is happening')
+    for g in range(batch_size):
+        count= np.count_nonzero(i==g)
+        s_g=s[g,:count]
+        #---
+        row= entropy_loss(s_g)
+        row_entropy_sum+=row
+
+        #column_means=tf.divide(tf.reduce_sum(s_g, axis=0),s_g.shape[0])
+        column_product= tf.math.reduce_prod(tf.divide(tf.reduce_sum(s_g, axis=0),s_g.shape[0]))
+        column_prod_sum+= column_product
+
+    return -1*column_prod_sum, row_entropy_sum
+
+
 def evaluate(loader, model, loss_fn, test=False):
-    output = []
     step = 0
+    output=[]
     while step < loader.steps_per_epoch:
         step += 1
         inputs, target = loader.__next__()
+        x, a, e, i = inputs
         pred, s = model(inputs, training=False)
+        #print(s)
+        c_e, r_e= row_e_and_column_p(s, i)
         if args.task=='c':
             outs = (
                 loss_fn(target, pred),
@@ -82,17 +111,23 @@ def evaluate(loader, model, loss_fn, test=False):
                 len(target),  # Keep track of batch size
             )
         elif args.task=='r':
+            mse = tf.reduce_mean((target-pred)**2)
+            rmse= np.sqrt(mse)
+            mae= tf.reduce_mean(np.abs(target-pred))
             outs = (
                 loss_fn(target, pred),
-                tf.reduce_mean(mean_squared_error(target, pred)),
+                mse,
+                rmse,
+                mae,
+                c_e,
+                r_e,
                 len(target),  # Keep track of batch size
             )
+            #print('LOOK AT ME'+str(len(target)))
         output.append(outs)
         if step == loader.steps_per_epoch:
-            if test==True and args.task=='c':
-                print('TEST confusion_matrix')
-                print(confusion_matrix(target,np.argmax(pred, axis=1)))
             output = np.array(output)
+            #print(output.shape)
             return np.average(output[:, :-1], 0, weights=output[:, -1])
 
 def train_step(inputs, target, model, loss_fn, optimizer):
@@ -152,13 +187,20 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
         #     optim= optimizer,
         #     verbose=2
         # )
-        print('lr=')
-        print(lr)
-        print('el=')
-        print(el)
-        print('cl=')
-        print(cl)
-        model= HNetDoubleJanossy(args.task, args.num_classes, el=el, cl=cl, return_s=True, random_seed=args.random_seed)
+        paramdict={
+          "batch_size": 32,
+          "column_lambda": 41903766.3588113,
+          "dr1": 0.2513546780919437,
+          "embedding_size": 4,
+          "entropy_lambda": 108506.39801000628,
+          "fc_num": 1,
+          "fc_num2": 1,
+          "fc_size": 4,
+          "fc_size2": 4,
+          "lr": 0.0631443016175717
+        }
+        #embedding_size=52,  d1=0.578, el=427, cl=265, fc_num=1, fc_size=23, fc_num2=1, fc_size2=23, regularizer='l2', return_s=False,  random_seed=0
+        model= HNetDoubleJanossy(args.task, args.num_classes, embedding_size=paramdict['embedding_size'], d1=paramdict['dr1'], el=el, cl=cl, return_s=True, random_seed=0)
 
         all_callbacks= CallbackList([csv_log], add_history=True, model=model)
 
@@ -172,8 +214,10 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
         temp_va=evaluate(load_va, model, loss_fn)
         textlist.append(str(temp_va))
 
+        train_metric=[]
+        val_metric_list=[]
         early_stop_counter= 0
-
+        patience= 50
         epoch = step = 0
         best_val_loss = np.inf
         best_weights = None
@@ -181,66 +225,41 @@ def full_training_loop(printlock, load_tr, load_va, load_te, textlist, testeleme
         logs = {}
         all_callbacks.on_train_begin(logs=logs)
         for batch in load_tr:
-                #print(epoch, step, flush=True)
                 if step==0:
                     all_callbacks.on_epoch_begin(epoch, logs=logs)
                 step += 1
-                all_callbacks.on_train_batch_begin(step)
 
-                loss, metric = train_step(*batch, model, loss_fn, optimizer)
+                all_callbacks.on_train_batch_begin(step)
+                loss, metric = train_step(*batch, model, loss_fn, optim)
                 all_callbacks.on_train_batch_end(step, logs)
 
-                #textlist= textlist + outputtxt
                 if step == load_tr.steps_per_epoch:
                     step = 0
-                    tr_loss=loss / load_tr.steps_per_epoch
-                    loss_str="Loss: {}".format(tr_loss)
-                    textlist.append(loss_str)
-                    print('train mse:', flush=True)
-                    print(loss_str, flush=True)
+                    loss_str="Loss: {}".format(loss / load_tr.steps_per_epoch)
                     is_nan= np.isnan(loss)
-                    #loss = 0
-                    val_loss, val_metric = evaluate(load_va, model, loss_fn)
-                    val_is_nan= np.isnan(val_loss)
-                    print('val mse:', flush=True)
-                    print(val_loss, flush=True)
-                    if val_loss<best_val_loss:
+                    tr_loss, tr_mse, tr_rmse, tr_mae, tr_ce, tr_re= evaluate(load_tr_eval, model, loss_fn)
+                    val_loss, val_mse, val_rmse, val_mae, val_ce, val_re = evaluate(load_va, model, loss_fn)
+                    val_metric_list.append(val_loss)
+                    train_metric.append(tr_loss)
+                    total_val_loss= val_mse + (entropy_lambda*val_re) + (column_lambda*val_ce)
+                    if total_val_loss<best_val_loss:
                         model.save_weights(checkpoint_path)
-                        best_val_loss= val_loss
+                        best_val_loss= total_val_loss
                         early_stop_counter=0
                     else:
                         early_stop_counter+=1
-                    if args.task=='r':
-                        textlist.append('train mse='+str(metric))
-                        textlist.append('val loss and mse')
-                    elif args.task=='c':
-                        textlist.append('train accuracy='+str(metric))
-                        textlist.append('val loss and acc')
-                    textlist.append(str(val_loss))
-                    textlist.append(str(val_metric))
-                    #print(optimizer._learning_rate.numpy())
-                    try:
-                        all_callbacks.on_epoch_end(epoch, {'train_loss':tr_loss, 'val_loss':val_loss, 'lr':optimizer._hyper['learning_rate']})
-                        print('try')
-                    except:
-                        all_callbacks.on_epoch_end(epoch, {'train_loss':tr_loss, 'val_loss':val_loss, 'lr':optimizer._learning_rate.numpy()})
-                        print('except')
-                    epoch+=1
-                    textlist.append('epoch='+str(epoch))
 
-                    if is_nan or val_is_nan:
-                        model_list[specialindex]= str(checkpoint_path)
-                        performance_list[specialindex] = best_val_loss
+                    all_callbacks.on_epoch_end(epoch, {'train_mse':tr_mse, 'train_rmse':tr_rmse, 'train_mae':tr_mae, 'val_mse':val_mse, 'val_rmse:':val_rmse, 'val_mae':val_mae, 'train_row_penalty':tr_re, 'train_column_penalty':tr_ce, 'val_row_penalty':val_re, 'val_column_penalty':val_ce})
+
+                    if early_stop_counter==patience:
                         all_callbacks.on_train_end(logs)
-
-                        break
-
+                        gen_plots(train_metric, val_metric_list)
+                        return {"score": best_val_loss}
+                    else:
+                        epoch+=1
         all_callbacks.on_train_end(logs)
-        textlist.append('training time=')
-        textlist.append(str(time.time()-init_time))
+        gen_plots(train_metric, val_metric_list)
 
-        model_list[specialindex]= str(checkpoint_path)
-        performance_list[specialindex] = best_val_loss
         textlist.append('----EXP OVER----')
         printlock.acquire()
         try:
@@ -475,14 +494,25 @@ if __name__ == '__main__':
     #sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
 
     print(args)
+    paramdict={
+      "batch_size": 32,
+      "column_lambda": 41903766.3588113,
+      "dr1": 0.2513546780919437,
+      "embedding_size": 4,
+      "entropy_lambda": 108506.39801000628,
+      "fc_num": 1,
+      "fc_num2": 1,
+      "fc_size": 4,
+      "fc_size2": 4,
+      "lr": 0.0631443016175717
+    }
     df = pd.read_csv(os.path.join(args.datadir,'train_with_counts_complete.csv'))
     df = df[df['num_elements']<=3]
-    df= df.head(20)
-    #print(df)
-    train_data= DisjointLoader(MyDataset(df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=16, epochs=args.epochs)
+
+    train_data= DisjointLoader(MyDataset(df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=paramdict['batch_size'], epochs=args.epochs)
     val_df = pd.read_csv(os.path.join(args.datadir,'val_with_counts_complete.csv'))
     val_df = val_df[val_df['num_elements']<=3]
-    val_df= val_df.head(20)
+    #val_df= val_df.head(10)
     val_data= DisjointLoader(MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=len(val_df))
 
     test_df = pd.read_csv(os.path.join(args.datadir,'test_with_counts_complete.csv'))
@@ -490,14 +520,4 @@ if __name__ == '__main__':
     #test_df= test_df.head(20)
     test_data= DisjointLoader(MyDataset(test_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task), batch_size=len(test_df))
 
-    full_training_loop(printlock, train_data, val_data, test_data, [], '', '', 0.001, 0, 100, 1000, {}, {})#, r1, r2, r3))
-
-    #print('total time')
-    #print(time.time()-begin_time)
-#    lhs(data,printlock)
-    # args.path= args.path+'1'
-    # if not os.path.exists(args.path+'/'+args.file_out):
-    #     os.makedirs(args.path+'/'+args.file_out)
-    # sys.stdout = open(args.path+'/'+args.file_out+'/'+args.file_out+'.txt', 'w')
-    # processlist=[]
-    # lhs(data,printlock)
+    full_training_loop(printlock, train_data, val_data, test_data, [], '', '', lr=paramdict['lr'], 0, el=paramdict['entropy_lambda'], cl=paramdict['column_lambda'], {}, {})#, r1, r2, r3))

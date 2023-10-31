@@ -48,20 +48,19 @@ def entropy_loss(s):
     entr = tf.negative(
         tf.reduce_sum(tf.multiply(s, K.log(s + K.epsilon())), axis=-1)
     )
-    entr_loss = tf.reduce_sum(entr, axis=-1)
+    entr_loss = tf.reduce_mean(entr, axis=-1)
     return entr_loss
 
 def both_entropy(s):
-    #print(s)
     row= entropy_loss(s)
-    #print(row)
     column_means=tf.divide(tf.reduce_sum(s, axis=0),s.shape[0])
-    #print(column_means)
     column_entropy = tf.reduce_sum(tf.multiply(column_means, K.log(column_means + K.epsilon())), axis=-1)
-    #print(column_entropy)
-    #raw_column_entropy= tf.reduce_sum(tf.reduce_sum(tf.multiply(s, K.log(s + K.epsilon())), axis=-1),axis=-1)
-    #print(raw_column_entropy)
-    return column_entropy, row
+
+    return float(column_entropy), float(row)
+
+def row_e_and_column_p(s):
+    pass
+
 
 def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, color='#000000', label=''):
     output = []
@@ -76,8 +75,8 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
         #rep_csv= open(main_checkpoint_path+'learned_reps.csv','w+')
         outfile_main=open(main_checkpoint_path+'pooling_eval.csv','w+')
         outfile_main.write('name,abs_error,pool_margin,perfect,avg_acc,row_entropy,neg_col_entropy \n')
+        #pred, s_tensor, embed_x, batch_X = model(inputs, training=False)
         pred, s_tensor = model(inputs, training=False)
-        #rep_csv.write('cif,pool_num,f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11 \n')
 
         num_perfect=0
         list_perfect=[]
@@ -89,31 +88,32 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
         maes_for_plot=[]
         class_accuracies_for_plot=[]
         crystal_size=[]
+
+        #print(len(s_tensor))
+
         for j in range(len(s_tensor)):
                 assign= s_tensor[j]
-                #rep= learned_rep[j].numpy()
+                #embeds= pd.DataFrame(embed_x[j].numpy())
+                #feats= pd.DataFrame(batch_X[j].numpy())
+                #print(embeds)
+                #print(feats)
                 individual_error= np.abs(target[j]-pred[j])
                 maes_for_plot.append(individual_error)
                 crystal= Structure.from_file(os.path.join(args.datadir,cifs[i]))
                 crystal_size.append(len(crystal))
-
-                #line0="{},0,{},{},{},{},{},{},{},{},{},{},{},{} \n".format(cifs[i],rep[0,0],rep[0,1],rep[0,2],rep[0,3],rep[0,4],rep[0,5],rep[0,6],rep[0,7],rep[0,8],rep[0,9],rep[0,10],rep[0,11])
-                #line1="{},1,{},{},{},{},{},{},{},{},{},{},{},{} \n".format(cifs[i],rep[1,0],rep[1,1],rep[1,2],rep[1,3],rep[1,4],rep[1,5],rep[1,6],rep[1,7],rep[1,8],rep[1,9],rep[1,10],rep[1,11])
-
-
-                #line0="{},1,{},{},{},{},{},{},{} \n".format(cifs[i])
-                #rep_csv.write(line0)
-                #rep_csv.write(line1)
-
-
+                #print(cifs[i], len(crystal))
 
                 ground_truth_P1= df_reference[df_reference['id']==cifs[i]].P1.values[0]
 
                 tempcifname= cifs[i].split('/')[-1]
 
+                #embedfile= open(savepath+'/'+tempcifname+'embed.csv', 'w+')
+                #embedfile.write(str())
                 savepath=os.path.join(args.datadir,os.path.dirname(cifs[i]))
                 assign=assign[:len(crystal)]
-                outfile= open(savepath+'/'+tempcifname+'pool.dat', 'w+')
+                #embeds.to_csv(savepath+'/'+tempcifname+'_embedding_model_f01f713f.csv')
+                #feats.to_csv(savepath+'/'+tempcifname+'_feats_after_cgcnn_model_f01f713f.csv')
+                outfile= open(savepath+'/'+tempcifname+'_pool_model_f01f713f.dat', 'w+')
                 outfile.write('num,species,a,b,c,P1,P2,ground_truth_P1,SVM_pred_P1\n')
 
                 binary_feats=[]
@@ -129,17 +129,16 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
                     #
                 C, score, margin, svc_pred= evaluate_pool(binary_feats, binary_targets)
                 column_entropy, row_entropy= both_entropy(np.array(binary_feats))
-                #except:
-                #    print(cifs[i])
-                #    print(binary_feats)
-                #    print(binary_targets)
+
                 for k in range(len(crystal)):
                     if str(crystal[k].specie) in ground_truth_P1:
                         truth_val=1
                     else:
                         truth_val= 0
+
                     line="{},{},{},{},{},{},{},{},{} \n".format(k, crystal[k].specie, crystal[k].a, crystal[k].b, crystal[k].c, assign[k,0], assign[k,1], truth_val, svc_pred[k])
                     outfile.write(line)
+
 
                 scores.append(score)
                 Cs.append(C)
@@ -194,8 +193,10 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
             outs = tf.reduce_mean(sparse_categorical_accuracy(target, pred))
 
         elif args.task=='r':
-            outs = tf.reduce_mean(mean_squared_error(target, pred)),
-
+            outs = tf.reduce_mean(mean_squared_error(target, pred))
+            #print(mean_squared_error(target, pred))
+            #print( tf.reduce_mean(mean_squared_error(target, pred)))
+            #print(tf.reduce_mean((target-predictions)**2))
         output.append(outs)
         if step == loader.steps_per_epoch:
             output = np.array(output)
@@ -280,9 +281,7 @@ def evaluate_pool(binary_feats, binary_targets):
             if score==1:
                 return C, score, margin, pred
 
-        #pool_plots(binary_feats, binary_targets, clf)
-        #df_new=pd.DataFrame(clf.decision_function(binary_feats)/np.sqrt(np.sum(clf.coef_**2)))
-        #df_new.to_csv('dboundary.csv')
+
         best_score= max(scores.values())
         best_C= max(scores, key=scores.get)
         best_margin= margins[best_C]
@@ -298,53 +297,61 @@ def main(main_checkpoint_path):
     #checkpoint_path = "./train_model_2023-07-03_17-20-23/train_model_1285a2b1_3_batch_size=1,column_lambda=1219992.1467,dr1=0.5991,dr2=0.9550,embedding_size=2,entropy_lambda=17520562.6629_2023-07-03_17-20-41/goodmodel.ckpt.index"
 
     checkpoint_dir = os.path.dirname(checkpoint_path)
+    #print(main_checkpoint_path)
     #print(checkpoint_dir)
+
     val_df = pd.read_csv(os.path.join(args.datadir,'val_with_counts_complete.csv'), header=0)
     val_df = val_df[val_df['num_elements']<=3]
-    #val_df= val_df.head(10)
-    #val_df = val_df.sample(frac=1).reset_index(drop=True)
+    val_df = val_df.sample(frac=1).reset_index(drop=True)
+    #val_df= val_df.head(5)
+    #print(val_df)
     data= MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     loader_va= DisjointLoader(data, shuffle=False, batch_size=len(val_df))
     cifs=data.get_cifs()
-
+    #print(cifs)
     paramsdict= json.load(open(checkpoint_dir+'/params.json'))
-
+    # paramsdict={
+    #   "batch_size": 32,
+    #   "column_lambda": 41903766.3588113,
+    #   "dr1": 0.2513546780919437,
+    #   "embedding_size": 4,
+    #   "entropy_lambda": 108506.39801000628,
+    #   "fc_num": 1,
+    #   "fc_num2": 1,
+    #   "fc_size": 4,
+    #   "fc_size2": 4,
+    #   "lr": 0.0631443016175717
+    # }
+    #print(paramsdict)
     #model= HNetConcatJanossy('r', 1, embedding_size=paramsdict['embedding_size'], d1=paramsdict['dr1'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], fc_num=paramsdict['fc_num'],fc_size=paramsdict['fc_size'], return_s=True)
     model= HNetDoubleJanossy('r', 1, embedding_size=paramsdict['embedding_size'], d1=paramsdict['dr1'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], fc_num=paramsdict['fc_num'], fc_size=paramsdict['fc_size'], fc_size2=paramsdict['fc_size2'], fc_num2=paramsdict['fc_num2'], return_s=True)
-    #model= HNetDoubleJanossy('r', 1, el=100, cl=1000, return_s=True)
-
-    print(model)
+    #model= HNetDoubleJanossy('r', 1, embedding_size=paramsdict['embedding_size'], d1=paramsdict['dr1'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], return_s=True)
 
     latest = tf.train.latest_checkpoint(checkpoint_dir)
     model.load_weights(latest)
-#
+
     result_dict=evaluate(loader_va ,model, cifs, df_reference, args, main_checkpoint_path)
+    #print(4)
+    #cgcnn_wanted= model.layers[1].trainable_variables[4:]
+    #for var in cgcnn_wanted:
+    #    print(var)
+    #    tf.print(var, summarize=-1)
     return result_dict
 
 if __name__ == '__main__':
-    crazylist= ['train_model_788b9e03_20_batch_size=4,column_lambda=29.3114,dr1=0.5516,embedding_size=64,entropy_lambda=233985.0324,fc_num=1,fc_num_2023-09-02_05-27-27']
+    crazylist=['./train_model_2023-10-27_15-40-05/train_model_4c31cfa1_228_batch_size=4,column_lambda=2685439.8120,dr1=0.5271,embedding_size=8,entropy_lambda=32.2965,fc_num=1,fc_nu_2023-10-28_01-22-31/']
     df_master_dict={}
     for path in crazylist:
         #print(path)
-        fullpath='./dj_updated_entropy/'+path+'/'
+
+        fullpath='./train_model_2023-10-27_15-40-05/'+path+'/'
         #fullpath=path
-        #try:
-        result_dict= main(fullpath)
-        df_master_dict[fullpath]=result_dict
-        #except:
-        #    df_master_dict[fullpath]={}
+        try:
+            result_dict= main(fullpath)
+            print("complete for "+fullpath)
+            df_master_dict[fullpath]=result_dict
+        except:
+            print('an error for '+fullpath)
+            df_master_dict[fullpath]={}
     #df_master_dict= pd.DataFrame.from_dict(df_master_dict)
-    #df_master_dict.to_csv('./dj_updated_entropy/large_eval.csv')
-    #temp='./janossy_arch_longmodel_a363460a/'
-    #
-# # for layer in model.layers:
-#      print(layer.name, layer)
-#      if layer.name == 'dense_2':
-#          np.save('bayes51_211_83_fc',layer.weights[0].numpy())
-#      if layer.name=='regularized_diff_pool':
-#         rdp_all=layer.weights
-#         for i in range(len(rdp_all)):
-#             print(rdp_all[i])
-#         s_weights=rdp_all[0].numpy()
-#         print(s_weights)
-#         np.save('bayes51_211_83_sweights', s_weights)
+    #df_master_dict.to_csv('./train_model_2023-10-27_15-40-05/large_eval.csv')
