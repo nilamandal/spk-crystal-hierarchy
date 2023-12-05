@@ -58,9 +58,13 @@ def both_entropy(s):
 
     return float(column_entropy), float(row)
 
-def row_e_and_column_p(s):
-    pass
 
+
+def row_e_and_column_p(s):
+    row= entropy_loss(s)
+    column_product= tf.math.reduce_prod(tf.divide(tf.reduce_sum(s, axis=0),s.shape[0]))
+
+    return float(column_product), float(row)
 
 def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, color='#000000', label=''):
     output = []
@@ -113,8 +117,8 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
                 assign=assign[:len(crystal)]
                 #embeds.to_csv(savepath+'/'+tempcifname+'_embedding_model_f01f713f.csv')
                 #feats.to_csv(savepath+'/'+tempcifname+'_feats_after_cgcnn_model_f01f713f.csv')
-                outfile= open(savepath+'/'+tempcifname+'_pool_model_f01f713f.dat', 'w+')
-                outfile.write('num,species,a,b,c,P1,P2,ground_truth_P1,SVM_pred_P1\n')
+                #outfile= open(savepath+'/'+tempcifname+'_pool_model_randomseed0bn.dat', 'w+')
+                #outfile.write('num,species,a,b,c,P1,P2,ground_truth_P1,SVM_pred_P1\n')
 
                 binary_feats=[]
                 binary_targets=[]
@@ -128,7 +132,7 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
                     binary_feats.append(assign[k].numpy())
                     #
                 C, score, margin, svc_pred= evaluate_pool(binary_feats, binary_targets)
-                column_entropy, row_entropy= both_entropy(np.array(binary_feats))
+                column_entropy, row_entropy= row_e_and_column_p(np.array(binary_feats))
 
                 for k in range(len(crystal)):
                     if str(crystal[k].specie) in ground_truth_P1:
@@ -137,7 +141,7 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
                         truth_val= 0
 
                     line="{},{},{},{},{},{},{},{},{} \n".format(k, crystal[k].specie, crystal[k].a, crystal[k].b, crystal[k].c, assign[k,0], assign[k,1], truth_val, svc_pred[k])
-                    outfile.write(line)
+                    #outfile.write(line)
 
 
                 scores.append(score)
@@ -155,12 +159,12 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
                     mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',1,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+'\n'
                 outfile_main.write(mainline)
                 line= 'pool accuracy='+str(score)+'C='+str(C)+'\n'
-                outfile.write(line)
+                #outfile.write(line)
 
                 line= '\n absolute error = '+str(float(individual_error))
-                outfile.write(line)
+                #outfile.write(line)
                 line= '\n '+ args.datadir+','+cifs[i]
-                outfile.close()
+                #outfile.close()
                 if score==1:
                     #poolfile= args.datadir+cifs[i][:-7]+'pool.dat'
                     poolfile= args.datadir+os.path.dirname(cifs[i])+'/pool.dat'
@@ -297,61 +301,59 @@ def main(main_checkpoint_path):
     #checkpoint_path = "./train_model_2023-07-03_17-20-23/train_model_1285a2b1_3_batch_size=1,column_lambda=1219992.1467,dr1=0.5991,dr2=0.9550,embedding_size=2,entropy_lambda=17520562.6629_2023-07-03_17-20-41/goodmodel.ckpt.index"
 
     checkpoint_dir = os.path.dirname(checkpoint_path)
-    #print(main_checkpoint_path)
-    #print(checkpoint_dir)
+
 
     val_df = pd.read_csv(os.path.join(args.datadir,'val_with_counts_complete.csv'), header=0)
     val_df = val_df[val_df['num_elements']<=3]
     val_df = val_df.sample(frac=1).reset_index(drop=True)
-    #val_df= val_df.head(5)
-    #print(val_df)
+
+
     data= MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     loader_va= DisjointLoader(data, shuffle=False, batch_size=len(val_df))
     cifs=data.get_cifs()
     #print(cifs)
-    paramsdict= json.load(open(checkpoint_dir+'/params.json'))
-    # paramsdict={
-    #   "batch_size": 32,
-    #   "column_lambda": 41903766.3588113,
-    #   "dr1": 0.2513546780919437,
-    #   "embedding_size": 4,
-    #   "entropy_lambda": 108506.39801000628,
-    #   "fc_num": 1,
-    #   "fc_num2": 1,
-    #   "fc_size": 4,
-    #   "fc_size2": 4,
-    #   "lr": 0.0631443016175717
-    # }
-    #print(paramsdict)
+    #paramsdict= json.load(open(checkpoint_dir+'/params.json'))
+    paramsdict={
+      "batch_size": 32,
+      "column_lambda": 41903766.3588113,
+      "dr1": 0.2513546780919437,
+      "embedding_size": 4,
+      "entropy_lambda": 108506.39801000628,
+      "fc_num": 1,
+      "fc_num2": 1,
+      "fc_size": 4,
+      "fc_size2": 4,
+      "lr": 0.0631443016175717
+    }
     #model= HNetConcatJanossy('r', 1, embedding_size=paramsdict['embedding_size'], d1=paramsdict['dr1'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], fc_num=paramsdict['fc_num'],fc_size=paramsdict['fc_size'], return_s=True)
     model= HNetDoubleJanossy('r', 1, embedding_size=paramsdict['embedding_size'], d1=paramsdict['dr1'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], fc_num=paramsdict['fc_num'], fc_size=paramsdict['fc_size'], fc_size2=paramsdict['fc_size2'], fc_num2=paramsdict['fc_num2'], return_s=True)
     #model= HNetDoubleJanossy('r', 1, embedding_size=paramsdict['embedding_size'], d1=paramsdict['dr1'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], return_s=True)
 
     latest = tf.train.latest_checkpoint(checkpoint_dir)
     model.load_weights(latest)
-
+    #for v in model.trainable_variables():
+    #    print(v)
     result_dict=evaluate(loader_va ,model, cifs, df_reference, args, main_checkpoint_path)
-    #print(4)
-    #cgcnn_wanted= model.layers[1].trainable_variables[4:]
-    #for var in cgcnn_wanted:
-    #    print(var)
-    #    tf.print(var, summarize=-1)
+
     return result_dict
 
 if __name__ == '__main__':
-    crazylist=['./train_model_2023-10-27_15-40-05/train_model_4c31cfa1_228_batch_size=4,column_lambda=2685439.8120,dr1=0.5271,embedding_size=8,entropy_lambda=32.2965,fc_num=1,fc_nu_2023-10-28_01-22-31/']
+    crazylist=['./dj_normalize_by_pool/doublejanossy/']
     df_master_dict={}
     for path in crazylist:
-        #print(path)
-
-        fullpath='./train_model_2023-10-27_15-40-05/'+path+'/'
-        #fullpath=path
-        try:
+        #df_getpaths= pd.read_csv(path+'evaluated_results.csv')
+        #getpaths= list(df_getpaths['path'])
+        getpaths=['0','1','2','3','4']
+        df_master_dict={}
+        for subpath in getpaths:
+            fullpath=path+str(subpath)+'/'
+            #fullpath=path
+            #try:
             result_dict= main(fullpath)
             print("complete for "+fullpath)
             df_master_dict[fullpath]=result_dict
-        except:
-            print('an error for '+fullpath)
-            df_master_dict[fullpath]={}
-    #df_master_dict= pd.DataFrame.from_dict(df_master_dict)
-    #df_master_dict.to_csv('./train_model_2023-10-27_15-40-05/large_eval.csv')
+            #except:
+                #print('an error for '+fullpath)
+                #df_master_dict[fullpath]={}
+        df_master_dict= pd.DataFrame.from_dict(df_master_dict)
+        df_master_dict.to_csv(path+'large_eval.csv')

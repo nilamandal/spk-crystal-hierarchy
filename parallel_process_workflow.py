@@ -485,7 +485,7 @@ def random_split(dataset):
 
 if __name__ == '__main__':
     printlock= Lock()
-    processlist=[]
+    
     args = parser.parse_args(sys.argv[1:])
 
     np.random.seed(args.random_seed)

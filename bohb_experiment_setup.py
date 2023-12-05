@@ -2,8 +2,9 @@ import tensorflow as tf
 import os
 import sys
 import argparse
-from spektral_essential_objects import GaussianDistance, MyDataset, RegularizedDiffPool, HNetDoubleJanossy
+from spektral_essential_objects import GaussianDistance, MyDataset, RegularizedDiffPool, HNetDoubleJanossy, DoubleJanossyPretrained, HNetConcatPretrained
 from spektral.data import DisjointLoader
+from CorrectedRepeater import BOHBRepeater
 from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.losses import MeanSquaredError
 import numpy as np
@@ -18,6 +19,7 @@ from hpbandster.optimizers.config_generators.bohb import BOHB
 import matplotlib.pyplot as plt
 from tensorflow.keras.callbacks import CallbackList, CSVLogger
 from tensorflow.keras import backend as K
+import json
 
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 
@@ -32,6 +34,8 @@ parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
 parser.add_argument('--task', choices=['r', 'c'],
                     default='r', help='complete a regression or classification task (default: regression)')
 args = parser.parse_args(sys.argv[1:])
+
+
 
 def entropy_loss(s):
     entr = tf.negative(
@@ -67,7 +71,7 @@ def evaluate(loader, model, loss_fn, test=False):
         x, a, e, i = inputs
         pred, s = model(inputs, training=False)
 
-        c_e, r_e= row_e_and_column_p(s, i)
+        c_p, r_e= row_e_and_column_p(s, i)
         if args.task=='c':
             outs = (
                 loss_fn(target, pred),
@@ -83,7 +87,7 @@ def evaluate(loader, model, loss_fn, test=False):
                 mse,
                 rmse,
                 mae,
-                c_e,
+                c_p,
                 r_e,
                 len(target),  # Keep track of batch size
             )
@@ -108,16 +112,16 @@ def train_step(inputs, target, model, loss_fn, optimizer):
         return loss, sca
 
 def train_model(config):
-    checkpoint_path='./goodmodel.ckpt'
     if os.path.isfile('./result.png'):
-        print('hello')
-        raise Exception('the thing happened')
-    #latest_path='./latestmodel.ckpt'
+        resultdict= json.load(open('./result.json'))
+        return {"score": resultdict["score"]}
+    checkpoint_path='./goodmodel.ckpt'
+
     epochs = 10
 
     embedding_size= config['embedding_size']
     batch_size= config['batch_size']
-    dr1= config['dr1']
+    #dr1= config['dr1']
     entropy_lambda= config['entropy_lambda']
     column_lambda= config['column_lambda']
 
@@ -125,9 +129,8 @@ def train_model(config):
     fc_num= config['fc_num']
     fc_size2= config['fc_size2']
     fc_num2= config['fc_num2']
-    lr= config['lr']
 
-    seed= 2
+    lr= config['lr']
 
     # Load data and train model code here...
     train_df = pd.read_csv(os.path.join(args.datadir,'train_with_counts_complete.csv'))
@@ -146,7 +149,7 @@ def train_model(config):
     csv_log = CSVLogger("./callback_results.csv")
 
 
-    model= HNetDoubleJanossy('r', 1, embedding_size=embedding_size, d1=dr1, el=entropy_lambda, cl=column_lambda, fc_num=fc_num, fc_size=fc_size, fc_size2=fc_size2, fc_num2=fc_num2, random_seed=seed, return_s=True)
+    model= HNetDoubleJanossy('r', 1, embedding_size=embedding_size, el=entropy_lambda, cl=column_lambda, fc_num=fc_num, fc_size=fc_size, fc_size2=fc_size2, fc_num2=fc_num2, return_s=True)
     all_callbacks= CallbackList([csv_log], add_history=True, model=model)
 
     optim=Adam(lr)
@@ -155,10 +158,11 @@ def train_model(config):
     train_metric=[]
     val_metric_list=[]
     early_stop_counter= 0
-    patience= 3
+    patience= 50
     epoch = step = 0
+
     best_val_loss = np.inf
-    prev_val_loss = np.inf
+    best_model_mse = np.inf
     logs = {}
     all_callbacks.on_train_begin(logs=logs)
     for batch in load_tr:
@@ -179,37 +183,28 @@ def train_model(config):
                 val_metric_list.append(val_loss)
                 train_metric.append(tr_loss)
                 total_val_loss= val_mse + (entropy_lambda*val_re) + (column_lambda*val_ce)
-                #model.save_weights(latest_path)
 
-                if total_val_loss<prev_val_loss:
-                    early_stop_counter=0
+                if epoch>0:
                     if total_val_loss<best_val_loss:
+                        early_stop_counter=0
                         model.save_weights(checkpoint_path)
                         best_val_loss= total_val_loss
-                else:
-                    early_stop_counter+=1
-                prev_val_loss= total_val_loss
+                        best_model_mse= val_mse
+                    else:
+                        early_stop_counter+=1
 
                 all_callbacks.on_epoch_end(epoch, {'train_mse':tr_mse, 'train_rmse':tr_rmse, 'train_mae':tr_mae, 'val_mse':val_mse, 'val_rmse:':val_rmse, 'val_mae':val_mae, 'train_row_penalty':tr_re, 'train_column_penalty':tr_ce, 'val_row_penalty':val_re, 'val_column_penalty':val_ce, 'val_total':total_val_loss})
 
                 if early_stop_counter==patience:
-                    print('early stopping')
-                    print(patience, early_stop_counter)
                     all_callbacks.on_train_end(logs)
                     gen_plots(train_metric, val_metric_list)
-                    #print('this line should only happen once')
-                    return {"score": best_val_loss}
+                    return {"score": best_model_mse}
                 else:
                     epoch+=1
     all_callbacks.on_train_end(logs)
     gen_plots(train_metric, val_metric_list)
-    # Return final stats. You can also return intermediate progress
-    # using ray.air.session.report() if needed.
-    # To return your model, you could write it to storage and return its
-    # URI in this dict, or return it as a Tune Checkpoint:
-    # https://docs.ray.io/en/latest/tune/tutorials/tune-checkpoints.html
-    #print('this line should only happen once')
-    return {"score": best_val_loss}
+    # Return final stats.
+    return {"score": best_model_mse}
 
 
 def gen_plots(train_metric, val_metric):
@@ -232,21 +227,21 @@ def gen_plots(train_metric, val_metric):
 
 
 if __name__ == "__main__":
-      NUM_MODELS = 50
-      #sys.stdout = open('./debugging.txt', 'w')
+      NUM_MODELS = 4
+     # sys.stdout = open('./debug.txt', 'w')
 
       trial_space = {
-            'embedding_size': tune.choice([4,8,16,32,64,128]),
-            'batch_size': tune.choice([2,4,8,16,32,64,128]),
-            'dr1': tune.uniform(0, 1),
-            'entropy_lambda': tune.loguniform(1e-2, 1e8),
-            'column_lambda': tune.loguniform(1e-2, 1e8),
-            #'random_seed': tune.choice([0,1,2,3,4,5,6,7,8,9]),
+            'embedding_size': tune.choice([4,8,16,32,64]),
+            'batch_size': tune.choice([4,8,16,32,64]),
+            #'dr1': tune.uniform(0, 1),
+            'entropy_lambda': tune.loguniform(1, 1e8),
+            'column_lambda': tune.loguniform(1, 1e8),
+            #'min_delta': tune.loguniform(1e-3, 1e8),
             'fc_size': tune.choice([4,8,16,32,64]),
             'fc_num': tune.choice([1,2,3]),
             'fc_size2': tune.choice([4,8,16,32,64]),
             'fc_num2': tune.choice([1,2,3]),
-            'lr': tune.loguniform(1e-9, 1e-1)
+            'lr': tune.loguniform(1e-8, 1e-1)
         }
 
       bohb_hyperband = HyperBandForBOHB(
@@ -255,11 +250,15 @@ if __name__ == "__main__":
         reduction_factor=4,
         stop_last_trials=False,
       )
-      bohb = TuneBOHB(metric='score', mode='min')
-      bohb = tune.search.ConcurrencyLimiter(bohb, max_concurrent=1)
+      bohb = BOHBRepeater(metric='score', mode='min', repeat=2, max_concurrent=1)
+      #bohb = tune.search.ConcurrencyLimiter(bohb, max_concurrent=4)
 
       train_model_object = tune.with_resources(train_model, {"cpu": 1})
       tuner = tune.Tuner(train_model_object, tune_config=tune.TuneConfig(
-        search_alg=bohb, scheduler=bohb_hyperband, metric='score', mode='min', num_samples=NUM_MODELS), param_space=trial_space)
+        search_alg=bohb,
+        scheduler=bohb_hyperband,
+        metric='score',
+        mode='min',
+        num_samples=NUM_MODELS), param_space=trial_space)
       results = tuner.fit()
       print(results)
