@@ -3,214 +3,114 @@ import pandas as pd
 import os
 import sys
 import argparse
-import time
+#import time
 import matplotlib.pyplot as plt
+#from sklearn.manifold import TSNE
+import seaborn as sns
+val_set=[32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800, 832, 864, 896, 928, 960, 992, 1024, 1056, 1088, 1120, 1152, 1184, 1216, 1248, 1280, 1312, 1344, 1376, 1408, 1440, 1472, 1504, 1536, 1568, 1600, 1632, 1664, 1696, 1728, 1760, 1792, 1824, 1856, 1888, 1920, 1952, 1984, 2016, 2048, 2080, 2112, 2144, 2176, 2208, 2240, 2272, 2304, 2336, 2368, 2400, 2432, 2464, 2496, 2528, 2560, 2592, 2624, 2656, 2688, 2720, 2752, 2784, 2816, 2848, 2880, 2912, 2944, 2976, 3008, 3040]
+v=[]
+x = np.load('./dj_normalize_by_pool/doublejanossy/1/s_after_normalizer_3040.npz')
+y = np.load('./dj_normalize_by_pool/doublejanossy/1/s_after_softmax_3040.npz')
+mask= x['s']
+s= y['s']
+for i in range(len(s)):
+    sub= s[i]
+    sub_mask= mask[i]
+    #print(sub)
+    num= int(np.count_nonzero(sub_mask)/2)
 
-df= pd.DataFrame(columns=['te', 'va', 'lr', 'bs', 'dr1', 'dr2', 'el', 'cl', 'l2_1', 'l2_2', 'l2_3', 'model_num', 'path', 'val_error'])
-
-def file_extractor(filename):
-    f= open(filename)
-    f= f.readlines()
-
-    model_dict={}
-    params_dict={}
-    val_element_dict={}
-    path_dict={}
-    performance_dict={}
-    for line in f:
-        if 'testing time' in line:
-                 break
-        if '{' in line:
-           line = line.strip()
-           line = line[1:-1]
-           pairs = line.split(', ')
-
-           for pair in pairs:
-               pair=pair.split(':')
-               pair[0]=int(pair[0])
-               pair[1]= pair[1].strip()
-               try:
-                   performance_dict[pair[0]]=float(pair[1])
-               except:
-                   path_dict[pair[0]]=pair[1][1:-1]
-
-    for line in f:
-         if 'testing time' in line:
-                 break
-         if '----NEW EXP----' in line:
-             temp=line.split("', '")
-             expline=None
-             model_num= None
-             lr= None
-             bs= None
-             te= None
-             va= None
-             dr1= None
-             dr2= None
-             el= None
-             cl= None
-             l2_1= None
-             l2_2= None
-             l2_3= None
-             for item in temp:
-                 if 'model #' in item:
-                     model_num= int(item.strip().split('#')[1])
-                 if 'test element' in item:
-                     te= int(item.strip().split('=')[1])
-                     #print(te)
-                 elif 'val element' in item:
-                     va= int(item.strip().split('=')[1])
-                 elif 'lr=' in item:
-                     lr= float(item.strip().split('lr=')[1])
-                     #print(lr)
-                 elif 'bs=' in item:
-                    bs= int(item.strip().split('=')[1])
-                 elif 'dropouts' in item:
-                    both=item.strip().split('=')[1].split(',')
-                    dr1= float(both[0])
-                    dr2= float(both[1])
-                 elif 'entropy lambda' in item:
-                    el= float(item.strip().split('=')[1])
-                 elif 'column lambda' in item:
-                     cl= float(item.strip().split('=')[1])
-                 elif 'l2 feature reg hyperparams=' in item:
-                     all= item.strip().split('=')[1].split(',')
-                     l2_1= float(all[0])
-                     l2_2= float(all[1])
-                     l2_3= float(all[2])
-
-             #print([te, va, lr, bs, dr1, dr2, el, cl, l2_1, l2_2, l2_3, 'model_num', 'path', 'val_error'])
-             df.loc[len(df.index)] = [te, va, lr, bs, dr1, dr2, el, cl, l2_1, l2_2, l2_3, 'model_num', 'path', 'val_error']
-             #print(model_num)
-             df.loc[(df['te']==te) & (df['va']==va) & (np.round(df['lr'], 6)==np.round(lr,6)), 'model_num']= model_num
-             df.loc[(df['te']==te) & (df['va']==va) & (np.round(df['lr'], 6)==np.round(lr,6)), 'path']= filename
-             df.loc[(df['te']==te) & (df['va']==va) & (np.round(df['lr'], 6)==np.round(lr,6)), 'val_error']= performance_dict[model_num]
-
-    #print(df)
-def read_test(filename):
-    f= open(filename)
-    f= f.readlines()
-    min= np.inf
-    print(filename)
-    for line in f:
-        if 'model #' in line:
-            min= np.inf
-            temp=line.split("', '")
-            for i in range(len(temp)):
-                currentline= temp[i]
-                if "val loss" in currentline:
-                    val_mse=float(temp[i+1])
-                    if val_mse<min:
-                        min= val_mse
-            print(min)
-
-    #print(min)
-            print('---')
-
-def identify_best(csv_name, new_name):
-    df= pd.read_csv(csv_name)
-    te_keys=[33,51,83]
-    lr_keys=np.unique(df['lr'].to_numpy())
-    bs_keys=np.unique(df['bs'].to_numpy())
-    df_new=pd.DataFrame(columns=['te', 'lr', 'bs', 'val_avg'])
-    for te_key in te_keys:
-         for lr_key in lr_keys:
-             for bs_key in bs_keys:
-                 df_temp=df[(df['te']==te_key) & (df['lr']==lr_key) &(df['bs']==bs_key)]
-                 if len(df_temp)>0:
-                      avg=np.mean(df[(df['te']==te_key) & (df['lr']==lr_key) &(df['bs']==bs_key)]['val_error'])
-                      df_new.loc[len(df_new.index)]=[te_key, lr_key, bs_key, avg]
-    df_newest=pd.merge(df, df_new, on=['te', 'lr', 'bs'], how='inner')
-    print(df_newest)
-    df_newest.to_csv(new_name)
-
-def bin_histogram(filename, bins):
-    s_weights= np.load(filename)
-    #fc_norms=np.linalg.norm(fc_weights, 2, axis=1)
-    #print(fc_norms.shape)
-    abs_diff= np.abs(s_weights[:,0]-s_weights[:,1])
-    nodes_all= np.concatenate((s_weights[:,0],s_weights[:,1]))
+    sub= sub[:num]
+    print(sub)
+    print(num)
     plt.figure()
-    plt.hist(abs_diff, bins)
-    plt.title('s weight abs_diff for bayes51_211_33_sweights')
-    plt.xlabel('s weight abs_diff ('+str(bins)+' bins)')
-    plt.ylabel('count')
-    plt.savefig('./bayes51_211_33_sweights_diff_'+str(bins)+'bins.png')
+    plt.scatter(sub[:,0],sub[:,1])
+    plt.title('Crystal assignments (after softmax)')
+    plt.xlabel('P1 assignment value; range [0,1]')
+    plt.ylabel('P2 assignment value; range [0,1]')
+    plt.savefig('./examples/'+str(i)+'.png')
+# for i in range(1,3041):
+#     x = np.load('./dj_normalize_by_pool/doublejanossy/1/s_after_normalizer_'+str(i)+'.npz')
+#     x= x['s']
+#     print(x.shape)
+#     if x.shape[0]==312:
+#             v.append(i)
 
-    plt.figure()
-    plt.hist(nodes_all, bins)
-    plt.title('s-layer weights for bayes51_211_33')
-    plt.xlabel('individual weights ('+str(bins)+' bins)')
-    plt.ylabel('count')
-    plt.savefig('./bayes51_211_33_s_'+str(bins)+'bins.png')
 
 
-def ratio():
-    df_cgcnn=pd.read_csv('../cgcnn-pretrained-models/test_results_final/test_results_from_0_83.csv', names=['cif', 'real', 'pred'])
-    df_ours= pd.read_csv('../oldspk/4000_results/noz4_4_out_og.csv')
-    df_cgcnn['cgcnndiff']=np.abs(df_cgcnn['real']-df_cgcnn['pred'])
-    df_ours['oursdiff']=np.abs(df_ours['real']-df_ours['pred'])
-    df_joined= pd.merge(df_ours, df_cgcnn, on='cif', how='inner')
-    print(df_joined)
-    plt.scatter(df_joined['oursdiff'],df_joined['cgcnndiff'])
-    x=np.linspace(0,1,100)
-    y=x
-    plt.plot(x,y)
-    plt.xlabel('error on our model')
-    plt.ylabel('error on cgcnn')
-    plt.show()
-    #df_joined.to_csv('comparison.csv')
 
-def threshold1():
-    df=pd.read_csv('./comparisons_with_decomp.csv')
-    decomp_threshold= 2000
-    our_mse=1
-    cgcnn_mse=0.5
-    threshold_list=[]
-    ours_list=[]
-    cgcnn_list=[]
-    while our_mse>cgcnn_mse:
-        decomp_threshold-=.5
-        df_threshold=df[df['Edecomp']<=decomp_threshold]
-        df_threshold['temp']=(df_threshold['real_y']-df_threshold['pred_y'])**2
-        our_mse=np.mean(df_threshold['sq error'])
-        cgcnn_mse=np.mean(df_threshold['temp'])
-        print(decomp_threshold, our_mse, cgcnn_mse)
-        threshold_list.append(decomp_threshold)
-        ours_list.append(our_mse)
-        cgcnn_list.append(cgcnn_mse)
-    plt.plot(threshold_list,ours_list, label='our model')
-    plt.plot(threshold_list,cgcnn_list, label='cgcnn')
-    plt.xlabel('decomposition energy threshold')
-    plt.ylabel('mean squared error on crystals below threshold')
-    plt.title("Crystal decomposition energy vs prediction mse")
-    plt.legend()
-    plt.show()
-
-def threshold2():
-    df=pd.read_csv('./ext_with_correct_decomp.csv')
-    #df=df[df['Edecomp (meV/atom)']>0]
-    #df=df[df['Edecomp (meV/atom)']>=-500]
-    #ax = plt.subplot()
-    scatter= plt.scatter(df['diff1'],df['diff2'], c=df['Edecomp (meV/atom)'])
-    plt.colorbar(scatter)
-
-    x=np.linspace(0,5,100)
-    y=x
-    plt.plot(x,y)
-    plt.title('Error for All Extrapolation Structures')
-    plt.xlabel('absolute error on our model')
-    plt.ylabel('absolute error on cgcnn')
-
-    plt.show()
-    # errorbar=0.1
-    # while errorbar<10:
-    #     df2=df[df['diff1']<=errorbar]
-    #     df_ours= df2[df2['diff1']<df2['diff2']]
-    #     df_theirs= df2[df2['diff1']>df2['diff2']]
-    #     print(errorbar, len(df2),len(df_ours),len(df_theirs))
-    #     errorbar+=.1
-
-threshold2()
-
+# print(v)
+#     x= x['x']
+# for i in range(1,3361):
+#     x = np.load('./batchnorm_npz/doublejanossy/1/x_after_dropout'+str(i)+'.npz')
+#     x= x['x']
+#     print(x.shape)
+#     if x.shape[0]==311:
+#         v.append(i)
+# print(v)
+# for j in val_set:
+#     idx= str(j)
+#     # x1= np.load('./tanhversion/debug_with_npz/doublejanossy/6/x_before_bn'+idx+'.npz')
+#     # disjoint_x1= x1['x']
+#     #
+#     # x2= np.load('./tanhversion/debug_with_npz/doublejanossy/6/x_after_dropout'+idx+'.npz')
+#     # batch_x2= x2['x']
+#     #
+#     # s1 = np.load('./tanhversion/debug_with_npz/doublejanossy/6/s_after_fc_'+idx+'.npz')
+#     # batch_s1=s1['s']
 #
+#
+#     for i in range(312):
+#
+
+    # s2 = np.load('./tanhversion/debug_with_npz/doublejanossy/6/s_after_softmax_30.npz')
+    # batch_s2=s2['s']
+    # print(np.shape(batch_s2))
+    # s2 = np.load('./tanhversion/debug_with_npz/doublejanossy/6/s_after_softmax_31.npz')
+    # batch_s2=s2['s']
+    # print(np.shape(batch_s2))
+    # s2 = np.load('./tanhversion/debug_with_npz/doublejanossy/6/s_after_softmax_40.npz')
+    # batch_s2=s2['s']
+    # print(np.shape(batch_s2))
+    # s2 = np.load('./tanhversion/debug_with_npz/doublejanossy/6/s_after_softmax_41.npz')
+    # batch_s2=s2['s']
+    # print(np.shape(batch_s2))
+
+
+#     for i in range(len(batch_s1)):
+#         crystal= batch_s1[i]
+#         count_rows= int(np.count_nonzero(crystal)/2)
+#         print(count_rows)
+#         print(crystal[0:count_rows])
+# #val_df = pd.read_csv('../Main_fol_Zintl/val_with_counts_complete.csv', header=0)
+#val_df = val_df[val_df['num_elements']<=3]
+#print(val_df)
+
+#contcars= list(val_df['id'])
+#contcars= contcars[:2]
+
+# for contcar in contcars:
+#     filepath= '../Main_fol_Zintl/'+contcar+'_feats_after_cgcnn_model_f01f713f.csv'
+#     df_feats= pd.read_csv(filepath)
+#     df_feats= df_feats.drop('Unnamed: 0', axis=1)
+#     df_feats=df_feats.loc[(df_feats != 0).any(1)]
+#     #print(df_feats)
+#     df_pools= pd.read_csv('../Main_fol_Zintl/'+contcar+'_pool_model_f01f713f.dat')
+#     df_pools= df_pools.dropna()
+#     #print(df_pools)
+#     tsne = TSNE(n_components=2, random_state=0)
+#     tsne_result = tsne.fit_transform(df_feats)
+#     y= df_pools['ground_truth_P1']
+#     tsne_result_df = pd.DataFrame({'tsne_1': tsne_result[:,0], 'tsne_2': tsne_result[:,1], 'label': y})
+#
+#     fig, ax = plt.subplots(1)
+#     sns.scatterplot(x='tsne_1', y='tsne_2', hue='label', data=tsne_result_df, ax=ax,s=120)
+#     lim = (tsne_result.min()-5, tsne_result.max()+5)
+#     ax.set_xlim(lim)
+#     ax.set_ylim(lim)
+#     ax.set_aspect('equal')
+#     ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0)
+#     acc= np.mean(np.abs(1-df_pools['ground_truth_P1']-df_pools['SVM_pred_P1']))
+#     print(acc)
+#     plt.title(contcar+', acc='+str(acc))
+#     plt.savefig('../Main_fol_Zintl/'+contcar+'_tsne__model_f01f713f.png')
+#     #title should include structure name and pooling accuracy

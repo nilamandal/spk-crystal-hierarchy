@@ -11,39 +11,13 @@ import os
 import sys
 from pymatgen.core.structure import Structure
 import json
-import argparse
 from spektral_essential_objects import GaussianDistance,MyDataset, HNetDoubleJanossy, PartitionedData, HNetConcatJanossy
 from sklearn import svm
 import pylab as pl
 from tensorflow.keras import backend as K
 
-parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 
-parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='../Main_fol_Zintl/')
-
-parser.add_argument('--filename', dest='filename',
-                    help='csv where data is located', default='id_prop.csv')
-parser.add_argument('--file-out', dest='file_out',
-                    help='output txt file name', default='predscriptout.txt')
-#parser.add_argument('--ckpt_path', dest='checkpoint_path',
-#                   help='output path', default='./janossy_first_19/train_model_a363460a_1_best_val_error/')
-parser.add_argument('--num-atoms', dest='num_atoms', type=int,
-                    help='Maximum number of nodes', default=10)
-parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
-                    help='num neighbors per atom', default=12)
-
-parser.add_argument('--num-classes', dest='num_classes', type=int,
-                    help='Number of label classes', default=3)
-
-parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
-                    help='search radius for neighbors', default=8)
-parser.add_argument('--random-seed', dest='random_seed', type=int,
-                    help='random seed for numpy', default=0)
-parser.add_argument('--task', choices=['r', 'c'],
-                    default='r', help='complete a regression or '
-                        'classification task (default: regression)')
-
+#this function computes the row regularization value for help with model evaluation.
 def entropy_loss(s):
     entr = tf.negative(
         tf.reduce_sum(tf.multiply(s, K.log(s + K.epsilon())), axis=-1)
@@ -51,22 +25,23 @@ def entropy_loss(s):
     entr_loss = tf.reduce_mean(entr, axis=-1)
     return entr_loss
 
-def both_entropy(s):
-    row= entropy_loss(s)
-    column_means=tf.divide(tf.reduce_sum(s, axis=0),s.shape[0])
-    column_entropy = tf.reduce_sum(tf.multiply(column_means, K.log(column_means + K.epsilon())), axis=-1)
-
-    return float(column_entropy), float(row)
-
-
-
+#this is a wrapper function for computing model regularization values
 def row_e_and_column_p(s):
     row= entropy_loss(s)
     column_product= tf.math.reduce_prod(tf.divide(tf.reduce_sum(s, axis=0),s.shape[0]))
 
     return float(column_product), float(row)
 
-def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, color='#000000', label=''):
+#This function handles all evaluation of the data. It computes the model's prediction for each crystal,
+#the error for each crystal, and the poolings for each crystal. The prediction, error value, and a performance
+#metric for pooling based on linear SVM will be written to the csv file "pooling_eval.csv".
+#It also writes, for each crystal:
+#1. cifname_pool.csv; This file contains species, atom id, coordinates in the unit cell, learned assignment
+#   values (P1 and P2), the ground truth values for P1 according to the CSM team's approximate guidelines, and
+#   the SVM's class assignments.
+#2. A plot of the P1 and P2 assignment values, colored by "ground truth" assignment of each atom
+#3. A plot of the P1 and P2 assignment values, colored by element of each atom
+def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, write_output_path):
     output = []
     step = 0
     all_s=[]
@@ -76,10 +51,10 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
     while step < loader.steps_per_epoch:
         step += 1
         inputs, target = loader.__next__()
-        #rep_csv= open(main_checkpoint_path+'learned_reps.csv','w+')
-        outfile_main=open(main_checkpoint_path+'pooling_eval.csv','w+')
+
+        outfile_main=open(write_output_path+'/pooling_eval.csv','w+')
         outfile_main.write('name,abs_error,pool_margin,perfect,avg_acc,row_entropy,neg_col_entropy \n')
-        #pred, s_tensor, embed_x, batch_X = model(inputs, training=False)
+
         pred, s_tensor = model(inputs, training=False)
 
         num_perfect=0
@@ -93,32 +68,27 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
         class_accuracies_for_plot=[]
         crystal_size=[]
 
-        #print(len(s_tensor))
-
         for j in range(len(s_tensor)):
                 assign= s_tensor[j]
-                #embeds= pd.DataFrame(embed_x[j].numpy())
-                #feats= pd.DataFrame(batch_X[j].numpy())
-                #print(embeds)
-                #print(feats)
                 individual_error= np.abs(target[j]-pred[j])
                 maes_for_plot.append(individual_error)
-                crystal= Structure.from_file(os.path.join(args.datadir,cifs[i]))
+                crystal= Structure.from_file(os.path.join(fullpath_of_data_file,cifs[i]))
                 crystal_size.append(len(crystal))
-                #print(cifs[i], len(crystal))
+                #tempdf=df[df['id']==cifs[i]]
 
-                ground_truth_P1= df_reference[df_reference['id']==cifs[i]].P1.values[0]
+                ground_truth_P1= df[df['id']==cifs[i]].P1.values[0]
 
                 tempcifname= cifs[i].split('/')[-1]
 
-                #embedfile= open(savepath+'/'+tempcifname+'embed.csv', 'w+')
-                #embedfile.write(str())
-                savepath=os.path.join(args.datadir,os.path.dirname(cifs[i]))
+                savepath=os.path.join(write_output_path,os.path.dirname(cifs[i]))
                 assign=assign[:len(crystal)]
-                #embeds.to_csv(savepath+'/'+tempcifname+'_embedding_model_f01f713f.csv')
-                #feats.to_csv(savepath+'/'+tempcifname+'_feats_after_cgcnn_model_f01f713f.csv')
-                #outfile= open(savepath+'/'+tempcifname+'_pool_model_randomseed0bn.dat', 'w+')
-                #outfile.write('num,species,a,b,c,P1,P2,ground_truth_P1,SVM_pred_P1\n')
+                try:
+                    outfile= open(savepath+'/'+tempcifname+'pool.csv', 'w+')
+                except:
+                    if not os.path.exists(os.path.dirname(savepath+'/'+tempcifname+'pool.csv')):
+                        os.makedirs(os.path.dirname(savepath+'/'+tempcifname+'pool.csv'))
+                    outfile= open(savepath+'/'+tempcifname+'pool.csv', 'w+')
+                outfile.write('num,species,a,b,c,P1,P2,ground_truth_P1,SVM_pred_P1\n')
 
                 binary_feats=[]
                 binary_targets=[]
@@ -131,15 +101,13 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
                     binary_targets.append(truth_val)
                     binary_feats.append(assign[k].numpy())
                 pl.figure()
-                #print(binary_feats)
+
                 pl.scatter(np.array(binary_feats)[:,0], np.array(binary_feats)[:,1], c=binary_targets)
                 pl.xlabel('P1 assignment')
                 pl.ylabel('P2 assignment')
                 pl.title(tempcifname)
-                if tempcifname=='CONTCAR':
-                    pl.savefig(main_checkpoint_path+tempcifname+str(j)+'coloredbytarget.png')
-                else:
-                    pl.savefig(main_checkpoint_path+tempcifname+'coloredbytarget.png')
+                pl.savefig(savepath+'/'+tempcifname+'coloredbytarget.png')
+
                 C, score, margin, svc_pred= evaluate_pool(binary_feats, binary_targets)
                 column_entropy, row_entropy= row_e_and_column_p(np.array(binary_feats))
 
@@ -150,7 +118,7 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
                         truth_val= 0
 
                     line="{},{},{},{},{},{},{},{},{} \n".format(k, crystal[k].specie, crystal[k].a, crystal[k].b, crystal[k].c, assign[k,0], assign[k,1], truth_val, svc_pred[k])
-                    #outfile.write(line)
+                    outfile.write(line)
 
 
                 scores.append(score)
@@ -168,18 +136,17 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
                     mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',1,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+'\n'
                 outfile_main.write(mainline)
                 line= 'pool accuracy='+str(score)+'C='+str(C)+'\n'
-                #outfile.write(line)
+                outfile.write(line)
 
                 line= '\n absolute error = '+str(float(individual_error))
-                #outfile.write(line)
-                line= '\n '+ args.datadir+','+cifs[i]
-                #outfile.close()
+                outfile.write(line)
+                line= '\n '+ fullpath_of_data_file+','+cifs[i]
+                outfile.close()
                 if score==1:
-                    #poolfile= args.datadir+cifs[i][:-7]+'pool.dat'
-                    poolfile= args.datadir+os.path.dirname(cifs[i])+'/pool.dat'
-                    df= pd.read_csv(poolfile)
-                    an_mean=np.mean(df[df['ground_truth_P1']==1.0]['P1'])
-                    cat_mean=np.mean(df[df['ground_truth_P1']==0.0]['P1'])
+                    poolfile= savepath+'/'+tempcifname+'pool.csv'
+                    df_pool= pd.read_csv(poolfile)
+                    an_mean=np.mean(df_pool[df_pool['ground_truth_P1']==1.0]['P1'])
+                    cat_mean=np.mean(df_pool[df_pool['ground_truth_P1']==0.0]['P1'])
                     if an_mean>cat_mean:
                         an_greater+=1
                     else:
@@ -194,22 +161,17 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
         pl.xlabel('Absolute error (eV/atom)')
         pl.ylabel('SVM classification accuracy')
         pl.title('Absolute error vs cation/anion classification accuracy')
-        pl.savefig(main_checkpoint_path+'mae_vs_acc.png')
+        pl.savefig(write_output_path+'/mae_vs_acc.png')
         pl.figure()
         pl.scatter(maes_for_plot, crystal_size, alpha=.33)
         pl.xlabel('Absolute error (eV/atom)')
         pl.ylabel('Num atoms in crystal')
         pl.title('Absolute error vs num atoms in crystal')
-        pl.savefig(main_checkpoint_path+'mae_vs_size.png')
-        pool_acc_vs_crystal_size(crystal_size,class_accuracies_for_plot, main_checkpoint_path)
-        if args.task=='c':
-            outs = tf.reduce_mean(sparse_categorical_accuracy(target, pred))
+        pl.savefig(write_output_path+'/mae_vs_size.png')
+        pool_acc_vs_crystal_size(crystal_size,class_accuracies_for_plot, write_output_path)
 
-        elif args.task=='r':
-            outs = tf.reduce_mean(mean_squared_error(target, pred))
-            #print(mean_squared_error(target, pred))
-            #print( tf.reduce_mean(mean_squared_error(target, pred)))
-            #print(tf.reduce_mean((target-predictions)**2))
+        outs = tf.reduce_mean(mean_squared_error(target, pred))
+
         output.append(outs)
         if step == loader.steps_per_epoch:
             output = np.array(output)
@@ -217,13 +179,14 @@ def evaluate(loader, model, cifs, df_reference, args, main_checkpoint_path, colo
             return_dict={'MSE':np.average(output), 'RMSE':np.sqrt(np.average(output)), 'MAE':np.average(maes_for_plot), 'perfect_pools':num_perfect, 'imperfect_pools':num_imperfect, 'cat_greater':cat_greater, 'an_greater':an_greater}
             return return_dict
 
+
 def pool_acc_vs_crystal_size(size,accuracies, savepath):
     pl.figure()
     pl.scatter(size, accuracies, alpha=.33)
     pl.xlabel('Num atoms in crystal')
     pl.ylabel('SVM classification accuracy')
     pl.title('Crystal size vs cation/anion classification accuracy')
-    pl.savefig(savepath+'size_vs_acc.png')
+    pl.savefig(write_output_path+'/size_vs_acc.png')
 
 def pool_db_plots(binary_feats, binary_targets, clf):
 
@@ -265,13 +228,14 @@ def pool_db_plots(binary_feats, binary_targets, clf):
 
     pl.show()
 
+
 def evaluate_pool(binary_feats, binary_targets):
     binary_feats= np.array(binary_feats)
     scores= {}
     margins= {}
     preds= {}
     if len(np.unique(binary_feats, axis=0))==1:
-        print('ITS ALL 1')
+        #print('ITS ALL 1')
         return np.nan, 0, 0, [0]*len(binary_feats)
     else:
 
@@ -281,7 +245,6 @@ def evaluate_pool(binary_feats, binary_targets):
             clf.fit(binary_feats, binary_targets)
             score= clf.score(binary_feats, binary_targets)
             pred= clf.predict(binary_feats)
-
 
             w =  clf.coef_[0]
             a = -w[0]/w[1]
@@ -301,71 +264,45 @@ def evaluate_pool(binary_feats, binary_targets):
         best_pred= preds[best_C]
         return best_C, best_score, best_margin, best_pred
 
-def main(main_checkpoint_path):
-    df_reference= pd.read_csv('../Main_fol_Zintl/val_with_counts_complete.csv')
-    args = parser.parse_args(sys.argv[1:])
+def main(fullpath_of_model, fullpath_of_data_file, write_output_path):
 
-
-    checkpoint_path = main_checkpoint_path+"goodmodel.ckpt.index"
-    #checkpoint_path = "./train_model_2023-07-03_17-20-23/train_model_1285a2b1_3_batch_size=1,column_lambda=1219992.1467,dr1=0.5991,dr2=0.9550,embedding_size=2,entropy_lambda=17520562.6629_2023-07-03_17-20-41/goodmodel.ckpt.index"
+    checkpoint_path = fullpath_of_model+"goodmodel.ckpt.index"
 
     checkpoint_dir = os.path.dirname(checkpoint_path)
 
+    data_dir = os.path.dirname(fullpath_of_data_file)
 
-    val_df = pd.read_csv(os.path.join(args.datadir,'val_with_counts_complete.csv'), header=0)
+    val_df = pd.read_csv(fullpath_of_data_file, header=0)
     val_df = val_df[val_df['num_elements']<=3]
-    #val_df = val_df.sample(frac=1).reset_index(drop=True)
-    val_df.to_csv('order_of_crystals.csv')
 
-    data= MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
+    data= MyDataset(val_df, data_dir, 8, 12, 'r')
     loader_va= DisjointLoader(data, shuffle=False, batch_size=len(val_df))
     cifs=data.get_cifs()
-    #print(cifs)
+
     paramsdict= json.load(open(checkpoint_dir+'/params.json'))
-    # paramsdict={
-    #   "batch_size": 32,
-    #   "column_lambda": 41903766.3588113,
-    #   "dr1": 0.2513546780919437,
-    #   "embedding_size": 4,
-    #   "entropy_lambda": 108506.39801000628,
-    #   "fc_num": 1,
-    #   "fc_num2": 1,
-    #   "fc_size": 4,
-    #   "fc_size2": 4,
-    #   "lr": 0.0631443016175717
-    # }
-    #model= HNetConcatJanossy('r', 1, embedding_size=paramsdict['embedding_size'], d1=paramsdict['dr1'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], fc_num=paramsdict['fc_num'],fc_size=paramsdict['fc_size'], return_s=True)
+
     model= HNetDoubleJanossy('r', 1, embedding_size=paramsdict['embedding_size'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], fc_num=paramsdict['fc_num'], fc_size=paramsdict['fc_size'], fc_size2=paramsdict['fc_size2'], fc_num2=paramsdict['fc_num2'], return_s=True)
-    #model= HNetDoubleJanossy('r', 1, embedding_size=paramsdict['embedding_size'], d1=paramsdict['dr1'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], return_s=True)
 
     latest = tf.train.latest_checkpoint(checkpoint_dir)
     model.load_weights(latest)
-    #for v in model.trainable_variables():
-    #    print(v)
-    result_dict=evaluate(loader_va ,model, cifs, df_reference, args, main_checkpoint_path)
-
+    if not os.path.exists(write_output_path):
+        os.makedirs(write_output_path)
+    result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
+    #return 'ok'
     return result_dict
 
 if __name__ == '__main__':
-    crazylist=['../train_model_2023-12-05_10-16-27/']
-    fullpath_of_model=''
-    fullpath_of_data_file=''
 
-    df_master_dict={}
-    for path in crazylist:
-        #df_getpaths= pd.read_csv(path+'evaluated_results.csv')
-        #getpaths= list(df_getpaths['path'])
-        getpaths=[]
-        df_master_dict={}
-        for subpath in getpaths:
-            fullpath=path+str(subpath)+'/'
-            #fullpath=path
-            #try:
-            result_dict= main(fullpath)
-            print("complete for "+fullpath)
-            df_master_dict[fullpath]=result_dict
-            #except:
-                #print('an error for '+fullpath)
-                #df_master_dict[fullpath]={}
-        #df_master_dict= pd.DataFrame.from_dict(df_master_dict)
-        #df_master_dict.to_csv(path+'large_eval.csv')
+    #fullpath of model is the path to the DIRECTORY where the saved model is located.
+    #In general, you will not need to change this unless Qian specifically requests.
+    fullpath_of_model='./bn_bohb_rsync_copy/train_model_2023-12-01_18-34-45/train_model_9da6d403_1_trial_index=0,batch_size=4,column_lambda=61.9976,embedding_size=4,entropy_lambda=13915.1499,fc_num=2,fc_num_2023-12-01_18-34-47/'
+
+    #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
+    fullpath_of_data_file='../Main_fol_Zintl/val_with_counts_complete.csv'
+    #write output path is the DIRECTORY where you want the output files to be saved.
+    #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
+    write_output_path='./bn_bohb_rsync_copy/testing_script'
+
+    result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path)
+    print(result_dict)
+    print('all tasks are complete')

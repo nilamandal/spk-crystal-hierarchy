@@ -1,0 +1,312 @@
+,id,target,P1,P2,num_elements
+0,./Binary/a10c11/139/Bi10Ca11/CONTCAR,-3.792057,'Bi','Ca',2
+1,./Binary/a10c13/2/Sb10Zn13/CONTCAR,-2.5203288,'Sb','Zn',2
+2,./Binary/a11b3/15/As11Cs3/CONTCAR,-4.145111683,'As','Cs',2
+3,./Binary/a11b3/60/As11K3/CONTCAR,-4.167932236,'As','K',2
+4,./Binary/a14c3/14/Ba3P14/CONTCAR,-5.300945051,'P','Ba',2
+5,./Binary/a14c3/14/P14Sr3/CONTCAR,-5.218524141,'P','Sr',2
+6,./Binary/a1b1/14/Bi1Rb1/CONTCAR,-2.862547737,'Bi','Rb',2
+7,./Binary/a1b1/14/Cs1Sb1/CONTCAR,-2.948464383,'Sb','Cs',2
+8,./Binary/a1b1/14/Li1P1/CONTCAR,-4.181738733,'P','Li',2
+9,./Binary/a1b1/14/Na1Sb1/CONTCAR,-3.047384503,'Sb','Na',2
+10,./Binary/a1b1/189/As1Cs1/CONTCAR,-3.167080293,'As','Cs',2
+11,./Binary/a1b1/19/As1K1/CONTCAR,-3.336503668,'As','K',2
+12,./Binary/a1b1/19/As1Rb1/CONTCAR,-3.240264613,'As','Rb',2
+13,./Binary/a1b2/189/Li2Sb1/CONTCAR,-3.240191453,'Sb','Li',2
+14,./Binary/a1c1/189/As1Ca1/CONTCAR,-4.441548981,'As','Ca',2
+15,./Binary/a1d1/186/In1P1/CONTCAR,-4.272867443,'In','P',2
+16,./Binary/a2b4/62/Cs4Sb2/CONTCAR,-2.35006171,'Sb','Cs',2
+17,./Binary/a2c1/11/Ca1Sb2/CONTCAR,-4.026223875,'Sb','Ca',2
+18,./Binary/a2c2/189/Ca2P2/CONTCAR,-4.795724373,'P','Ca',2
+19,./Binary/a3b2/69/P3Rb2/CONTCAR,-4.070631251,'P','Rb',2
+20,./Binary/a3c1/12/As3Sr1/CONTCAR,-4.514720008,'As','Sr',2
+21,./Binary/a3c1/12/Ba1Sb3/CONTCAR,-4.113842755,'Sb','Ba',2
+22,./Binary/a3c1/12/P3Sr1/CONTCAR,-5.117678971,'P','Sr',2
+23,./Binary/a3c1/2/As3Ca1/CONTCAR,-4.556354243,'As','Ca',2
+24,./Binary/a3c2/14/Sb3Sr2/CONTCAR,-3.953048161,'Sb','Sr',2
+25,./Binary/a3d1/166/In1P3/CONTCAR,-4.792566755,'In','P',2
+26,./Binary/a4c1/14/Cd1P4/CONTCAR,-4.572794627,'Cd','P',2
+27,./Binary/a4c1/14/Mg1P4/CONTCAR,-4.944226252,'P','Mg',2
+28,./Binary/a4c1/92/As4Mg1/CONTCAR,-4.26105304,'As','Mg',2
+29,./Binary/a4c3/43/P4Sr3/CONTCAR,-4.77181514,'P','Sr',2
+30,./Binary/a7b1/142/Li1P7/CONTCAR,-5.128984011,'P','Li',2
+31,./Binary/a7b3/14/Cs3Sb7/CONTCAR,-3.447782969,'Sb','Cs',2
+32,./Binary/a7b3/61/As7Cs3/CONTCAR,-3.916481144,'As','Cs',2
+33,./Binary/a7b3/61/As7Li3/CONTCAR,-4.125474598,'As','Li',2
+34,./Binary/a7b3/76/Cs3P7/CONTCAR,-4.494345521,'P','Cs',2
+43,./Ternary/a14c3e8/14/Ca3P14Si8/CONTCAR,-5.405697833,"'P', 'Si'",'Ca',3
+44,./Ternary/a18c21c4/12/Ca21Mn4Sb18/CONTCAR,-3.979554609,"'Mn', 'Sb'",'Ca',3
+45,./Ternary/a1b1c1/129/Be1Li1P1/CONTCAR,-4.269964573,'P',"Li','Be'",3
+46,./Ternary/a1b1c1/129/Cd1K1Sb1/CONTCAR,-2.437676942,"'Cd', 'Sb'",'K',3
+47,./Ternary/a1b1c1/129/Li1Mn1Sb1/CONTCAR,-3.715740617,"'Mn', 'Sb'",'Li',3
+48,./Ternary/a1b1c1/129/Mn1P1Rb1/CONTCAR,-5.001238591,"'Mn', 'P'",'Rb',3
+49,./Ternary/a1b1c1/194/As1K1Zn1/CONTCAR,-2.807495878,"'As', 'Zn'",'K',3
+50,./Ternary/a1b1c1/216/Cd1Li1P1/CONTCAR,-2.860021833,"'Cd', 'P'",'Li',3
+51,./Ternary/a1b1c1/62/Cd1Na1Sb1/CONTCAR,-2.439314286,"Cd', 'Sb'",'Na',3
+52,./Ternary/a1b1e1/186/K1Sb1Sn1/CONTCAR,-3.410212435,"'Sb', 'Sn'",'K',3
+53,./Ternary/a1b2c1/225/Cd1Li2Sb1/CONTCAR,-2.600863938,"'Cd', 'Sb'",'Li',3
+54,./Ternary/a1c64e32/221/Bi1Mg64Si32/CONTCAR,-2.974273873,"'Bi', 'Si'",'Mg',3
+55,./Ternary/a2b2d1/14/As2Ga1K2/CONTCAR,-3.406534571,"'As', 'Ga'",'K',3
+56,./Ternary/a2b2d1/14/Ga1K2P2/CONTCAR,-3.679366319,"'Ga', 'P'",'K',3
+57,./Ternary/a2b2d1/62/Ga1K2Sb2/CONTCAR,-3.120892167,"'Ga', 'Sb'",'K',3
+58,./Ternary/a2b2e1/72/K2P2Si1/CONTCAR,-4.176889189,"'P', 'Si'",'K',3
+59,./Ternary/a2b4c1/166/As2Cd1K4/CONTCAR,-2.520156066,"'As', 'Cd'",'K',3
+60,./Ternary/a2c1c1/139/Bi2Mn1Sr1/CONTCAR,-4.719261062,"'Bi', 'Mn'",'Sr',3
+61,./Ternary/a2c1c1/62/Ca1Mn1Sb2/CONTCAR,-4.907706572,"'Mn', 'Sb'",'Ca',3
+62,./Ternary/a2c1c2/139/Ba1Mn2Sb2/CONTCAR,-5.480567106,"'Mn', 'Sb'",'Ba',3
+63,./Ternary/a2c1c2/164/As2Mg2Zn1/CONTCAR,-3.029898174,"'As', 'Zn'",'Mg',3
+64,./Ternary/a2c1c2/164/As2Mn2Zn1/CONTCAR,-4.048159084,"As',  'Zn'",'Mn',3
+65,./Ternary/a2c1c2/164/Ba1Cd2P2/CONTCAR,-3.494361134,"'Cd', 'P'",'Ba',3
+66,./Ternary/a2c1c2/164/Cd2Sb2Sr1/CONTCAR,-2.85921905,"'Cd', 'Sb'",'Sr',3
+67,./Ternary/a2c1c2/164/Cd2Sb2Yb1/CONTCAR,-2.769512434,"'Cd', 'Sb'",'Yb',3
+68,./Ternary/a2c1c2/164/Mn2Sb2Sr1/CONTCAR,-5.413648417,"'Mn', 'Sb'",'Sr',3
+69,./Ternary/a2c1c2/164/Mn2Sb2Yb1/CONTCAR,-5.345152665,"'Mn', 'Sb'",'Yb',3
+70,./Ternary/a2c1c2/36/Ca2Cd1P2/CONTCAR,-4.052252915,"'Cd', 'P'",'Ca',3
+71,./Ternary/a2c1d2/10/As2Ga2Sr1/CONTCAR,-4.055327887,"'As', 'Ga'",'Sr',3
+72,./Ternary/a2c1d2/14/As2Ba1Ga2/CONTCAR,-4.111002102,"'As', 'Ga'",'Ba',3
+73,./Ternary/a2c1d2/194/Ca1Ga2P2/CONTCAR,-4.447616871,"'Ga', 'P'",'Ca',3
+74,./Ternary/a2c1e1/122/As2Ge1Mg1/CONTCAR,-4.139878243,"'As', 'Ge'",'Mg',3
+75,./Ternary/a2c1e1/122/As2Si1Zn1/CONTCAR,-4.19487359,"As', 'Si'",'Zn',3
+76,./Ternary/a2c1e1/122/Hg1P2Si1/CONTCAR,-4.187381848," 'P', 'Si'",'Hg',3
+77,./Ternary/a2c1e1/122/Mg1Sb2Si1/CONTCAR,-3.844445923,"'Sb', 'Si'",'Mg',3
+78,./Ternary/a2c1e1/225/Be1P2Si1/CONTCAR,-4.414493003,"'P', 'Si'",'Be',3
+79,./Ternary/a2c1e1/225/Cd1Ge1P2/CONTCAR,-3.57815482,"Ge', 'P'",'Cd',3
+80,./Ternary/a2c1e1/225/P2Si1Zn1/CONTCAR,-3.855079405,"P', 'Si'",Zn',3
+81,./Ternary/a2c1e2/105/Ba1Ge2P2/CONTCAR,-4.899481017,"'Ge', 'P'",'Ba',3
+82,./Ternary/a3b1c4/123/As3Rb1Zn4/CONTCAR,-2.784329434,"'As', 'Zn'",'Rb',3
+83,./Ternary/a3b1c4/166/K1P3Zn4/CONTCAR,-3.100019521,"'P', 'Zn'",'K',3
+84,./Ternary/a3b1e3/26/Ge3Na1P3/CONTCAR,-4.655031604,"'Ge', 'P'",'K',3
+85,./Ternary/a3b2d2/14/Al2Na2Sb3/CONTCAR,-3.49653125,"'Al', 'Sb'",'Na',3
+86,./Ternary/a3b2d2/14/As3In2K2/CONTCAR,-3.510729247,"'As', 'In'",'Na',3
+87,./Ternary/a3b2d2/14/Cs2In2Sb3/CONTCAR,-3.164417559,"'In', 'Sb'",'Cs',3
+88,./Ternary/a3b2d2/14/In2Rb2Sb3/CONTCAR,-3.176372994,"'In', 'Sb'",'Rb',3
+89,./Ternary/a3c3d1/14/Ga1Sb3Sr3/CONTCAR,-3.785710556,"'Ga', 'Sb'",'Sr',3
+90,./Ternary/a3c3d1/62/Al1As3Ca3/CONTCAR,-4.451389801,"'Al', 'As'",'Ca',3
+91,./Ternary/a3c3d1/62/Ba3Ga1Sb3/CONTCAR,-3.917651939,"'Ga', 'Sb'",'Ba',3
+92,./Ternary/a4b2c5/63/Rb2Sb4Zn5/CONTCAR,-2.476658757,"'Sb', 'Zn'",'Rb',3
+93,./Ternary/a4b3d3/52/As4Ga3K3/CONTCAR,-3.567307804,"'As', 'Ga'",'K',3
+94,./Ternary/a4b8e1/227/Na8Sb4Sn1/CONTCAR,-2.771700371,"'Sb', 'Sn'",'Na',3
+95,./Ternary/a4c3d2/15/Al2As4Ca3/CONTCAR,-4.516308563,"'Al', 'As'",'Ca',3
+96,./Ternary/a4c3d2/15/As4Ga2Sr3/CONTCAR,-4.171047873,"'As', 'Ga'",'Sr',3
+97,./Ternary/a4c3e2/14/As4Ca3Ge2/CONTCAR,-4.540142855,"'As', 'Ge'",'Ca',3
+98,./Ternary/a4c4e1/218/As4Ge1Sr4/CONTCAR,-4.316002645,"'As', 'Ge'",'Sr',3
+99,./Ternary/a4c4e1/218/As4Si1Sr4/CONTCAR,-4.442774111,"'As', 'Si'",'Sr',3
+100,./Ternary/a4c4e1/218/Ba4Ge1P4/CONTCAR,-4.6894729,"'Ge', 'P'",'Ba',3
+101,./Ternary/a4c4e1/218/Ba4P4Si1/CONTCAR,-4.831342873,"'P', 'Si'",'Ba',3
+102,./Ternary/a5b11c2/2/Cd2K11Sb5/CONTCAR,-2.359958436,"'Cd', 'Sb'",'K',3
+103,./Ternary/a5b6e3/59/As5K6Sn3/CONTCAR,-3.431519749,"'As', 'Sn'",'K',3
+104,./Ternary/a5c3d3/167/Al3As5Ba3/CONTCAR,-4.549559603,"'Al', 'As'",'Ba',3
+105,./Ternary/a6b10e2/14/As6Na10Si2/CONTCAR,-3.301347301,"'As', 'Si'",'Na',3
+106,./Ternary/a6b10e2/14/K10Sb6Sn2/CONTCAR,-2.853871438,"'Sb', 'Sn'",'K',3
+107,./Ternary/a6b10e2/14/Na10P6Si2/CONTCAR,-3.554107084,"'P', 'Si'",'Na',3
+108,./Ternary/a6b4d4/14/In4K4Sb6/CONTCAR,-3.215194049,"'In', 'Sb'",'K',3
+109,./Ternary/a6b9d3/14/Bi6In3Na9/CONTCAR,-2.773204627,"'Bi', 'In'",'Na',3
+110,./Ternary/a6c6d2/64/Ba6Ga2P6/CONTCAR,-4.521186459,"'Ga', 'P'",'Ba',3
+111,./Ternary/a9c4c9/55/Bi9Mn4Yb9/CONTCAR,-4.231232465,"'Bi', 'Mn'",'Yb',3
+112,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a11b3_15_As11Cs3_icsd_412873_Cs_P,-4.775069388,['Cs'],['P'],2
+113,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a11c14d1_142_Al1Ca14Sb11_icsd_033266_Bi_Ba_Al,-3.803521234,['Ba'],"['Bi', 'Al']",3
+114,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a11c14d1_142_Al1Ca14Sb11_icsd_033266_Bi_Ba_In,-3.772538943,['Ba'],"['Bi', 'In']",3
+115,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a11c14d1_142_Al1Ca14Sb11_icsd_033266_P_Ca_In,-4.582471166,['Ca'],"['P', 'In']",3
+116,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a11c14d1_142_Al1Ca14Sb11_icsd_033266_P_Sr_In,-4.346087019,['Sr'],"['P', 'In']",3
+117,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a11c14d1_142_Al1Ca14Sb11_icsd_033266_Sb_Ba_Ga,-3.916578612,['Ba'],"['Sb', 'Ga']",3
+118,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a11c14d1_142_Al1Ca14Sb11_icsd_033266_Sb_Ba_In,-3.915831961,['Ba'],"['Sb', 'In']",3
+119,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a12b14d8_2_Bi12Cs14In8_icsd_410420_K_Sb_Ga,-3.017415379,['K'],"['Sb', 'Ga']",3
+120,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a12b14d8_2_Bi12Cs14In8_icsd_410420_Rb_As_Tl,-2.877437921,['Rb'],"['As', 'Tl']",3
+121,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a12b14d8_2_Bi12Cs14In8_icsd_410420_Rb_Bi_Ga,-2.840318026,['Rb'],"['Bi', 'Ga']",3
+122,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a12b14d8_2_Bi12Cs14In8_icsd_410420_Rb_Bi_In,-2.803779262,['Rb'],"['Bi', 'In']",3
+123,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a12b14d8_2_Bi12Cs14In8_icsd_410420_Rb_Sb_In,-2.89601668,['Rb'],"['Sb', 'In']",3
+124,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a12b7c12_12_Mn12Rb7Sb12_icsd_237459_As_Zn_Rb,-2.8674357,"['Zn', 'Rb']",['As'],3
+125,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a12b7c12_12_Mn12Rb7Sb12_icsd_237459_Sb_Mg_Rb,-2.910432939,"['Mg', 'Rb']",['Sb'],3
+126,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a12c14e3_146_As12Sn3Sr14_icsd_195752_Ba_As_Sn,-4.272721673,['Ba'],"['As', 'Sn']",3
+127,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a14c11c8_12_Ba11Bi14Cd8_icsd_240338_As_Ba_Ba,-3.150501239,['Ba'],['As'],2
+128,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a14c11c8_12_Ba11Bi14Cd8_icsd_240338_As_Cd_Ba,-2.730129633,"['Cd', 'Ba']",['As'],3
+129,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a14c11c8_12_Ba11Bi14Cd8_icsd_240338_Bi_Ca_Ba,-3.074290491,"['Ca', 'Ba']",['Bi'],3
+130,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a14c11c8_12_Ba11Bi14Cd8_icsd_240338_P_Mg_Sr,-3.027058203,"['Mg', 'Sr']",['P'],3
+131,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a14c11c8_12_Ba11Bi14Cd8_icsd_240338_P_Zn_Sr,-2.955905642,"['Zn', 'Sr']",['P'],3
+132,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a14c3e8_14_Ca3P14Si8_icsd_428982_P_Sr_Si,-5.388676723,['Sr'],"['P', 'Si']",3
+133,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a18c21c4_12_As18Eu21Zn4_icsd_429154_Ba_Cd_Sb,-3.728493497,['Ba'],"['Cd', 'Sb']",3
+134,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a18c21c4_12_As18Eu21Zn4_icsd_429154_Sr_Zn_As,-3.951996645,['Sr'],"['Zn', 'As']",3
+135,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b1_189_As1Cs1_icsd_412595_Cs_As,-3.212080256,['Cs'],['As'],2
+137,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b15e1e8_63_Ge8Na15P1Sn1_icsd_417884_K_Pb_Pb_Bi,-2.368670281,['K'],"['Pb', 'Bi']",3
+138,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b15e1e8_63_Ge8Na15P1Sn1_icsd_417884_K_Pb_Pb_Sb,-2.379019031,['K'],"['Pb', 'Sb']",3
+142,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b15e1e8_63_Ge8Na15P1Sn1_icsd_417884_K_Sn_Sn_Sb,-2.532393218,['K'],"['Sn', 'Sb']",3
+146,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b15e1e8_63_Ge8Na15P1Sn1_icsd_417884_Na_Si_Si_As,-2.981498448,['Na'],"['Si', 'As']",3
+147,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b15e1e8_63_Ge8Na15P1Sn1_icsd_417884_Na_Si_Si_Sb,-2.95180188,['Na'],"['Si', 'Sb']",3
+150,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b15e1e8_63_Ge8Na15P1Sn1_icsd_417884_Rb_Pb_Pb_As,-2.280429362,['Rb'],"['Pb', 'As']",3
+151,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b15e1e8_63_Ge8Na15P1Sn1_icsd_417884_Rb_Pb_Pb_Bi,-2.255759035,['Rb'],"['Pb', 'Bi']",3
+152,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b15e1e8_63_Ge8Na15P1Sn1_icsd_417884_Rb_Sn_Sn_As,-2.431860071,['Rb'],"['Sn', 'As']",3
+153,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b15e1e8_63_Ge8Na15P1Sn1_icsd_417884_Rb_Sn_Sn_Bi,-2.407844592,['Rb'],"['Sn', 'Bi']",3
+154,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b15e1e8_63_Ge8Na15P1Sn1_icsd_417884_Rb_Sn_Sn_Sb,-2.418779117,['Rb'],"['Sn', 'Sb']",3
+155,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b1c1_194_Hg1K1Sb1_icsd_056201_As_Rb_Hg,-2.315950682,['Rb'],"['As', 'Hg']",3
+156,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b1c1_194_Hg1K1Sb1_icsd_056201_P_K_Cd,-2.81768806,['K'],"['P', 'Cd']",3
+157,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b1c1_194_Hg1K1Sb1_icsd_056201_Sb_Rb_Hg,-2.1604741,['Rb'],"['Sb', 'Hg']",3
+158,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b1c1_194_Hg1K1Sb1_icsd_056201_Sb_Rb_Mg,-2.672293058,"['Rb', 'Mg']",['Sb'],3
+159,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b1c1_33_As1Cd1Na1_icsd_009571_K_Bi_Sr,-2.972875354,"['K', 'Sr']",['Bi'],3
+160,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b1c1_33_As1Cd1Na1_icsd_009571_Na_Bi_Mg,-2.7058461,"['Na', 'Mg']",['Bi'],3
+161,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b1c1_33_As1Cd1Na1_icsd_009571_Rb_Bi_Ba,-2.978193737,"['Rb', 'Ba']",['Bi'],3
+162,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b1c1_33_As1Cd1Na1_icsd_009571_Rb_Bi_Sr,-2.909434772,"['Rb', 'Sr']",['Bi'],3
+163,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1b1c1_62_Cd1Na1Sb1_icsd_012159_Na_Sb_Hg,-2.158031997,['Na'],"['Hg', 'Sb']",3
+164,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1c63e32_215_Bi1Mg63Si32_icsd_291431_Mg_Ge_As,-2.86649496,['Mg'],"['Ge', 'As']",3
+165,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1c63e32_215_Bi1Mg63Si32_icsd_291431_Mg_Ge_Sb,-2.859528036,['Mg'],"['Ge', 'Sb']",3
+166,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1c63e32_215_Bi1Mg63Si32_icsd_291431_Zn_Si_Sb,-2.560624496,['Zn'],"['Si', 'Sb']",3
+167,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1c64e31_221_Bi1Mg64Si31_icsd_291432_Cd_Sn_P,-1.859752329,['Cd'],"['Sn', 'P']",3
+168,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1c64e31_221_Bi1Mg64Si31_icsd_291432_Zn_Ge_P,-2.318788781,['Zn'],"['Ge', 'P']",3
+169,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1c64e31_221_Bi1Mg64Si31_icsd_291432_Zn_Sn_As,-2.051759326,['Zn'],"['Sn', 'As']",3
+170,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1c64e32_221_Bi1Mg64Si32_icsd_291433_Cd_Ge_Sb,-2.01144181,['Cd'],"['Ge', 'Sb']",3
+171,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a1c64e32_221_Bi1Mg64Si32_icsd_291433_Zn_Sn_As,-2.125557961,['Zn'],"['Sn', 'As']",3
+188,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b1c2_139_Cs1Mn2P2_icsd_095837_Cs_P_Zn,-3.205222152,['Cs'],"['P', 'Zn']",3
+189,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b1c2_139_Cs1Mn2P2_icsd_095837_K_P_Be,-4.363378054,"['K', 'Be']",['P'],3
+191,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b2c1c1_26_Ba1Cd1K2Sb2_icsd_422272_As_K_Sr_Sr,-3.26281525,"['K', 'Sr']",['As'],3
+193,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b2c1c1_26_Ba1Cd1K2Sb2_icsd_422272_As_Rb_Sr_Sr,-3.180250387,"['Rb', 'Sr']",['As'],3
+199,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b2c1c1_26_Ba1Cd1K2Sb2_icsd_422272_P_K_Ca_Ca,-3.564206389,"['K', 'Ca']",['P'],3
+200,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b2c1c1_26_Ba1Cd1K2Sb2_icsd_422272_P_K_Sr_Sr,-3.428258074,"['K', 'Sr']",['P'],3
+206,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b2d1_14_As2Ga1K2_icsd_300142_Cs_As_In,-3.196878699,['Cs'],"['As', 'In']",3
+207,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b2d1_14_As2Ga1K2_icsd_300142_Cs_Bi_Al,-3.026522768,['Cs'],"['Bi', 'Al']",3
+208,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b2d1_14_As2Ga1K2_icsd_300142_Cs_Bi_Tl,-2.728839819,['Cs'],"['Bi', 'Tl']",3
+209,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b2d1_14_As2Ga1K2_icsd_300142_Rb_Bi_Ga,-2.943191844,['Rb'],"['Bi', 'Ga']",3
+210,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b2d1_14_As2Ga1K2_icsd_300142_Rb_Sb_Al,-3.168255656,['Rb'],"['Sb', 'Al']",3
+211,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b2e1_142_As2Na2Sn1_icsd_073307_Li_As_Si,-4.167700223,['Li'],"['As', 'Si']",3
+212,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b2e1_72_As2Rb2Sn1_icsd_071223_P_Ge_K,-3.905601804,['K'],"['P', 'Ge']",3
+213,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b2e1_72_As2Rb2Sn1_icsd_071223_Sb_Ge_Rb,-3.266903743,['Rb'],"['Sb', 'Ge']",3
+214,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b2e1_72_As2Rb2Sn1_icsd_071223_Sb_Sn_Rb,-3.190929418,['Rb'],"['Sb', 'Sn']",3
+215,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b3d1_14_As2In1Na3_icsd_300139_K_Bi_Tl,-2.599248787,['K'],"['Bi', 'Tl']",3
+216,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b3d1_14_As2In1Na3_icsd_300139_Na_Sb_Ga,-2.89980924,['Na'],"['Sb', 'Ga']",3
+217,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b3d1_72_In1K3P2_icsd_300141_P_Na_Ga,-3.37519765,['Na'],"['P', 'Ga']",3
+218,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b3d1_72_In1K3P2_icsd_300141_Sb_K_Al,-2.986453543,['K'],"['Sb', 'Al']",3
+219,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b3d1_72_In1K3P2_icsd_300141_Sb_Rb_In,-2.727061947,['Rb'],"['Sb', 'In']",3
+220,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b4c1_12_Cd1K4P2_icsd_061084_As_Cs_Cd,-2.367886211,['Cs'],"['As', 'Cd']",3
+221,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b4c1_12_Cd1K4P2_icsd_061084_As_Na_Hg,-2.528042844,['Na'],"['As', 'Hg']",3
+222,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b4c1_12_Cd1K4P2_icsd_061084_As_Rb_Mg,-2.524838924,"['Rb', 'Mg']",['As'],3
+223,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b4c1_12_Cd1K4P2_icsd_061084_P_Rb_Zn,-2.641048977,['Rb'],"['P', 'Zn']",3
+224,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b4c1_12_Cd1K4P2_icsd_061084_Sb_K_Hg,-2.301660623,['K'],"['Sb', 'Hg']",3
+225,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b4c1_166_As2Cd1K4_icsd_300190_K_Bi_Hg,-2.217834466,['K'],"['Bi', 'Hg']",3
+226,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b4c1_166_As2Cd1K4_icsd_300190_K_Sb_Cd,-2.373192993,['K'],"['Sb', 'Cd']",3
+227,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b4c1_166_As2Cd1K4_icsd_300190_Na_P_Be,-3.209281183,"['Na', 'Be']",['P'],3
+228,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b4c1_166_As2Cd1K4_icsd_300190_Rb_As_Hg,-2.343633987,['Rb'],"['As', 'Hg']",3
+229,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b4c1_166_As2Cd1K4_icsd_300190_Rb_Bi_Zn,-2.251976741,['Rb'],"['Bi', 'Zn']",3
+230,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2b4c1_166_As2Cd1K4_icsd_300190_Rb_P_Mg,-2.662179329,"['Rb', 'Mg']",['P'],3
+236,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1c1c1_36_Ba1Cd1Sb2Yb1_icsd_422280_P_Ca_Ba_Ca,-4.43193879,"['Ca', 'Ba']",['P'],3
+240,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1c2_139_Ba1Mn2P2_icsd_077668_As_Be_Ba,-4.344638566,"['Be', 'Ba']",['As'],3
+241,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1c2_164_Ca1P2Zn2_icsd_619477_P_Ca_Mg,-4.148794528,"['Ca', 'Mg']",['P'],3
+242,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1c2_164_Ca1P2Zn2_icsd_619477_P_Mg_Zn,-3.343646862,['Mg'],"['P', 'Zn']",3
+243,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1c2_36_Eu2P2Zn1_icsd_426081_Sr_As_Mg,-3.915787278,"['Sr', 'Mg']",['As'],3
+244,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1c2_36_Eu2P2Zn1_icsd_426081_Sr_Bi_Mg,-3.380930991,"['Sr', 'Mg']",['Bi'],3
+245,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1c2_36_Eu2P2Zn1_icsd_426081_Sr_P_Ca,-4.313687337,"['Sr', 'Ca']",['P'],3
+246,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1c2_36_Eu2P2Zn1_icsd_426081_Sr_Sb_Mg,-3.561778525,"['Sr', 'Mg']",['Sb'],3
+247,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1c2_72_As2Ba2Zn1_icsd_421423_Be_P_Ca,-4.698277753,"['Be', 'Ca']",['P'],3
+248,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1c2_72_As2Ba2Zn1_icsd_421423_Be_P_Sr,-4.518518133,"['Be', 'Sr']",['P'],3
+249,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1c2_72_As2Ba2Zn1_icsd_421423_Mg_As_Ba,-3.974634835,"['Mg', 'Ba']",['As'],3
+250,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1c2_8_As2Ca2Cd1_icsd_422578_Ba_Bi_Sr,-3.64659468,"['Ba', 'Sr']",['Bi'],3
+251,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1c2_8_As2Ca2Cd1_icsd_422578_Ca_Bi_Hg,-3.088653789,['Ca'],"['Bi', 'Hg']",3
+252,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1c2_8_As2Ca2Cd1_icsd_422578_Sr_Bi_Ca,-3.586621536,"['Sr', 'Ca']",['Bi'],3
+253,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1d2_166_As2Ca1Ga2_icsd_422526_Ca_P_Al,-4.804047568,['Ca'],"['P', 'Al']",3
+254,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1d2_166_As2Ca1Ga2_icsd_422526_Sr_P_Al,-4.741464022,['Sr'],"['P', 'Al']",3
+255,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1d2_166_As2Ca1Ga2_icsd_422526_Sr_Sb_Al,-3.975831566,['Sr'],"['Sb', 'Al']",3
+256,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1d2_194_Ca1In2P2_icsd_260562_As_Ba_Tl,-3.600432181,['Ba'],"['As', 'Tl']",3
+257,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1d2_194_Ca1In2P2_icsd_260562_Bi_Sr_Tl,-3.138516149,['Sr'],"['Bi', 'Tl']",3
+258,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1d2_194_Ca1In2P2_icsd_260562_P_Sr_Tl,-3.78730573,['Sr'],"['P', 'Tl']",3
+259,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1d2_62_Eu1Ga2Sb2_icsd_182776_Sr_Bi_Ga,-3.552233924,['Sr'],"['Bi', 'Ga']",3
+260,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1e1_122_As2Mg1Si1_icsd_182367_P_Be_Ge,-5.066563213,['Be'],"['P', 'Ge']",3
+261,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1e2_105_As2Ba1Ge2_icsd_026417_P_Ge_Sr,-4.814338861,['Sr'],"['P', 'Ge']",3
+262,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1e2_160_As2Sn2Sr1_icsd_611428_Ba_As_Sn,-4.39380232,['Ba'],"['As', 'Sn']",3
+263,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1e2_160_As2Sn2Sr1_icsd_611428_Ba_Sb_Sn,-4.080759476,['Ba'],"['Sb', 'Sn']",3
+264,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1e2_166_As2Sn2Sr1_icsd_082371_Ca_P_Ge,-4.857831388,['Ca'],"['P', 'Ge']",3
+265,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c1e2_166_As2Sn2Sr1_icsd_082371_Ca_P_Sn,-4.683400972,['Ca'],"['P', 'Sn']",3
+266,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c2e1_14_As2Ba2Ge1_icsd_035151_As_Si_Ba,-4.619532551,"['Si', 'Ba']",['As'],3
+267,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a2c2e1_14_As2Ba2Ge1_icsd_035151_Sb_Ge_Ba,-4.12738411,['Ba'],"['Sb', 'Ge']",3
+268,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b1b4e1_14_K1Na4Sb3Sn1_icsd_054261_Li_Li_Si_P,-4.096262618,['Li'],"['Si', 'P']",3
+281,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b1c4_123_As3Rb1Zn4_icsd_262038_Mg_Bi_Cs,-2.757218211,"['Mg', 'Cs']",['Bi'],3
+282,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b1c4_123_As3Rb1Zn4_icsd_262038_Mg_Sb_Rb,-2.906958448,"['Mg', 'Rb']",['Sb'],3
+283,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b1c4_166_As3Cd4Rb1_icsd_262037_As_K_Zn,-2.794235396,['K'],"['As', 'Zn']",3
+284,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b1c4_166_As3Cd4Rb1_icsd_262037_P_Na_Zn,-3.109124209,['Na'],"['P', 'Zn']",3
+285,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b1c4_166_As3Cd4Rb1_icsd_262037_Sb_K_Cd,-2.319295025,['K'],"['Sb', 'Cd']",3
+286,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b2b3e1_62_K2Na3P3Si1_icsd_300203_Cs_Cs_Sn_Sb,-2.713686448,['Cs'],"['Sn', 'Sb']",3
+290,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b2b3e1_62_K2Na3P3Si1_icsd_300203_K_K_Ge_As,-3.096903529,['K'],"['Ge', 'As']",3
+301,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b2d2_14_Al2Na2Sb3_icsd_052628_Na_Ga_Sb,-3.282277573,['Na'],"['Ga', 'Sb']",3
+302,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b2d3_62_Ga3Na2Sb3_icsd_063617_As_In_K,-3.401994009,['K'],"['As', 'In']",3
+303,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b2d3_62_Ga3Na2Sb3_icsd_063617_Bi_Al_Na,-3.34192023,['Na'],"['Bi', 'Al']",3
+304,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b2d3_62_Ga3Na2Sb3_icsd_063617_Bi_Ga_Na,-3.137354365,['Na'],"['Bi', 'Ga']",3
+305,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b2d3_62_Ga3Na2Sb3_icsd_063617_Bi_Ga_Rb,-3.090948713,['Rb'],"['Bi', 'Ga']",3
+306,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b2d3_62_Ga3Na2Sb3_icsd_063617_Bi_In_K,-3.0506751,['K'],"['Bi', 'In']",3
+307,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b2d3_62_Ga3Na2Sb3_icsd_063617_Sb_In_Na,-3.124530502,['Na'],"['Sb', 'In']",3
+308,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b3d2_11_Al2As3K3_icsd_060950_As_Cs_Ga,-3.285731394,['Cs'],"['As', 'Ga']",3
+309,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b3d2_11_Al2As3K3_icsd_060950_As_Rb_Al,-3.598235777,['Rb'],"['As', 'Al']",3
+310,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b3d2_64_As3In2K3_icsd_300199_K_Bi_Al,-3.162330611,['K'],"['Bi', 'Al']",3
+311,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b3d2_64_As3In2K3_icsd_300199_K_Sb_Al,-3.308196013,['K'],"['Sb', 'Al']",3
+312,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b3d2_64_As3In2K3_icsd_300199_K_Sb_Ga,-3.106294114,['K'],"['Sb', 'Ga']",3
+313,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b3d2_64_As3In2K3_icsd_300199_Rb_As_Tl,-2.961390623,['Rb'],"['As', 'Tl']",3
+318,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b5e3_62_As3K5Pb3_icsd_055419_Pb_Sb_K,-3.001647816,"['Pb', 'K']",['Sb'],3
+319,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b6d1_11_Al1Rb6Sb3_icsd_300217_Bi_In_Rb,-2.417289011,['Rb'],"['Bi', 'In']",3
+320,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b6d1_11_Al1Rb6Sb3_icsd_300217_Sb_Al_K,-2.696173424,['K'],"['Sb', 'Al']",3
+321,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b6d1_11_Al1Rb6Sb3_icsd_300217_Sb_In_Cs,-2.453359784,['Cs'],"['Sb', 'In']",3
+322,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b6d1_11_Al1Rb6Sb3_icsd_300217_Sb_In_Rb,-2.48930388,['Rb'],"['Sb', 'In']",3
+323,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b6d1_2_As3Ga1Na6_icsd_300276_Na_Bi_Ga,-2.627922685,['Na'],"['Bi', 'Ga']",3
+324,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b6d1_2_As3Ga1Na6_icsd_300276_Na_Sb_Al,-2.800413312,['Na'],"['Sb', 'Al']",3
+325,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b6d2_15_K6Sb3Tl2_icsd_093048_As_Ga_K,-2.784240877,['K'],"['As', 'Ga']",3
+326,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b6d2_15_K6Sb3Tl2_icsd_093048_As_Tl_Rb,-2.532740213,['Rb'],"['As', 'Tl']",3
+327,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b6d2_15_K6Sb3Tl2_icsd_093048_Bi_Tl_K,-2.486984435,['K'],"['Bi', 'Tl']",3
+328,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3b6d2_15_K6Sb3Tl2_icsd_093048_Sb_Tl_Rb,-2.439995123,['Rb'],"['Sb', 'Tl']",3
+329,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3c3d2_12_Cd3Sb3Tl2_icsd_076500_P_Tl_Cd,-2.960547984,['Cd'],"['P', 'Tl']",3
+330,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3c4_55_As3Ca4_icsd_252055_As_Ca,-4.302675704,['Ca'],['As'],2
+331,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3c4_55_As3Ca4_icsd_252055_Sb_Ba,-3.909294049,['Ba'],['Sb'],2
+332,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a3c4_55_As3Ca4_icsd_252055_Sb_Sr,-3.770000177,['Sr'],['Sb'],2
+333,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b1d1_62_Ga1K1Sb4_icsd_300158_Sb_Cs_Ga,-3.640515644,['Cs'],"['Sb', 'Ga']",3
+334,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b1d1_62_Ga1K1Sb4_icsd_300158_Sb_Rb_Al,-3.75842893,['Rb'],"['Sb', 'Al']",3
+335,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b2c5_63_As4Rb2Zn5_icsd_250688_Cd_Bi_Cs,-2.186927316,"['Cd', 'Cs']",['Bi'],3
+336,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b2c5_63_As4Rb2Zn5_icsd_250688_Cd_Sb_Cs,-2.336770871,"['Cd', 'Cs']",['Sb'],3
+337,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b2c5_63_As4Rb2Zn5_icsd_250688_Zn_P_Rb,-3.036185911,"['Zn', 'Rb']",['P'],3
+338,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b3b6d1_194_Cs6Ga1K3Sb4_icsd_300150_Cs_As_Cs_Tl,-2.354532454,['Cs'],"['As', 'Tl']",3
+342,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b3b6d1_194_Cs6Ga1K3Sb4_icsd_300150_K_P_K_Ga,-2.771021009,['K'],"['P', 'Ga']",3
+343,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b3b6d1_194_Cs6Ga1K3Sb4_icsd_300150_Rb_As_Rb_Ga,-2.505082856,['Rb'],"['As', 'Ga']",3
+344,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b3b6d1_194_Cs6Ga1K3Sb4_icsd_300150_Rb_As_Rb_In,-2.4778479,['Rb'],"['As', 'In']",3
+346,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b3b6d1_194_Cs6Ga1K3Sb4_icsd_300150_Rb_Sb_Rb_Ga,-2.396715253,['Rb'],"['Sb', 'Ga']",3
+352,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b3d3_52_As4Ga3K3_icsd_040206_Cs_As_Ga,-3.482917805,['Cs'],"['As', 'Ga']",3
+353,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b3d3_52_As4Ga3K3_icsd_040206_Cs_As_Tl,-3.056053905,['Cs'],"['As', 'Tl']",3
+354,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b3d3_52_As4Ga3K3_icsd_040206_Cs_Bi_Al,-3.255600468,['Cs'],"['Bi', 'Al']",3
+355,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b3d3_52_As4Ga3K3_icsd_040206_Cs_Bi_In,-2.994328334,['Cs'],"['Bi', 'In']",3
+356,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b3d3_52_As4Ga3K3_icsd_040206_Cs_P_In,-3.594578943,['Cs'],"['P', 'In']",3
+357,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b3d3_52_As4Ga3K3_icsd_040206_Cs_Sb_Al,-3.415742298,['Cs'],"['Sb', 'Al']",3
+358,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b3d3_52_As4Ga3K3_icsd_040206_K_P_Ga,-3.851556338,['K'],"['P', 'Ga']",3
+359,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b3d3_52_As4Ga3K3_icsd_040206_K_Sb_Ga,-3.239320903,['K'],"['Sb', 'Ga']",3
+360,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b3d3_52_As4Ga3K3_icsd_040206_Rb_As_Al,-3.822173619,['Rb'],"['As', 'Al']",3
+361,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b3d3_52_As4Ga3K3_icsd_040206_Rb_Bi_In,-2.999434756,['Rb'],"['Bi', 'In']",3
+362,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b3d3_52_As4Ga3K3_icsd_040206_Rb_Bi_Tl,-2.769246767,['Rb'],"['Bi', 'Tl']",3
+367,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b5d3_14_As4Cs5In3_icsd_280723_Cs_As_Al,-3.321797847,['Cs'],"['As', 'Al']",3
+368,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b5d3_14_As4Cs5In3_icsd_280723_Cs_As_Tl,-2.815670837,['Cs'],"['As', 'Tl']",3
+369,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b5d3_14_As4Cs5In3_icsd_280723_Cs_Bi_Tl,-2.580469488,['Cs'],"['Bi', 'Tl']",3
+370,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b5d3_14_As4Cs5In3_icsd_280723_Cs_P_Ga,-3.294197974,['Cs'],"['P', 'Ga']",3
+371,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b5d3_14_As4Cs5In3_icsd_280723_Cs_P_In,-3.200627709,['Cs'],"['P', 'In']",3
+372,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b5d3_14_As4Cs5In3_icsd_280723_Cs_Sb_Tl,-2.647836903,['Cs'],"['Sb', 'Tl']",3
+373,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b5d3_14_As4Cs5In3_icsd_280723_K_P_Al,-3.699757828,['K'],"['P', 'Al']",3
+374,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b5d3_14_As4Cs5In3_icsd_280723_K_Sb_In,-2.922741909,['K'],"['Sb', 'In']",3
+375,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b5d3_14_As4Cs5In3_icsd_280723_Rb_As_Al,-3.365263154,['Rb'],"['As', 'Al']",3
+376,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b8e1_227_Na8Sb4Sn1_icsd_655768_K_Pb_Sb,-2.643114897,['K'],"['Pb', 'Sb']",3
+377,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b8e1_227_Na8Sb4Sn1_icsd_655768_Na_Sn_P,-3.14374543,['Na'],"['Sn', 'P']",3
+378,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4c3d2_62_Al2Ba3P4_icsd_423778_P_Ba_Ga,-4.550496458,['Ba'],"['P', 'Ga']",3
+379,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4c3e2_15_As4Si2Sr3_icsd_016453_Sr_Si_P,-5.054446851,['Sr'],"['Si', 'P']",3
+380,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4c5_64_As4Eu5_icsd_654242_Sr_Bi,-3.634672436,['Sr'],['Bi'],2
+381,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a5b11c2_2_Cd2K11Sb5_icsd_425646_P_Na_Be,-3.07704639,"['Na', 'Be']",['P'],3
+382,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a5b11c2_2_Cd2K11Sb5_icsd_425646_P_Rb_Ba,-2.595917479,"['Rb', 'Ba']",['P'],3
+383,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a5b11c2_2_Cd2K11Sb5_icsd_425646_Sb_Cs_Sr,-2.332031319,"['Cs', 'Sr']",['Sb'],3
+384,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a5b7d2_11_Al2Na7Sb5_icsd_048168_Na_Ga_As,-3.192076256,['Na'],"['Ga', 'As']",3
+385,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a5b7d2_11_Al2Na7Sb5_icsd_048168_Na_Ga_Bi,-2.80860277,['Na'],"['Ga', 'Bi']",3
+388,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a6b4d4_14_As6In4K4_icsd_071244_As_Rb_Tl,-3.170164964,['Rb'],"['As', 'Tl']",3
+389,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a6b4d4_14_As6In4K4_icsd_071244_P_K_In,-3.77711608,['K'],"['P', 'In']",3
+390,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a6b9d3_14_Bi6In3Na9_icsd_413312_Li_P_Al,-4.086126694,['Li'],"['P', 'Al']",3
+391,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a6b9d3_14_Bi6In3Na9_icsd_413312_Li_P_Ga,-3.868046442,['Li'],"['P', 'Ga']",3
+392,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a6b9d3_14_Bi6In3Na9_icsd_413312_Na_Bi_Al,-2.914239451,['Na'],"['Bi', 'Al']",3
+393,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a6c5d4_59_Ba5In4Sb6_icsd_195087_As_Ba_In,-4.039574582,['Ba'],"['As', 'In']",3
+394,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a6c5d4_59_Ba5In4Sb6_icsd_195087_As_Ba_Tl,-3.812707732,['Ba'],"['As', 'Tl']",3
+395,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a6c5d4_59_Ba5In4Sb6_icsd_195087_Bi_Sr_Al,-3.736306877,['Sr'],"['Bi', 'Al']",3
+396,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a6c5d4_59_Ba5In4Sb6_icsd_195087_Sb_Ba_Ga,-3.824081804,['Ba'],"['Sb', 'Ga']",3
+397,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a6c6d2_64_Ba6Ga2P6_icsd_402177_As_Sr_Al,-4.314586111,['Sr'],"['As', 'Al']",3
+398,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a7b4c7_63_As7Rb4Zn7_icsd_237457_Mg_Bi_Cs,-2.774622193,"['Mg', 'Cs']",['Bi'],3
+399,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a8b12d4_2_Cs12In4P8_icsd_300148_K_P_Ga,-3.273529142,['K'],"['P', 'Ga']",3
+400,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a8b12d4_2_Cs12In4P8_icsd_300148_Rb_Sb_Al,-2.889427729,['Rb'],"['Sb', 'Al']",3
+401,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a8c11e2_139_Bi8Sn2Yb11_icsd_263134_Sr_Bi_Sn,-3.678577933,['Sr'],"['Bi', 'Sn']",3
+420,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a9c10c2_136_Ca10Mg2Sb9_icsd_171162_Bi_Ba_Ca,-3.756354383,"['Ba', 'Ca']",['Bi'],3
+421,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a9c11d1_45_Ca11In1Sb9_icsd_042371_Bi_Sr_Ga,-3.638960807,['Sr'],"['Bi', 'Ga']",3
+422,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a9c11d1_45_Ca11In1Sb9_icsd_042371_Bi_Sr_In,-3.634098327,['Sr'],"['Bi', 'In']",3
+423,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a9c11d1_45_Ca11In1Sb9_icsd_042371_Sb_Ba_In,-3.919148335,['Ba'],"['Sb', 'In']",3
+424,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a9c4c9_55_Bi9Cd4Sr9_icsd_058763_Ba_Bi_Cd,-3.364268633,['Ba'],"['Bi', 'Cd']",3
+425,./UBEM_stable_relaxed/CONTCAR/CONTCAR_a9c4c9_55_Bi9Cd4Sr9_icsd_058763_Ba_Sb_Hg,-3.348348308,['Ba'],"['Sb', 'Hg']",3

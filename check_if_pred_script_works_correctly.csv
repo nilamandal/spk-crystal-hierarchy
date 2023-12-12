@@ -1,8 +1,0 @@
-,"./past_results/janossy_first_94/train_model_479f6796_41_batch_size=56,column_lambda=283.2342,dr1=0.9080,embedding_size=3,entropy_lambda=19689023.2878,fc_size=3,lr_2023-07-15_14-18-38/","./past_results/janossy_first_94/train_model_aad439ad_36_batch_size=62,column_lambda=48.0023,dr1=0.4862,embedding_size=2,entropy_lambda=2937.9551,fc_size=17,lr=0.0_2023-07-15_08-20-09/"
-MSE,0.4468380808830261,0.4030839800834656
-RMSE,0.6684594750404358,0.6348889470100403
-MAE,0.5418974161148071,0.5037634372711182
-perfect_pools,44.0,43.0
-imperfect_pools,67.0,68.0
-cat_greater,31.0,16.0
-an_greater,13.0,27.0
