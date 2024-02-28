@@ -3,8 +3,16 @@ from pymatgen.core.structure import Structure
 import os
 from pymatgen.analysis.structure_prediction.volume_predictor import DLSVolumePredictor
 from collections import Counter
+import numpy as np
 
-#count=0
+def get_available(filename):
+    try:
+        #print(filename)
+        crystal= Structure.from_file('../Main_fol_Zintl/'+filename+'/CONTCAR')
+        return True
+    except:
+        print(filename)
+        return False
 
 def scale_by_pred_vol(structure, site_bias, dls_vol_predictor):
     #global count

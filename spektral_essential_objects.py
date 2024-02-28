@@ -82,9 +82,9 @@ class MyDataset(Dataset):
         for c in cifs:
             c=str(c)
             try:
-                crystal= Structure.from_file(os.path.join(self.datadir,c+'.cif'))
-            except:
                 crystal= Structure.from_file(os.path.join(self.datadir,c))
+            except:
+                crystal= Structure.from_file(os.path.join(self.datadir,c+'.cif'))
             num_atoms=len(crystal)
 
             atomic_numbers=[crystal[i].specie.number for i in range(len(crystal))]
@@ -193,12 +193,12 @@ class RegularizedDiffPool(DiffPool):
         #print(s)
         #print(means)
 
-        filename= self.savepath+'/s_after_normalizer_'+str(self.saveindex)
-        np.savez(filename, s=s)
+        #filename= self.savepath+'/s_after_normalizer_'+str(self.saveindex)
+        #np.savez(filename, s=s)
         s = activations.softmax(s, axis=-1)
-        filename= self.savepath+'/s_after_softmax_'+str(self.saveindex)
-        np.savez(filename, s=s)
-        self.saveindex+=1
+        #filename= self.savepath+'/s_after_softmax_'+str(self.saveindex)
+        #np.savez(filename, s=s)
+        #self.saveindex+=1
 
         if mask is not None:
             s *= mask[0]
@@ -328,80 +328,6 @@ class DoubleJanossyDiffPool(RegularizedDiffPool):
 
 
 
-class MultifilterDiffPool(RegularizedDiffPool):
-    def __init__(self, k, channels=None, return_selection=False, activation='relu', kernel_initializer="glorot_uniform",
-        kernel_regularizer=None, kernel_constraint=None, column_lambda=1, entr_lambda=1, **kwargs):
-
-        super().__init__(k, column_lambda=column_lambda, entr_lambda=entr_lambda, channels=channels, return_selection=return_selection, activation=activation,
-                kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer, kernel_constraint=kernel_constraint,
-                **kwargs)
-        self.assignment_fc= Dense(k)
-
-    def select(self, x, a, i, fltr=None, mask=None):
-
-        s = self.assignment_fc(x)
-        s = activations.softmax(s, axis=-1)
-
-        if mask is not None:
-            s *= mask[0]
-
-        # Auxiliary losses
-        column_loss= self.column_entropy(s)
-        entr_loss = self.entropy_loss(s)
-
-        if K.ndim(x) == 3:
-            column_loss = K.mean(column_loss)
-            entr_loss = K.mean(entr_loss)
-
-        column_loss=tf.multiply(self.column_lambda,column_loss)
-        entr_loss= tf.multiply(self.entr_lambda,entr_loss)
-        self.add_loss(column_loss)
-        self.add_loss(entr_loss)
-
-        return s
-
-
-class SigmoidalDiffPool(RegularizedDiffPool):
-    def __init__(self, channels=None, return_selection=False, activation='relu', kernel_initializer="glorot_uniform",
-        kernel_regularizer=None, kernel_constraint=None, column_lambda=1, entr_lambda=1, **kwargs):
-
-        super().__init__(k=1, channels=channels, return_selection=return_selection, activation=activation,
-                kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer, kernel_constraint=kernel_constraint, column_lambda=column_lambda, entr_lambda=entr_lambda,
-                **kwargs)
-
-    def select(self, x, a, i, fltr=None, mask=None):
-        s = ops.modal_dot(fltr, K.dot(x, self.kernel_pool))
-
-        s = activations.sigmoid(s)
-
-        if mask is not None:
-            s *= mask[0]
-
-        # Auxiliary losses
-        entr_loss = self.entropy_loss(s)
-        if K.ndim(x) == 3:
-            entr_loss = K.mean(entr_loss)
-        entr_loss= tf.multiply(self.entr_lambda,entr_loss)
-
-        self.add_loss(entr_loss)
-        return s
-
-    def reduce(self, x, s, fltr=None):
-        z = ops.modal_dot(fltr, K.dot(x, self.kernel_emb))
-        z = self.activation(z)
-        z = self.bn_reduce(z)
-        #return ops.modal_dot(s, z, transpose_a=True)
-        return (z, s)
-
-    def get_outputs(self, x_pool, a_pool, i_pool, s):
-        z, s= x_pool
-        output = [ops.modal_dot(s, z, transpose_a=True), a_pool]
-        if i_pool is not None:
-            output.append(i_pool)
-        if self.return_selection:
-            output.append(s)
-            output.append(z)
-        return output
 
 
 class HNetSimple(Model):
@@ -1215,146 +1141,6 @@ class ModifiedReduceLROnPlateau(Callback):
     def in_cooldown(self):
         return self.cooldown_counter > 0
 
-
-class HNetDoubleJanossyPredOnly(Model):
-    def __init__(self, task, num_classes, embedding_size=52, d1=0.578, el=427, cl=265, fc_num=1, fc_size=23, fc_num2=1, fc_size2=23, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
-        super().__init__()
-        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
-        he_initializer= initializers.he_uniform(seed=random_seed)
-
-        self.return_s=return_s
-        self.task=task
-        self.num_classes=num_classes
-
-        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
-
-        self.conv1= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)#does this l2 have a lambda
-        self.conv2= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
-        self.conv3= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
-
-        self.disjoint2batch= Disjoint2Batch()
-        self.dropout1= Dropout(d1)
-
-        self.pool= DoubleJanossyDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
-        #self.bn1= BatchNormalization()
-        self.janossy_orange_list=[]
-        for i in range(fc_num):
-            fc= Dense(fc_size, activation='softplus', kernel_initializer=he_initializer)
-            self.janossy_orange_list.append(fc)
-
-        self.janossy_green_list=[]
-        for i in range(fc_num):
-            fc= Dense(fc_size, activation='softplus', kernel_initializer=he_initializer)
-            self.janossy_green_list.append(fc)
-
-        self.janossy_2_list=[]
-        for i in range(fc_num2):
-            fc= Dense(fc_size2, activation='softplus', kernel_initializer=he_initializer)
-            self.janossy_2_list.append(fc)
-
-        self.meanpool= GlobalAvgPool()
-        #we should have a dropout after aggregating crystal features
-        if self.task=='c':
-            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
-        elif self.task=='r':
-            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
-
-
-    def call(self, inputs):
-        x, a, e, i = inputs
-        element_idx=np.empty((len(x)))
-        for id in range(len(x)):
-            temp=np.nonzero(x[id])[0]
-            element_idx[id]=int(str(temp[0])+str(temp[1]))
-
-        x= self.embedding(x)
-        embed_x, throwaway= self.disjoint2batch([x, a, i])
-        x= self.conv1([x, a, e])
-        x= tf.nn.softplus(x)
-        x= self.conv2([x, a, e])
-        x= tf.nn.softplus(x)
-        x= self.conv3([x, a, e])
-        x= tf.nn.softplus(x)
-
-        x= self.dropout1(x)
-
-        batch_X, batch_A= self.disjoint2batch([x, a, i])
-
-        x_pool_all, a, i, s= self.pool([batch_X, batch_A, i, element_idx])
-
-        x_pool_p0=x_pool_all[:,:,0]
-        x_pool_p1=x_pool_all[:,:,1]
-
-        x_2o= tf.stack([x_pool_p0[:,0],x_pool_p0[:,2],x_pool_p0[:,1]], axis=1)
-        x_3o= tf.stack([x_pool_p0[:,1],x_pool_p0[:,0],x_pool_p0[:,2]], axis=1)
-        x_4o= tf.stack([x_pool_p0[:,1],x_pool_p0[:,2],x_pool_p0[:,0]], axis=1)
-        x_5o= tf.stack([x_pool_p0[:,2],x_pool_p0[:,0],x_pool_p0[:,1]], axis=1)
-        x_6o= tf.stack([x_pool_p0[:,2],x_pool_p0[:,1],x_pool_p0[:,0]], axis=1)
-
-        x_1o=tf.reshape(x_pool_p0, [x_pool_p0.shape[0],x_pool_p0.shape[1]*x_pool_p0.shape[2]])
-        x_2o=tf.reshape(x_2o, [x_2o.shape[0],x_2o.shape[1]*x_2o.shape[2]])
-        x_3o=tf.reshape(x_3o, [x_3o.shape[0],x_3o.shape[1]*x_3o.shape[2]])
-        x_4o=tf.reshape(x_4o, [x_4o.shape[0],x_4o.shape[1]*x_4o.shape[2]])
-        x_5o=tf.reshape(x_5o, [x_5o.shape[0],x_5o.shape[1]*x_5o.shape[2]])
-        x_6o=tf.reshape(x_6o, [x_6o.shape[0],x_6o.shape[1]*x_6o.shape[2]])
-
-        x_2g= tf.stack([x_pool_p1[:,0],x_pool_p1[:,2],x_pool_p1[:,1]], axis=1)
-        x_3g= tf.stack([x_pool_p1[:,1],x_pool_p1[:,0],x_pool_p1[:,2]], axis=1)
-        x_4g= tf.stack([x_pool_p1[:,1],x_pool_p1[:,2],x_pool_p1[:,0]], axis=1)
-        x_5g= tf.stack([x_pool_p1[:,2],x_pool_p1[:,0],x_pool_p1[:,1]], axis=1)
-        x_6g= tf.stack([x_pool_p1[:,2],x_pool_p1[:,1],x_pool_p1[:,0]], axis=1)
-
-
-        x_1g=tf.reshape(x_pool_p1, [x_pool_p1.shape[0],x_pool_p1.shape[1]*x_pool_p1.shape[2]])
-        x_2g=tf.reshape(x_2g, [x_2g.shape[0],x_2g.shape[1]*x_2g.shape[2]])
-        x_3g=tf.reshape(x_3g, [x_3g.shape[0],x_3g.shape[1]*x_3g.shape[2]])
-        x_4g=tf.reshape(x_4g, [x_4g.shape[0],x_4g.shape[1]*x_4g.shape[2]])
-        x_5g=tf.reshape(x_5g, [x_5g.shape[0],x_5g.shape[1]*x_5g.shape[2]])
-        x_6g=tf.reshape(x_6g, [x_6g.shape[0],x_6g.shape[1]*x_6g.shape[2]])
-
-
-        for layer in self.janossy_orange_list:
-            x_1o= layer(x_1o)
-            x_2o= layer(x_2o)
-            x_3o= layer(x_3o)
-            x_4o= layer(x_4o)
-            x_5o= layer(x_5o)
-            x_6o= layer(x_6o)
-
-        for layer in self.janossy_green_list:
-            x_1g= layer(x_1g)
-            x_2g= layer(x_2g)
-            x_3g= layer(x_3g)
-            x_4g= layer(x_4g)
-            x_5g= layer(x_5g)
-            x_6g= layer(x_6g)
-
-        x_o=tf.stack([x_1o,x_2o,x_3o,x_4o,x_5o,x_6o],axis=-2)
-        x_g=tf.stack([x_1g,x_2g,x_3g,x_4g,x_5g,x_6g],axis=-2)
-
-
-        x_o= self.meanpool(x_o)
-        x_g= self.meanpool(x_g)
-
-        x_og= tf.concat([x_o, x_g], axis=1)
-        x_go= tf.concat([x_g, x_o], axis=1)
-
-        for layer in self.janossy_2_list:
-            x_og = layer(x_og)
-            x_go = layer(x_go)
-        #print(x_og.shape)
-        x_final= tf.stack([x_og, x_go], axis=-2)
-
-        x_final=self.meanpool(x_final)
-
-        x=self.out_layer(x_final)
-        # #print(x.shape)
-        # #print('----')
-        if self.return_s:
-            print('fucking hello???')
-            return x, s, embed_x, batch_X
-        else:
-            return x
 
 
 class HNetDoubleJanossy(Model):

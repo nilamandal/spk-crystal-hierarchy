@@ -227,7 +227,7 @@ def gen_plots(train_metric, val_metric):
 
 
 if __name__ == "__main__":
-      NUM_MODELS = 4
+      NUM_MODELS = 1
      # sys.stdout = open('./debug.txt', 'w')
 
       trial_space = {
@@ -250,6 +250,8 @@ if __name__ == "__main__":
         reduction_factor=4,
         stop_last_trials=False,
       )
+
+
       bohb = BOHBRepeater(metric='score', mode='min', repeat=2, max_concurrent=1)
       #bohb = tune.search.ConcurrencyLimiter(bohb, max_concurrent=4)
 

@@ -53,7 +53,7 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
         inputs, target = loader.__next__()
 
         outfile_main=open(write_output_path+'/pooling_eval.csv','w+')
-        outfile_main.write('name,abs_error,pool_margin,perfect,avg_acc,row_entropy,neg_col_entropy \n')
+        outfile_main.write('name,abs_error,pool_margin,perfect,avg_acc,row_entropy,neg_col_entropy,num_unique \n')
 
         pred, s_tensor = model(inputs, training=False)
 
@@ -111,7 +111,11 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
                 C, score, margin, svc_pred= evaluate_pool(binary_feats, binary_targets)
                 column_entropy, row_entropy= row_e_and_column_p(np.array(binary_feats))
 
+                specieslist=[]
+
                 for k in range(len(crystal)):
+                    specieslist.append(crystal[k].specie)
+
                     if str(crystal[k].specie) in ground_truth_P1:
                         truth_val=1
                     else:
@@ -120,6 +124,26 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
                     line="{},{},{},{},{},{},{},{},{} \n".format(k, crystal[k].specie, crystal[k].a, crystal[k].b, crystal[k].c, assign[k,0], assign[k,1], truth_val, svc_pred[k])
                     outfile.write(line)
 
+                pl.figure()
+                coloroptions=['#214cc9', '#c20d42', '#287f1b']
+                colorcode=0
+                sizecode=100
+                print(specieslist)
+                specieslist= np.array(specieslist)
+                species_unique= np.unique(specieslist)
+                print(species_unique)
+                for x in species_unique:
+                    useful_index= np.where(specieslist==x)[0]
+                    pl.scatter(np.array(binary_feats)[useful_index,0], np.array(binary_feats)[useful_index,1], s=sizecode, c=coloroptions[colorcode], label=x)
+                    colorcode+=1
+                    sizecode= sizecode/2
+                print('---')
+
+                pl.xlabel('P1 assignment')
+                pl.ylabel('P2 assignment')
+                pl.legend()
+                pl.title(tempcifname)
+                pl.savefig(savepath+'/'+tempcifname+'coloredbyspecies.png')
 
                 scores.append(score)
                 Cs.append(C)
@@ -127,13 +151,13 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
 
                 if np.isnan(score):
                     num_imperfect+=1
-                    mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',0,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+'\n'
+                #    mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',0,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+','+str(len(np.unique(np.around(binary_feats, 3), axis=0)))+'\n'
                 elif score<1:
                     num_imperfect+=1
-                    mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',0,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+'\n'
+                #    mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',0,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+','+str(len(np.unique(np.around(binary_feats, 3), axis=0)))+'\n'
                 else:
                     num_perfect+=1
-                    mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',1,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+'\n'
+                mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',1,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+','+str(len(np.unique(np.around(binary_feats, 3), axis=0)))+'\n'
                 outfile_main.write(mainline)
                 line= 'pool accuracy='+str(score)+'C='+str(C)+'\n'
                 outfile.write(line)
@@ -231,10 +255,14 @@ def pool_db_plots(binary_feats, binary_targets, clf):
 
 def evaluate_pool(binary_feats, binary_targets):
     binary_feats= np.array(binary_feats)
+    print(binary_targets)
     scores= {}
     margins= {}
     preds= {}
     if len(np.unique(binary_feats, axis=0))==1:
+        #print('ITS ALL 1')
+        return np.nan, 0, 0, [0]*len(binary_feats)
+    if len(np.unique(binary_targets, axis=0))==1:
         #print('ITS ALL 1')
         return np.nan, 0, 0, [0]*len(binary_feats)
     else:
@@ -274,7 +302,7 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path):
 
     val_df = pd.read_csv(fullpath_of_data_file, header=0)
     val_df = val_df[val_df['num_elements']<=3]
-
+    #val_df= val_df['FERE' not in val_df['id']]
     data= MyDataset(val_df, data_dir, 8, 12, 'r')
     loader_va= DisjointLoader(data, shuffle=False, batch_size=len(val_df))
     cifs=data.get_cifs()
@@ -298,10 +326,10 @@ if __name__ == '__main__':
     fullpath_of_model='./bn_bohb_rsync_copy/train_model_2023-12-01_18-34-45/train_model_9da6d403_1_trial_index=0,batch_size=4,column_lambda=61.9976,embedding_size=4,entropy_lambda=13915.1499,fc_num=2,fc_num_2023-12-01_18-34-47/'
 
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
-    fullpath_of_data_file='../Main_fol_Zintl/val_with_counts_complete.csv'
+    fullpath_of_data_file='../Main_fol_Zintl/fere_binary_and_ternary.csv'
     #write output path is the DIRECTORY where you want the output files to be saved.
     #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
-    write_output_path='./bn_bohb_rsync_copy/testing_script'
+    write_output_path='./debug'
 
     result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path)
     print(result_dict)
