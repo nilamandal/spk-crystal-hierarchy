@@ -2,7 +2,7 @@ import tensorflow as tf
 import os
 import sys
 import argparse
-from spektral_essential_objects import GaussianDistance, MyDataset, RegularizedDiffPool, HNetDoubleJanossy, DoubleJanossyPretrained, HNetConcatPretrained
+from spektral_essential_objects import GaussianDistance, MyDataset, RegularizedDiffPool, HNetDoubleJanossy
 from spektral.data import DisjointLoader
 from CorrectedRepeater import BOHBRepeater
 from tensorflow.keras.optimizers import SGD, Adam
@@ -24,7 +24,7 @@ import json
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 
 parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='/Users/nilamandal/Desktop/Main_fol_Zintl')
+        help='Directory where dataset is located', default='/home/nim18004/Main_fol_Zintl')
 parser.add_argument('--filename', dest='filename',
                     help='csv where data is located', default='id_prop.csv')
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
@@ -133,16 +133,16 @@ def train_model(config):
     lr= config['lr']
 
     # Load data and train model code here...
-    train_df = pd.read_csv(os.path.join(args.datadir,'train_with_counts_complete.csv'))
+    train_df = pd.read_csv(os.path.join(args.datadir,'train_no_metals.csv'))
     train_df = train_df[train_df['num_elements']<=3]
-    train_df= train_df.head(10)
+    #train_df= train_df.head(10)
     train_data= MyDataset(train_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     load_tr= DisjointLoader(train_data, batch_size=batch_size, epochs=epochs)
     load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
 
-    val_df = pd.read_csv(os.path.join(args.datadir,'val_with_counts_complete.csv'))
+    val_df = pd.read_csv(os.path.join(args.datadir,'val_no_metals.csv'))
     val_df = val_df[val_df['num_elements']<=3]
-    val_df= val_df.head(10)
+    #val_df= val_df.head(10)
     val_data= MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     load_va= DisjointLoader(val_data, batch_size=len(val_data))
 
@@ -227,7 +227,7 @@ def gen_plots(train_metric, val_metric):
 
 
 if __name__ == "__main__":
-      NUM_MODELS = 1
+      NUM_MODELS = 500
      # sys.stdout = open('./debug.txt', 'w')
 
       trial_space = {
@@ -246,13 +246,13 @@ if __name__ == "__main__":
 
       bohb_hyperband = HyperBandForBOHB(
         time_attr="training_iteration",
-        max_t=100,
+        max_t=10,
         reduction_factor=4,
         stop_last_trials=False,
       )
 
 
-      bohb = BOHBRepeater(metric='score', mode='min', repeat=2, max_concurrent=1)
+      bohb = BOHBRepeater(metric='score', mode='min', repeat=4, max_concurrent=12)
       #bohb = tune.search.ConcurrencyLimiter(bohb, max_concurrent=4)
 
       train_model_object = tune.with_resources(train_model, {"cpu": 1})

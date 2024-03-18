@@ -53,13 +53,13 @@ class GaussianDistance(object):
                       self.var**2)
 
 
-class PartitionedData(Dataset):
-    def __init__(self, datalist):
-        self.datalist=datalist
-        super().__init__()
-
-    def read(self):
-        return self.datalist
+# class PartitionedData(Dataset):
+#     def __init__(self, datalist):
+#         self.datalist=datalist
+#         super().__init__()
+#
+#     def read(self):
+#         return self.datalist
 
 class MyDataset(Dataset):
 
@@ -183,7 +183,7 @@ class RegularizedDiffPool(DiffPool):
         s = self.assignment_fc(x)
         masked_s = self.masker(s)
         filename= self.savepath+'/s_after_fc_'+str(self.saveindex)
-        np.savez(filename, s=s)
+        #np.savez(filename, s=s)
         masked_tensor= tf.ragged.boolean_mask(masked_s, masked_s._keras_mask)
         means= tf.reduce_mean(masked_tensor, axis=1)
         mean_stack=tf.stack([means]*s.shape[1], axis=1)
@@ -326,178 +326,176 @@ class DoubleJanossyDiffPool(RegularizedDiffPool):
 
         return ta_all_complete
 
-
-
-
-
-class HNetSimple(Model):
-    def __init__(self, task, num_classes, embedding_size=64, d1=0, d2=0, el=1, cl=1, l2_1=0, l2_2=0, l2_3=0, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
-        super().__init__()
-
-        self.return_s=return_s
-        self.task=task
-        self.num_classes=num_classes
-        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
-        he_initializer= initializers.he_uniform(seed=random_seed)
-
-        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
-
-        self.conv1= CrystalConv(kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)#does this l2 have a lambda
-        self.bn1= BatchNormalization()
-        self.l2_1= tf.constant(l2_1, dtype=tf.float32)
-        self.conv2= CrystalConv(kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
-        self.bn2= BatchNormalization()
-        self.l2_2= tf.constant(l2_2, dtype=tf.float32)
-        self.conv3= CrystalConv(kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
-        self.bn3= BatchNormalization()
-        self.l2_3= tf.constant(l2_3, dtype=tf.float32)
-
-        self.disjoint2batch= Disjoint2Batch()
-        self.dropout1= Dropout(d1)
-        self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
-        self.finalpool= DiffPool(k=1, kernel_initializer=he_initializer, activation='relu')
-
-        self.dropout2= Dropout(d2)
-
-        #we should have a dropout after aggregating crystal features
-        if self.task=='c':
-            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
-        elif self.task=='r':
-            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
-
-
-    def call(self, inputs):
-        x, a, e, i = inputs
-        x= self.embedding(x)
-        x= self.conv1([x, a, e])
-        self.conv1.add_loss(tf.multiply(self.l2_1,tf.norm(x)))
-        x= self.bn1(x)
-        x= self.conv2([x, a, e])
-        self.conv2.add_loss(tf.multiply(self.l2_2,tf.norm(x)))
-        x= self.bn2(x)
-        x= self.conv3([x, a, e])
-        self.conv3.add_loss(tf.multiply(self.l2_3,tf.norm(x)))
-        x= self.bn3(x)
-
-
-        x= self.dropout1(x)
-        batch_X, batch_A= self.disjoint2batch([x, a, i])
-
-        x, a, s= self.pool([batch_X, batch_A])
-
-        x, a = self.finalpool([x, a])
-        x= self.dropout2(x)
-
-
-        x=self.out_layer(x)
-        if self.return_s:
-            return x, s
-        else:
-            return x
-
-class HNetSiamese(Model):
-    def __init__(self, task, num_classes, embedding_size=64, d1=0, d2=0, el=1, cl=1, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
-        super().__init__()
-        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
-        he_initializer= initializers.he_uniform(seed=random_seed)
-
-        self.return_s=return_s
-        self.task=task
-        self.num_classes=num_classes
-
-        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
-
-        self.conv1= CrystalConv(kernel_initializer=glorot_initializer)#does this l2 have a lambda
-        self.conv2= CrystalConv(kernel_initializer=glorot_initializer)
-        self.conv3= CrystalConv(kernel_initializer=glorot_initializer)
-
-        self.disjoint2batch= Disjoint2Batch()
-        self.dropout1= Dropout(d1)
-
-        self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
-        self.finalpool= GlobalSumPool()
-
-        self.dropout2= Dropout(d2)
-
-        #we should have a dropout after aggregating crystal features
-        if self.task=='c':
-            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
-        elif self.task=='r':
-            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
-
-
-    def call(self, inputs):
-        x, a, e, i = inputs
-        x= self.embedding(x)
-        x= self.conv1([x, a, e])
-        x= self.conv2([x, a, e])
-        x= self.conv3([x, a, e])
-
-        x= self.dropout1(x)
-        batch_X, batch_A= self.disjoint2batch([x, a, i])
-        x, a, s= self.pool([batch_X, batch_A])
-
-        w= tf.constant([1.0,-1.0], dtype=tf.float32)
-        x=tf.multiply(x, w[:,tf.newaxis])
-
-        x = self.finalpool([x])
-        x= tf.abs(x)
-
-        x= self.dropout2(x)
-        x=self.out_layer(x)
-
-        if self.return_s:
-            return x, s
-        else:
-            return x
-
-class HNetSigmoid(Model):
-    def __init__(self, task, num_classes, embedding_size=64, d1=0, d2=0, el=1, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
-        super().__init__()
-        self.return_s=return_s
-        self.task=task
-        self.num_classes=num_classes
-        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
-        he_initializer= initializers.he_uniform(seed=random_seed)
-
-        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
-
-        self.conv1= CrystalConv(kernel_initializer=glorot_initializer)
-        self.conv2= CrystalConv(kernel_initializer=glorot_initializer)
-        self.conv3= CrystalConv(kernel_initializer=glorot_initializer)
-
-        self.disjoint2batch= Disjoint2Batch()
-        self.dropout1= Dropout(d1)
-        self.pool= SigmoidalDiffPool(kernel_initializer=he_initializer, entr_lambda=el, return_selection=True, activation='linear')
-        self.dropout2= Dropout(d2)
-        if self.task=='c':
-            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
-        elif self.task=='r':
-            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
-
-    def call(self, inputs):
-        x, a, e, i = inputs
-        x= self.embedding(x)
-        x= self.conv1([x, a, e])
-        x= self.conv2([x, a, e])
-        x= self.conv3([x, a, e])
-
-        x= self.dropout1(x)
-        batch_X, batch_A= self.disjoint2batch([x, a, i])
-
-        x, a, s, z= self.pool([batch_X, batch_A])
-
-        s_2= tf.subtract(1, s)
-        z_2=ops.modal_dot(s_2,z, transpose_a=True)
-        x= tf.abs(tf.subtract(x, z_2))
-
-        x= self.dropout2(x)
-
-        x=self.out_layer(x)
-        if self.return_s:
-            return x, s
-        else:
-            return x
+#
+#
+# class HNetSimple(Model):
+#     def __init__(self, task, num_classes, embedding_size=64, d1=0, d2=0, el=1, cl=1, l2_1=0, l2_2=0, l2_3=0, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+#         super().__init__()
+#
+#         self.return_s=return_s
+#         self.task=task
+#         self.num_classes=num_classes
+#         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+#         he_initializer= initializers.he_uniform(seed=random_seed)
+#
+#         self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
+#
+#         self.conv1= CrystalConv(kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)#does this l2 have a lambda
+#         self.bn1= BatchNormalization()
+#         self.l2_1= tf.constant(l2_1, dtype=tf.float32)
+#         self.conv2= CrystalConv(kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
+#         self.bn2= BatchNormalization()
+#         self.l2_2= tf.constant(l2_2, dtype=tf.float32)
+#         self.conv3= CrystalConv(kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
+#         self.bn3= BatchNormalization()
+#         self.l2_3= tf.constant(l2_3, dtype=tf.float32)
+#
+#         self.disjoint2batch= Disjoint2Batch()
+#         self.dropout1= Dropout(d1)
+#         self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
+#         self.finalpool= DiffPool(k=1, kernel_initializer=he_initializer, activation='relu')
+#
+#         self.dropout2= Dropout(d2)
+#
+#         #we should have a dropout after aggregating crystal features
+#         if self.task=='c':
+#             self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
+#         elif self.task=='r':
+#             self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
+#
+#
+#     def call(self, inputs):
+#         x, a, e, i = inputs
+#         x= self.embedding(x)
+#         x= self.conv1([x, a, e])
+#         self.conv1.add_loss(tf.multiply(self.l2_1,tf.norm(x)))
+#         x= self.bn1(x)
+#         x= self.conv2([x, a, e])
+#         self.conv2.add_loss(tf.multiply(self.l2_2,tf.norm(x)))
+#         x= self.bn2(x)
+#         x= self.conv3([x, a, e])
+#         self.conv3.add_loss(tf.multiply(self.l2_3,tf.norm(x)))
+#         x= self.bn3(x)
+#
+#
+#         x= self.dropout1(x)
+#         batch_X, batch_A= self.disjoint2batch([x, a, i])
+#
+#         x, a, s= self.pool([batch_X, batch_A])
+#
+#         x, a = self.finalpool([x, a])
+#         x= self.dropout2(x)
+#
+#
+#         x=self.out_layer(x)
+#         if self.return_s:
+#             return x, s
+#         else:
+#             return x
+#
+# class HNetSiamese(Model):
+#     def __init__(self, task, num_classes, embedding_size=64, d1=0, d2=0, el=1, cl=1, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+#         super().__init__()
+#         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+#         he_initializer= initializers.he_uniform(seed=random_seed)
+#
+#         self.return_s=return_s
+#         self.task=task
+#         self.num_classes=num_classes
+#
+#         self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
+#
+#         self.conv1= CrystalConv(kernel_initializer=glorot_initializer)#does this l2 have a lambda
+#         self.conv2= CrystalConv(kernel_initializer=glorot_initializer)
+#         self.conv3= CrystalConv(kernel_initializer=glorot_initializer)
+#
+#         self.disjoint2batch= Disjoint2Batch()
+#         self.dropout1= Dropout(d1)
+#
+#         self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
+#         self.finalpool= GlobalSumPool()
+#
+#         self.dropout2= Dropout(d2)
+#
+#         #we should have a dropout after aggregating crystal features
+#         if self.task=='c':
+#             self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
+#         elif self.task=='r':
+#             self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
+#
+#
+#     def call(self, inputs):
+#         x, a, e, i = inputs
+#         x= self.embedding(x)
+#         x= self.conv1([x, a, e])
+#         x= self.conv2([x, a, e])
+#         x= self.conv3([x, a, e])
+#
+#         x= self.dropout1(x)
+#         batch_X, batch_A= self.disjoint2batch([x, a, i])
+#         x, a, s= self.pool([batch_X, batch_A])
+#
+#         w= tf.constant([1.0,-1.0], dtype=tf.float32)
+#         x=tf.multiply(x, w[:,tf.newaxis])
+#
+#         x = self.finalpool([x])
+#         x= tf.abs(x)
+#
+#         x= self.dropout2(x)
+#         x=self.out_layer(x)
+#
+#         if self.return_s:
+#             return x, s
+#         else:
+#             return x
+#
+# class HNetSigmoid(Model):
+#     def __init__(self, task, num_classes, embedding_size=64, d1=0, d2=0, el=1, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+#         super().__init__()
+#         self.return_s=return_s
+#         self.task=task
+#         self.num_classes=num_classes
+#         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+#         he_initializer= initializers.he_uniform(seed=random_seed)
+#
+#         self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
+#
+#         self.conv1= CrystalConv(kernel_initializer=glorot_initializer)
+#         self.conv2= CrystalConv(kernel_initializer=glorot_initializer)
+#         self.conv3= CrystalConv(kernel_initializer=glorot_initializer)
+#
+#         self.disjoint2batch= Disjoint2Batch()
+#         self.dropout1= Dropout(d1)
+#         self.pool= SigmoidalDiffPool(kernel_initializer=he_initializer, entr_lambda=el, return_selection=True, activation='linear')
+#         self.dropout2= Dropout(d2)
+#         if self.task=='c':
+#             self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
+#         elif self.task=='r':
+#             self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
+#
+#     def call(self, inputs):
+#         x, a, e, i = inputs
+#         x= self.embedding(x)
+#         x= self.conv1([x, a, e])
+#         x= self.conv2([x, a, e])
+#         x= self.conv3([x, a, e])
+#
+#         x= self.dropout1(x)
+#         batch_X, batch_A= self.disjoint2batch([x, a, i])
+#
+#         x, a, s, z= self.pool([batch_X, batch_A])
+#
+#         s_2= tf.subtract(1, s)
+#         z_2=ops.modal_dot(s_2,z, transpose_a=True)
+#         x= tf.abs(tf.subtract(x, z_2))
+#
+#         x= self.dropout2(x)
+#
+#         x=self.out_layer(x)
+#         if self.return_s:
+#             return x, s
+#         else:
+#             return x
 
 
 class ModifiedCrystalConv(CrystalConv):
@@ -572,449 +570,449 @@ class SuperCgcnn(CrystalConv):
        nbr_sumed=nbr_filter * nbr_core
        output= tf.keras.activations.softplus(tf.math.add(x_i, self.bn2(nbr_sumed)))
        return output
-
-class HNetConcat(Model):
-    def __init__(self, task, num_classes, embedding_size=52, d1=0.578, d2=0.302, el=427, cl=265, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
-        super().__init__()
-        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
-        he_initializer= initializers.he_uniform(seed=random_seed)
-
-        self.return_s=return_s
-        self.task=task
-        self.num_classes=num_classes
-
-        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
-
-        self.conv1= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)#does this l2 have a lambda
-        self.conv2= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
-        self.conv3= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
-
-        self.disjoint2batch= Disjoint2Batch()
-        self.dropout1= Dropout(d1)
-
-        self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
-        self.finalpool= GlobalSumPool()
-
-        self.dropout2= Dropout(d2)
-        self.fc= Dense(23, activation='softplus', kernel_initializer=he_initializer)
-        #we should have a dropout after aggregating crystal features
-        if self.task=='c':
-            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
-        elif self.task=='r':
-            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
-
-
-    def call(self, inputs):
-        x, a, e, i = inputs
-        print(x.shape)
-        x= self.embedding(x)
-        print(x.shape)
-        x= self.conv1([x, a, e])
-        print(x.shape)
-        x= tf.nn.softplus(x)
-        x= self.conv2([x, a, e])
-        print(x.shape)
-        x= tf.nn.softplus(x)
-        x= self.conv3([x, a, e])
-        print(x.shape)
-        x= tf.nn.softplus(x)
-        print('----')
-        x= self.dropout1(x)
-
-        batch_X, batch_A= self.disjoint2batch([x, a, i])
-
-        x_orig, a, i, s= self.pool([batch_X, batch_A, i])
-
-        w= tf.constant([1.0,-1.0], dtype=tf.float32)
-        x=tf.multiply(x_orig, w[:,tf.newaxis])
-
-        x = self.finalpool([x])
-        x= tf.abs(x)
-
-        x_orig= tf.reshape(x_orig, (x.shape[0], x_orig.shape[0], x_orig.shape[1]*x_orig.shape[2]))
-
-        x_new=tf.concat([x,x_orig], axis=2)
-
-        x= self.dropout2(x_new)
-        x= self.fc(x)
-        x=self.out_layer(x)
-        if self.return_s:
-            return x, s
-        else:
-            return x
-
-
-class HNetMultifilter(Model):
-    def __init__(self, task, num_classes, embedding_size=52, d1a=0, d1b=0, d2=0, el=1, cl=1, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
-        super().__init__()
-        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
-        he_initializer= initializers.he_uniform(seed=random_seed)
-        print(d1a, d1b, d2)
-        self.return_s=return_s
-        self.task=task
-        self.num_classes=num_classes
-
-        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
-
-        self.conv1= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)#does this l2 have a lambda
-        self.conv2= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
-        self.conv3= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
-
-        self.assign_conv1= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)#does this l2 have a lambda
-        self.assign_conv2= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
-        self.assign_conv3= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
-
-        self.disjoint2batch= Disjoint2Batch()
-        self.dropout1= Dropout(d1a)
-
-        self.dropout1_assign= Dropout(d1b)
-
-        self.pool= MultifilterDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
-        self.finalpool= GlobalSumPool()
-
-        self.dropout2= Dropout(d2)
-        self.fc= Dense(23, activation='softplus', kernel_initializer=he_initializer)
-        #we should have a dropout after aggregating crystal features
-        if self.task=='c':
-            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
-        elif self.task=='r':
-            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
-
-
-    def call(self, inputs):
-        x_in, a_in, e_in, i_in = inputs
-        #print(self.conv1.built)
-        x= self.embedding(x_in)
-        x= self.conv1([x, a_in, e_in])
-        x= tf.nn.softplus(x)
-        x= self.conv2([x, a_in, e_in])
-        x= tf.nn.softplus(x)
-        x= self.conv3([x, a_in, e_in])
-        x= tf.nn.softplus(x)
-
-        x_assign= self.embedding(x_in)
-        x_assign= self.assign_conv1([x_assign, a_in, e_in])
-        x_assign= tf.nn.softplus(x_assign)
-        x_assign= self.assign_conv2([x_assign, a_in, e_in])
-        x_assign= tf.nn.softplus(x_assign)
-        x_assign= self.assign_conv3([x_assign, a_in, e_in])
-        x_assign= tf.nn.softplus(x_assign)
-
-
-        x= self.dropout1(x)
-        x_assign= self.dropout1_assign(x_assign)
-
-        batch_X, batch_A= self.disjoint2batch([x, a_in, i_in])
-        batch_X_assign, batch_A_assign= self.disjoint2batch([x_assign, a_in, i_in])
-
-        x_assign_pooled, a_assign_pooled, s= self.pool([batch_X_assign, batch_A_assign])
-
-        x_orig= ops.modal_dot(s, batch_X, transpose_a=True)
-
-        w= tf.constant([1.0,-1.0], dtype=tf.float32)
-        x=tf.multiply(x_orig, w[:,tf.newaxis])
-
-        x = self.finalpool([x])
-        x= tf.abs(x)
-
-        x_orig= tf.reshape(x_orig, (x.shape[0], x_orig.shape[0], x_orig.shape[1]*x_orig.shape[2]))
-
-        x_new=tf.concat([x,x_orig], axis=2)
-
-        x= self.dropout2(x_new)
-        x= self.fc(x)
-        x=self.out_layer(x)
-
-        if self.return_s:
-            return x, s
-        else:
-            return x
-
-
-class HNetRecurrent(Model):
-    def __init__(self, task, num_classes, embedding_size=52, fc1=23, d1=0, el=1, cl=1, return_s=False, k=2, random_seed=0, **kwargs):
-        super().__init__()
-        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
-        he_initializer= initializers.he_uniform(seed=random_seed)
-
-        transfer_weights= np.load('/Users/nilamandal/Desktop/spk-crystal-hierarchy/total_energy_cgcnn_params.npz')
-        #for x in transfer_weights:
-        #    print(x)
-
-        self.return_s=return_s
-        self.task=task
-        self.num_classes=num_classes
-
-        self.embedding= Dense(embedding_size, kernel_initializer=initializers.constant(transfer_weights['embed']))
-
-        self.conv1= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_0']), bias_initializer=initializers.constant(transfer_weights['fc_b_0']), transfers=transfer_weights, transfer_idx='0')
-        self.conv2= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_1']), bias_initializer=initializers.constant(transfer_weights['fc_b_1']), transfers=transfer_weights, transfer_idx='1')
-        self.conv3= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_2']), bias_initializer=initializers.constant(transfer_weights['fc_b_2']), transfers=transfer_weights, transfer_idx='2')
-
-        self.disjoint2batch= Disjoint2Batch()
-        self.pool= RegularizedDiffPool(k=k, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
-
-        self.finalpool= GlobalSumPool()
-        self.fc_afterpool= Dense(fc1, activation='softplus', kernel_initializer=he_initializer)
-
-        if self.task=='c':
-            self.dropout= Dropout(d1)
-            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
-        elif self.task=='r':
-            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
-
-    def call(self, inputs):
-        x, a, e, i = inputs
-        #print('INITIAL VALS')
-        #print(x)
-        x= self.embedding(x)
-        #print('EMBEDDED VALS')
-        #print(x)
-        x= self.conv1([x, a, e])
-        #print('CONV1 VALS')
-        #print(x)
-        x= self.conv2([x, a, e])
-        #print('CONV2 VALS')
-        #print(x)
-        x= self.conv3([x, a, e])
-        #print('CONV3 VALS')
-        #print(x)
-
-        batch_X, batch_A= self.disjoint2batch([x, a, i])
-        #print('BATCHED')
-        #print(batch_X)
-        x_pooled, a_pooled, s= self.pool([batch_X, batch_A])
-        #print('POOLED')
-        #print(x_pooled)
-        e_pooled= self.edgepool(e, a, s, i, a_pooled)
-        x, a, e, i = self.batch2disjoint(x_pooled, e_pooled, a_pooled)
-
-        x= self.conv1([x, a, e])
-        x= self.conv2([x, a, e])
-        x= self.conv3([x, a, e])
-
-        x= self.finalpool([x, i])
-        x= self.fc_afterpool(x)
-
-        if self.task=='c':
-            x= self.dropout(x)
-        x=self.out_layer(x)
-        #print('----')
-        if self.return_s:
-            return x, s
-        else:
-            return x
-
-
-    def batch2disjoint(self, batch_x, batch_e, batch_a):
-        x_shape=batch_x.shape
-        i= []
-        for j in range(x_shape[0]):
-            for k in range(x_shape[1]):
-                i.append(j)
-        disjoint_x= tf.concat(tf.unstack(batch_x), axis=0)
-
-        temp_a= tf.unstack(batch_a)
-        total_nodes=disjoint_x.shape[0]
-        disjoint_a= np.zeros((total_nodes, total_nodes))
-        begin=0
-        step=len(temp_a[0])
-        end=begin+step
-
-        for j in temp_a:
-            disjoint_a[begin:end, begin:end]=j
-            begin= begin+step
-            end= begin+step
-        disjoint_a= tf.sparse.from_dense(disjoint_a)
-
-        disjoint_e= np.zeros((total_nodes, total_nodes, batch_e.shape[-1]))
-
-        temp_e= tf.unstack(batch_e)
-        begin=0
-        step=len(temp_e[0])
-        end=begin+step
-        for j in temp_e:
-            disjoint_e[begin:end, begin:end]=j
-            begin= begin+step
-            end= begin+step
-        dummy_e= []
-        adj_indices=disjoint_a.indices
-
-        for idx in adj_indices:
-            dummy_e.append(disjoint_e[idx[0], idx[1]])
-
-        edge_idx, edges= reorder(edge_index=np.array(adj_indices), edge_features=np.array(dummy_e))
-
-        #drop zero padding
-        #can we use learned clusters to identify similar structures
-        return disjoint_x, disjoint_a, edges, tf.cast(i, tf.int32)
-
-    def edgepool(self, e, a, s, i, a_pooled):
-        indices = a.indices
-        #values = a.values
-        i_nodes, j_nodes = indices[:, 0], indices[:, 1]
-
-        graph_sizes = tf.math.segment_sum(tf.ones_like(i), i)
-        max_n_nodes = tf.reduce_max(graph_sizes)
-        n_graphs = tf.shape(graph_sizes)[0]
-        relative_j_nodes = j_nodes - self._vectorised_get_cum_graph_size(j_nodes, graph_sizes)
-
-        new_indices = tf.transpose(tf.stack([i_nodes, relative_j_nodes]))
-
-        new_indices = tf.cast(new_indices, tf.int32)
-        n_graphs = tf.cast(n_graphs, tf.int32)
-        max_n_nodes = tf.cast(max_n_nodes, tf.int32)
-
-        dense_edge = tf.scatter_nd(
-            new_indices, e, (n_graphs * max_n_nodes, max_n_nodes, 41)
-        )
-
-        batch_edge = tf.reshape(dense_edge, (n_graphs, max_n_nodes, max_n_nodes, 41))
-        batch_edge = tf.cast(batch_edge, tf.float32)
-
-        temp=tf.einsum('bijk,bil->bilk',batch_edge,s)
-        e_pooled=tf.einsum('bmn,bilk->bnlk',s,temp)
-
-        a_extended= tf.stack([a_pooled] * 41, axis=3)
-        e_pooled= tf.divide(e_pooled, a_extended)
-
-        return e_pooled
-
-    def _vectorised_get_cum_graph_size(self, nodes, graph_sizes):
-        """Takes a list of node ids and graph sizes ordered by segment ID and returns the number of nodes contained in graphs with smaller segment ID.
-        :param nodes: List of node ids of shape (nodes)
-        :param graph_sizes: List of graph sizes (i.e. tf.math.segment_sum(tf.ones_like(I), I) where I are the segment IDs).
-        :return: A list of shape (nodes) where each entry corresponds to the number of nodes contained in graphs with smaller segment ID for each node.
-        """
-        def get_cum_graph_size(node):
-            cum_graph_sizes = tf.cumsum(graph_sizes, exclusive=True)
-            indicator_if_smaller = tf.cast(node - cum_graph_sizes >= 0, tf.int32)
-            graph_id = tf.reduce_sum(indicator_if_smaller) - 1
-            return tf.cumsum(graph_sizes, exclusive=True)[graph_id]
-
-        return tf.map_fn(get_cum_graph_size, nodes)
-
-class HNetLasagna(HNetRecurrent):
-    def __init__(self, task, num_classes, embedding_size=52, fc1=23, d1=0, el=1, cl=1, return_s=False, k=2, random_seed=0, **kwargs):
-        super().__init__(task, num_classes, embedding_size, fc1, d1, el, cl, return_s, k, random_seed, **kwargs)
-        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
-        he_initializer= initializers.he_uniform(seed=random_seed)
-
-        transfer_weights= np.load('/Users/nilamandal/Desktop/spk-crystal-hierarchy/total_energy_cgcnn_params.npz')
-
-        self.conv4= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_0']), bias_initializer=initializers.constant(transfer_weights['fc_b_0']), transfers=transfer_weights, transfer_idx='0')
-        self.conv5= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_1']), bias_initializer=initializers.constant(transfer_weights['fc_b_1']), transfers=transfer_weights, transfer_idx='1')
-        self.conv6= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_2']), bias_initializer=initializers.constant(transfer_weights['fc_b_2']), transfers=transfer_weights, transfer_idx='2')
-
-    def call(self, inputs):
-        x, a, e, i = inputs
-        x= self.embedding(x)
-        x= self.conv1([x, a, e])
-        x= self.conv2([x, a, e])
-        x= self.conv3([x, a, e])
-
-        batch_X, batch_A= self.disjoint2batch([x, a, i])
-
-        x_pooled, a_pooled, s= self.pool([batch_X, batch_A])
-        e_pooled= self.edgepool(e, a, s, i, a_pooled)
-        x, a, e, i = self.batch2disjoint(x_pooled, e_pooled, a_pooled)
-
-        x= self.conv4([x, a, e])
-        x= self.conv5([x, a, e])
-        x= self.conv6([x, a, e])
-
-        x= self.finalpool([x, i])
-        x= self.fc_afterpool(x)
-
-        if self.task=='c':
-            x= self.dropout(x)
-        x=self.out_layer(x)
-        #print('----')
-        if self.return_s:
-            return x, s
-        else:
-            return x
-
-
-
-class HNetConcatPretrained(HNetConcat):
-    def __init__(self, task, num_classes, embedding_size=52, d1=0.578, d2=0.302, el=427, cl=265, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
-        super().__init__(task, num_classes, embedding_size, d1, d2, el, cl, regularizer, return_s, random_seed)
-
-        transfer_weights= np.load('/Users/nilamandal/Desktop/spk-crystal-hierarchy/final_energy_cgcnn_params.npz')
-        self.conv1= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_0']), bias_initializer=initializers.constant(transfer_weights['fc_b_0']), transfers=transfer_weights, transfer_idx='0')
-        self.conv2= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_1']), bias_initializer=initializers.constant(transfer_weights['fc_b_1']), transfers=transfer_weights, transfer_idx='1')
-        self.conv3= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_2']), bias_initializer=initializers.constant(transfer_weights['fc_b_2']), transfers=transfer_weights, transfer_idx='2')
-
-
-
-class HNetConcatJanossy(Model):
-    def __init__(self, task, num_classes, embedding_size=52, d1=0.578, el=427, cl=265, fc_num=1, fc_size=23, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
-        super().__init__()
-        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
-        he_initializer= initializers.he_uniform(seed=random_seed)
-
-        self.return_s=return_s
-        self.task=task
-        self.num_classes=num_classes
-
-        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
-
-        self.conv1= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)#does this l2 have a lambda
-        self.conv2= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
-        self.conv3= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
-
-        self.disjoint2batch= Disjoint2Batch()
-        self.dropout1= Dropout(d1)
-
-        self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
-
-        self.fc= Dense(fc_size, activation='softplus', kernel_initializer=he_initializer)
-        self.meanpool= GlobalAvgPool()
-        #we should have a dropout after aggregating crystal features
-        if self.task=='c':
-            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
-        elif self.task=='r':
-            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
-
-
-    def call(self, inputs):
-        x, a, e, i = inputs
-
-        x= self.embedding(x)
-        x= self.conv1([x, a, e])
-        x= tf.nn.softplus(x)
-        x= self.conv2([x, a, e])
-        x= tf.nn.softplus(x)
-        x= self.conv3([x, a, e])
-        x= tf.nn.softplus(x)
-
-        x= self.dropout1(x)
-
-        batch_X, batch_A= self.disjoint2batch([x, a, i])
-
-        x_pool_1, a, i, s= self.pool([batch_X, batch_A, i])
-        x_pool_print= tf.identity(x_pool_1)
-
-        #x_pool_1= self.bn1(x_pool_1)
-        x_pool_2= tf.reverse(x_pool_1, [1])
-
-        x_1=tf.reshape(x_pool_1, [x_pool_1.shape[0],x_pool_1.shape[1]*x_pool_1.shape[2]])
-        x_2=tf.reshape(x_pool_2, [x_pool_2.shape[0],x_pool_2.shape[1]*x_pool_2.shape[2]])
-        #print(self.janossy_fc_list)
-        x_1= self.fc(x_1)
-        x_2= self.fc(x_2)
-
-        temp_concat=tf.stack([x_1,x_2],axis=-2)
-
-        x_mean= self.meanpool(temp_concat)
-        #print(x_mean.shape)
-        x=self.out_layer(x_mean)
-
-        if self.return_s:
-            return x, s, x_pool_print
-        else:
-            return x
+#
+# class HNetConcat(Model):
+#     def __init__(self, task, num_classes, embedding_size=52, d1=0.578, d2=0.302, el=427, cl=265, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+#         super().__init__()
+#         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+#         he_initializer= initializers.he_uniform(seed=random_seed)
+#
+#         self.return_s=return_s
+#         self.task=task
+#         self.num_classes=num_classes
+#
+#         self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
+#
+#         self.conv1= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)#does this l2 have a lambda
+#         self.conv2= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+#         self.conv3= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+#
+#         self.disjoint2batch= Disjoint2Batch()
+#         self.dropout1= Dropout(d1)
+#
+#         self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
+#         self.finalpool= GlobalSumPool()
+#
+#         self.dropout2= Dropout(d2)
+#         self.fc= Dense(23, activation='softplus', kernel_initializer=he_initializer)
+#         #we should have a dropout after aggregating crystal features
+#         if self.task=='c':
+#             self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
+#         elif self.task=='r':
+#             self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
+#
+#
+#     def call(self, inputs):
+#         x, a, e, i = inputs
+#         print(x.shape)
+#         x= self.embedding(x)
+#         print(x.shape)
+#         x= self.conv1([x, a, e])
+#         print(x.shape)
+#         x= tf.nn.softplus(x)
+#         x= self.conv2([x, a, e])
+#         print(x.shape)
+#         x= tf.nn.softplus(x)
+#         x= self.conv3([x, a, e])
+#         print(x.shape)
+#         x= tf.nn.softplus(x)
+#         print('----')
+#         x= self.dropout1(x)
+#
+#         batch_X, batch_A= self.disjoint2batch([x, a, i])
+#
+#         x_orig, a, i, s= self.pool([batch_X, batch_A, i])
+#
+#         w= tf.constant([1.0,-1.0], dtype=tf.float32)
+#         x=tf.multiply(x_orig, w[:,tf.newaxis])
+#
+#         x = self.finalpool([x])
+#         x= tf.abs(x)
+#
+#         x_orig= tf.reshape(x_orig, (x.shape[0], x_orig.shape[0], x_orig.shape[1]*x_orig.shape[2]))
+#
+#         x_new=tf.concat([x,x_orig], axis=2)
+#
+#         x= self.dropout2(x_new)
+#         x= self.fc(x)
+#         x=self.out_layer(x)
+#         if self.return_s:
+#             return x, s
+#         else:
+#             return x
+#
+#
+# class HNetMultifilter(Model):
+#     def __init__(self, task, num_classes, embedding_size=52, d1a=0, d1b=0, d2=0, el=1, cl=1, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+#         super().__init__()
+#         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+#         he_initializer= initializers.he_uniform(seed=random_seed)
+#         print(d1a, d1b, d2)
+#         self.return_s=return_s
+#         self.task=task
+#         self.num_classes=num_classes
+#
+#         self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
+#
+#         self.conv1= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)#does this l2 have a lambda
+#         self.conv2= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+#         self.conv3= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+#
+#         self.assign_conv1= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)#does this l2 have a lambda
+#         self.assign_conv2= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+#         self.assign_conv3= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+#
+#         self.disjoint2batch= Disjoint2Batch()
+#         self.dropout1= Dropout(d1a)
+#
+#         self.dropout1_assign= Dropout(d1b)
+#
+#         self.pool= MultifilterDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
+#         self.finalpool= GlobalSumPool()
+#
+#         self.dropout2= Dropout(d2)
+#         self.fc= Dense(23, activation='softplus', kernel_initializer=he_initializer)
+#         #we should have a dropout after aggregating crystal features
+#         if self.task=='c':
+#             self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
+#         elif self.task=='r':
+#             self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
+#
+#
+#     def call(self, inputs):
+#         x_in, a_in, e_in, i_in = inputs
+#         #print(self.conv1.built)
+#         x= self.embedding(x_in)
+#         x= self.conv1([x, a_in, e_in])
+#         x= tf.nn.softplus(x)
+#         x= self.conv2([x, a_in, e_in])
+#         x= tf.nn.softplus(x)
+#         x= self.conv3([x, a_in, e_in])
+#         x= tf.nn.softplus(x)
+#
+#         x_assign= self.embedding(x_in)
+#         x_assign= self.assign_conv1([x_assign, a_in, e_in])
+#         x_assign= tf.nn.softplus(x_assign)
+#         x_assign= self.assign_conv2([x_assign, a_in, e_in])
+#         x_assign= tf.nn.softplus(x_assign)
+#         x_assign= self.assign_conv3([x_assign, a_in, e_in])
+#         x_assign= tf.nn.softplus(x_assign)
+#
+#
+#         x= self.dropout1(x)
+#         x_assign= self.dropout1_assign(x_assign)
+#
+#         batch_X, batch_A= self.disjoint2batch([x, a_in, i_in])
+#         batch_X_assign, batch_A_assign= self.disjoint2batch([x_assign, a_in, i_in])
+#
+#         x_assign_pooled, a_assign_pooled, s= self.pool([batch_X_assign, batch_A_assign])
+#
+#         x_orig= ops.modal_dot(s, batch_X, transpose_a=True)
+#
+#         w= tf.constant([1.0,-1.0], dtype=tf.float32)
+#         x=tf.multiply(x_orig, w[:,tf.newaxis])
+#
+#         x = self.finalpool([x])
+#         x= tf.abs(x)
+#
+#         x_orig= tf.reshape(x_orig, (x.shape[0], x_orig.shape[0], x_orig.shape[1]*x_orig.shape[2]))
+#
+#         x_new=tf.concat([x,x_orig], axis=2)
+#
+#         x= self.dropout2(x_new)
+#         x= self.fc(x)
+#         x=self.out_layer(x)
+#
+#         if self.return_s:
+#             return x, s
+#         else:
+#             return x
+#
+#
+# class HNetRecurrent(Model):
+#     def __init__(self, task, num_classes, embedding_size=52, fc1=23, d1=0, el=1, cl=1, return_s=False, k=2, random_seed=0, **kwargs):
+#         super().__init__()
+#         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+#         he_initializer= initializers.he_uniform(seed=random_seed)
+#
+#         transfer_weights= np.load('/Users/nilamandal/Desktop/spk-crystal-hierarchy/total_energy_cgcnn_params.npz')
+#         #for x in transfer_weights:
+#         #    print(x)
+#
+#         self.return_s=return_s
+#         self.task=task
+#         self.num_classes=num_classes
+#
+#         self.embedding= Dense(embedding_size, kernel_initializer=initializers.constant(transfer_weights['embed']))
+#
+#         self.conv1= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_0']), bias_initializer=initializers.constant(transfer_weights['fc_b_0']), transfers=transfer_weights, transfer_idx='0')
+#         self.conv2= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_1']), bias_initializer=initializers.constant(transfer_weights['fc_b_1']), transfers=transfer_weights, transfer_idx='1')
+#         self.conv3= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_2']), bias_initializer=initializers.constant(transfer_weights['fc_b_2']), transfers=transfer_weights, transfer_idx='2')
+#
+#         self.disjoint2batch= Disjoint2Batch()
+#         self.pool= RegularizedDiffPool(k=k, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
+#
+#         self.finalpool= GlobalSumPool()
+#         self.fc_afterpool= Dense(fc1, activation='softplus', kernel_initializer=he_initializer)
+#
+#         if self.task=='c':
+#             self.dropout= Dropout(d1)
+#             self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
+#         elif self.task=='r':
+#             self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
+#
+#     def call(self, inputs):
+#         x, a, e, i = inputs
+#         #print('INITIAL VALS')
+#         #print(x)
+#         x= self.embedding(x)
+#         #print('EMBEDDED VALS')
+#         #print(x)
+#         x= self.conv1([x, a, e])
+#         #print('CONV1 VALS')
+#         #print(x)
+#         x= self.conv2([x, a, e])
+#         #print('CONV2 VALS')
+#         #print(x)
+#         x= self.conv3([x, a, e])
+#         #print('CONV3 VALS')
+#         #print(x)
+#
+#         batch_X, batch_A= self.disjoint2batch([x, a, i])
+#         #print('BATCHED')
+#         #print(batch_X)
+#         x_pooled, a_pooled, s= self.pool([batch_X, batch_A])
+#         #print('POOLED')
+#         #print(x_pooled)
+#         e_pooled= self.edgepool(e, a, s, i, a_pooled)
+#         x, a, e, i = self.batch2disjoint(x_pooled, e_pooled, a_pooled)
+#
+#         x= self.conv1([x, a, e])
+#         x= self.conv2([x, a, e])
+#         x= self.conv3([x, a, e])
+#
+#         x= self.finalpool([x, i])
+#         x= self.fc_afterpool(x)
+#
+#         if self.task=='c':
+#             x= self.dropout(x)
+#         x=self.out_layer(x)
+#         #print('----')
+#         if self.return_s:
+#             return x, s
+#         else:
+#             return x
+#
+#
+#     def batch2disjoint(self, batch_x, batch_e, batch_a):
+#         x_shape=batch_x.shape
+#         i= []
+#         for j in range(x_shape[0]):
+#             for k in range(x_shape[1]):
+#                 i.append(j)
+#         disjoint_x= tf.concat(tf.unstack(batch_x), axis=0)
+#
+#         temp_a= tf.unstack(batch_a)
+#         total_nodes=disjoint_x.shape[0]
+#         disjoint_a= np.zeros((total_nodes, total_nodes))
+#         begin=0
+#         step=len(temp_a[0])
+#         end=begin+step
+#
+#         for j in temp_a:
+#             disjoint_a[begin:end, begin:end]=j
+#             begin= begin+step
+#             end= begin+step
+#         disjoint_a= tf.sparse.from_dense(disjoint_a)
+#
+#         disjoint_e= np.zeros((total_nodes, total_nodes, batch_e.shape[-1]))
+#
+#         temp_e= tf.unstack(batch_e)
+#         begin=0
+#         step=len(temp_e[0])
+#         end=begin+step
+#         for j in temp_e:
+#             disjoint_e[begin:end, begin:end]=j
+#             begin= begin+step
+#             end= begin+step
+#         dummy_e= []
+#         adj_indices=disjoint_a.indices
+#
+#         for idx in adj_indices:
+#             dummy_e.append(disjoint_e[idx[0], idx[1]])
+#
+#         edge_idx, edges= reorder(edge_index=np.array(adj_indices), edge_features=np.array(dummy_e))
+#
+#         #drop zero padding
+#         #can we use learned clusters to identify similar structures
+#         return disjoint_x, disjoint_a, edges, tf.cast(i, tf.int32)
+#
+#     def edgepool(self, e, a, s, i, a_pooled):
+#         indices = a.indices
+#         #values = a.values
+#         i_nodes, j_nodes = indices[:, 0], indices[:, 1]
+#
+#         graph_sizes = tf.math.segment_sum(tf.ones_like(i), i)
+#         max_n_nodes = tf.reduce_max(graph_sizes)
+#         n_graphs = tf.shape(graph_sizes)[0]
+#         relative_j_nodes = j_nodes - self._vectorised_get_cum_graph_size(j_nodes, graph_sizes)
+#
+#         new_indices = tf.transpose(tf.stack([i_nodes, relative_j_nodes]))
+#
+#         new_indices = tf.cast(new_indices, tf.int32)
+#         n_graphs = tf.cast(n_graphs, tf.int32)
+#         max_n_nodes = tf.cast(max_n_nodes, tf.int32)
+#
+#         dense_edge = tf.scatter_nd(
+#             new_indices, e, (n_graphs * max_n_nodes, max_n_nodes, 41)
+#         )
+#
+#         batch_edge = tf.reshape(dense_edge, (n_graphs, max_n_nodes, max_n_nodes, 41))
+#         batch_edge = tf.cast(batch_edge, tf.float32)
+#
+#         temp=tf.einsum('bijk,bil->bilk',batch_edge,s)
+#         e_pooled=tf.einsum('bmn,bilk->bnlk',s,temp)
+#
+#         a_extended= tf.stack([a_pooled] * 41, axis=3)
+#         e_pooled= tf.divide(e_pooled, a_extended)
+#
+#         return e_pooled
+#
+#     def _vectorised_get_cum_graph_size(self, nodes, graph_sizes):
+#         """Takes a list of node ids and graph sizes ordered by segment ID and returns the number of nodes contained in graphs with smaller segment ID.
+#         :param nodes: List of node ids of shape (nodes)
+#         :param graph_sizes: List of graph sizes (i.e. tf.math.segment_sum(tf.ones_like(I), I) where I are the segment IDs).
+#         :return: A list of shape (nodes) where each entry corresponds to the number of nodes contained in graphs with smaller segment ID for each node.
+#         """
+#         def get_cum_graph_size(node):
+#             cum_graph_sizes = tf.cumsum(graph_sizes, exclusive=True)
+#             indicator_if_smaller = tf.cast(node - cum_graph_sizes >= 0, tf.int32)
+#             graph_id = tf.reduce_sum(indicator_if_smaller) - 1
+#             return tf.cumsum(graph_sizes, exclusive=True)[graph_id]
+#
+#         return tf.map_fn(get_cum_graph_size, nodes)
+#
+# class HNetLasagna(HNetRecurrent):
+#     def __init__(self, task, num_classes, embedding_size=52, fc1=23, d1=0, el=1, cl=1, return_s=False, k=2, random_seed=0, **kwargs):
+#         super().__init__(task, num_classes, embedding_size, fc1, d1, el, cl, return_s, k, random_seed, **kwargs)
+#         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+#         he_initializer= initializers.he_uniform(seed=random_seed)
+#
+#         transfer_weights= np.load('/Users/nilamandal/Desktop/spk-crystal-hierarchy/total_energy_cgcnn_params.npz')
+#
+#         self.conv4= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_0']), bias_initializer=initializers.constant(transfer_weights['fc_b_0']), transfers=transfer_weights, transfer_idx='0')
+#         self.conv5= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_1']), bias_initializer=initializers.constant(transfer_weights['fc_b_1']), transfers=transfer_weights, transfer_idx='1')
+#         self.conv6= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_2']), bias_initializer=initializers.constant(transfer_weights['fc_b_2']), transfers=transfer_weights, transfer_idx='2')
+#
+#     def call(self, inputs):
+#         x, a, e, i = inputs
+#         x= self.embedding(x)
+#         x= self.conv1([x, a, e])
+#         x= self.conv2([x, a, e])
+#         x= self.conv3([x, a, e])
+#
+#         batch_X, batch_A= self.disjoint2batch([x, a, i])
+#
+#         x_pooled, a_pooled, s= self.pool([batch_X, batch_A])
+#         e_pooled= self.edgepool(e, a, s, i, a_pooled)
+#         x, a, e, i = self.batch2disjoint(x_pooled, e_pooled, a_pooled)
+#
+#         x= self.conv4([x, a, e])
+#         x= self.conv5([x, a, e])
+#         x= self.conv6([x, a, e])
+#
+#         x= self.finalpool([x, i])
+#         x= self.fc_afterpool(x)
+#
+#         if self.task=='c':
+#             x= self.dropout(x)
+#         x=self.out_layer(x)
+#         #print('----')
+#         if self.return_s:
+#             return x, s
+#         else:
+#             return x
+#
+#
+#
+# class HNetConcatPretrained(HNetConcat):
+#     def __init__(self, task, num_classes, embedding_size=52, d1=0.578, d2=0.302, el=427, cl=265, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+#         super().__init__(task, num_classes, embedding_size, d1, d2, el, cl, regularizer, return_s, random_seed)
+#
+#         transfer_weights= np.load('/Users/nilamandal/Desktop/spk-crystal-hierarchy/final_energy_cgcnn_params.npz')
+#         self.conv1= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_0']), bias_initializer=initializers.constant(transfer_weights['fc_b_0']), transfers=transfer_weights, transfer_idx='0')
+#         self.conv2= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_1']), bias_initializer=initializers.constant(transfer_weights['fc_b_1']), transfers=transfer_weights, transfer_idx='1')
+#         self.conv3= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_2']), bias_initializer=initializers.constant(transfer_weights['fc_b_2']), transfers=transfer_weights, transfer_idx='2')
+#
+
+#
+# class HNetConcatJanossy(Model):
+#     def __init__(self, task, num_classes, embedding_size=52, d1=0.578, el=427, cl=265, fc_num=1, fc_size=23, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+#         super().__init__()
+#         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+#         he_initializer= initializers.he_uniform(seed=random_seed)
+#
+#         self.return_s=return_s
+#         self.task=task
+#         self.num_classes=num_classes
+#
+#         self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
+#
+#         self.conv1= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)#does this l2 have a lambda
+#         self.conv2= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+#         self.conv3= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+#
+#         self.disjoint2batch= Disjoint2Batch()
+#         self.dropout1= Dropout(d1)
+#
+#         self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
+#
+#         self.fc= Dense(fc_size, activation='softplus', kernel_initializer=he_initializer)
+#         self.meanpool= GlobalAvgPool()
+#         #we should have a dropout after aggregating crystal features
+#         if self.task=='c':
+#             self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
+#         elif self.task=='r':
+#             self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
+#
+#
+#     def call(self, inputs):
+#         x, a, e, i = inputs
+#
+#         x= self.embedding(x)
+#         x= self.conv1([x, a, e])
+#         x= tf.nn.softplus(x)
+#         x= self.conv2([x, a, e])
+#         x= tf.nn.softplus(x)
+#         x= self.conv3([x, a, e])
+#         x= tf.nn.softplus(x)
+#
+#         x= self.dropout1(x)
+#
+#         batch_X, batch_A= self.disjoint2batch([x, a, i])
+#
+#         x_pool_1, a, i, s= self.pool([batch_X, batch_A, i])
+#         x_pool_print= tf.identity(x_pool_1)
+#
+#         #x_pool_1= self.bn1(x_pool_1)
+#         x_pool_2= tf.reverse(x_pool_1, [1])
+#
+#         x_1=tf.reshape(x_pool_1, [x_pool_1.shape[0],x_pool_1.shape[1]*x_pool_1.shape[2]])
+#         x_2=tf.reshape(x_pool_2, [x_pool_2.shape[0],x_pool_2.shape[1]*x_pool_2.shape[2]])
+#         #print(self.janossy_fc_list)
+#         x_1= self.fc(x_1)
+#         x_2= self.fc(x_2)
+#
+#         temp_concat=tf.stack([x_1,x_2],axis=-2)
+#
+#         x_mean= self.meanpool(temp_concat)
+#         #print(x_mean.shape)
+#         x=self.out_layer(x_mean)
+#
+#         if self.return_s:
+#             return x, s, x_pool_print
+#         else:
+#             return x
 
 class ModifiedReduceLROnPlateau(Callback):
     """Args:
@@ -1163,7 +1161,7 @@ class HNetDoubleJanossy(Model):
         #self.conv_list.append(conv)
 
         self.disjoint2batch= Disjoint2Batch()
-        self.dropout1= Dropout(d1)
+        #self.dropout1= Dropout(d1)
 
         self.pool= DoubleJanossyDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, path=path)
         #self.bn1= BatchNormalization()
@@ -1205,13 +1203,13 @@ class HNetDoubleJanossy(Model):
             x= tf.nn.softplus(x)
 
         filename= self.savepath+'/x_before_bn'+str(self.saveindex)
-        np.savez(filename, x=cgcnn.nbr_sumed)
+        #np.savez(filename, x=cgcnn.nbr_sumed)
 
         #x= self.dropout1(x)
 
         batch_X, batch_A= self.disjoint2batch([x, a, i])
         filename= self.savepath+'/x_after_cgcnn_no_dropout'+str(self.saveindex)
-        np.savez(filename, x=batch_X)
+        #np.savez(filename, x=batch_X)
 
         x_pool_all, a, i, s= self.pool([batch_X, batch_A, i, element_idx])
         self.saveindex+=1
@@ -1286,155 +1284,155 @@ class HNetDoubleJanossy(Model):
             return x, s
         else:
             return x
-
-class DoubleJanossyPretrained(Model):
-    def __init__(self, task, num_classes, embedding_size=64, cgcnn_num=3, d1=0.578, el=427, cl=265, fc_num=1, fc_size=23, fc_num2=1, fc_size2=23, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
-        super().__init__()
-        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
-        he_initializer= initializers.he_uniform(seed=random_seed)
-
-        self.return_s=return_s
-        self.task=task
-        self.num_classes=num_classes
-
-        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
-
-        transfer_weights= np.load('/Users/nilamandal/Desktop/spk-crystal-hierarchy/final_energy_cgcnn_params.npz')
-        print('first')
-        print(transfer_weights['fc_w_0'].shape)
-        print(transfer_weights['fc_b_0'].shape)
-        print('----')
-        print('second')
-        print(transfer_weights['fc_w_1'].shape)
-        print(transfer_weights['fc_b_1'].shape)
-        print('----')
-        print('third')
-        print(transfer_weights['fc_w_2'].shape)
-        print(transfer_weights['fc_b_2'].shape)
-        print('----')
-        self.conv1= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_0']), bias_initializer=initializers.constant(transfer_weights['fc_b_0']), transfers=transfer_weights, transfer_idx='0')
-        self.conv2= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_1']), bias_initializer=initializers.constant(transfer_weights['fc_b_1']), transfers=transfer_weights, transfer_idx='1')
-        self.conv3= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_2']), bias_initializer=initializers.constant(transfer_weights['fc_b_2']), transfers=transfer_weights, transfer_idx='2')
-        #self.conv_list=[conv1, conv2, conv3]
-
-        self.disjoint2batch= Disjoint2Batch()
-        self.dropout1= Dropout(d1)
-
-        self.pool= DoubleJanossyDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
-        #self.bn1= BatchNormalization()
-        self.janossy_orange_list=[]
-        for i in range(fc_num):
-            fc= Dense(fc_size, activation='softplus', kernel_initializer=he_initializer)
-            self.janossy_orange_list.append(fc)
-
-        self.janossy_green_list=[]
-        for i in range(fc_num):
-            fc= Dense(fc_size, activation='softplus', kernel_initializer=he_initializer)
-            self.janossy_green_list.append(fc)
-
-        self.janossy_2_list=[]
-        for i in range(fc_num2):
-            fc= Dense(fc_size2, activation='softplus', kernel_initializer=he_initializer)
-            self.janossy_2_list.append(fc)
-
-        self.meanpool= GlobalAvgPool()
-        #we should have a dropout after aggregating crystal features
-        if self.task=='c':
-            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
-        elif self.task=='r':
-            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
-
-    def call(self, inputs):
-        x, a, e, i = inputs
-        element_idx=np.empty((len(x)))
-        for id in range(len(x)):
-            temp=np.nonzero(x[id])[0]
-            element_idx[id]=int(str(temp[0])+str(temp[1]))
-
-        x= self.embedding(x)
-        #embed_x, throwaway= self.disjoint2batch([x, a, i])
-        x= self.conv1([x, a, e])
-        x= tf.nn.softplus(x)
-        x= self.conv2([x, a, e])
-        x= tf.nn.softplus(x)
-        x= self.conv3([x, a, e])
-        x= tf.nn.softplus(x)
-
-        x= self.dropout1(x)
-
-        batch_X, batch_A= self.disjoint2batch([x, a, i])
-
-        x_pool_all, a, i, s= self.pool([batch_X, batch_A, i, element_idx])
-
-        x_pool_p0=x_pool_all[:,:,0]
-        x_pool_p1=x_pool_all[:,:,1]
-
-        x_2o= tf.stack([x_pool_p0[:,0],x_pool_p0[:,2],x_pool_p0[:,1]], axis=1)
-        x_3o= tf.stack([x_pool_p0[:,1],x_pool_p0[:,0],x_pool_p0[:,2]], axis=1)
-        x_4o= tf.stack([x_pool_p0[:,1],x_pool_p0[:,2],x_pool_p0[:,0]], axis=1)
-        x_5o= tf.stack([x_pool_p0[:,2],x_pool_p0[:,0],x_pool_p0[:,1]], axis=1)
-        x_6o= tf.stack([x_pool_p0[:,2],x_pool_p0[:,1],x_pool_p0[:,0]], axis=1)
-
-        x_1o=tf.reshape(x_pool_p0, [x_pool_p0.shape[0],x_pool_p0.shape[1]*x_pool_p0.shape[2]])
-        x_2o=tf.reshape(x_2o, [x_2o.shape[0],x_2o.shape[1]*x_2o.shape[2]])
-        x_3o=tf.reshape(x_3o, [x_3o.shape[0],x_3o.shape[1]*x_3o.shape[2]])
-        x_4o=tf.reshape(x_4o, [x_4o.shape[0],x_4o.shape[1]*x_4o.shape[2]])
-        x_5o=tf.reshape(x_5o, [x_5o.shape[0],x_5o.shape[1]*x_5o.shape[2]])
-        x_6o=tf.reshape(x_6o, [x_6o.shape[0],x_6o.shape[1]*x_6o.shape[2]])
-
-        x_2g= tf.stack([x_pool_p1[:,0],x_pool_p1[:,2],x_pool_p1[:,1]], axis=1)
-        x_3g= tf.stack([x_pool_p1[:,1],x_pool_p1[:,0],x_pool_p1[:,2]], axis=1)
-        x_4g= tf.stack([x_pool_p1[:,1],x_pool_p1[:,2],x_pool_p1[:,0]], axis=1)
-        x_5g= tf.stack([x_pool_p1[:,2],x_pool_p1[:,0],x_pool_p1[:,1]], axis=1)
-        x_6g= tf.stack([x_pool_p1[:,2],x_pool_p1[:,1],x_pool_p1[:,0]], axis=1)
-
-
-        x_1g=tf.reshape(x_pool_p1, [x_pool_p1.shape[0],x_pool_p1.shape[1]*x_pool_p1.shape[2]])
-        x_2g=tf.reshape(x_2g, [x_2g.shape[0],x_2g.shape[1]*x_2g.shape[2]])
-        x_3g=tf.reshape(x_3g, [x_3g.shape[0],x_3g.shape[1]*x_3g.shape[2]])
-        x_4g=tf.reshape(x_4g, [x_4g.shape[0],x_4g.shape[1]*x_4g.shape[2]])
-        x_5g=tf.reshape(x_5g, [x_5g.shape[0],x_5g.shape[1]*x_5g.shape[2]])
-        x_6g=tf.reshape(x_6g, [x_6g.shape[0],x_6g.shape[1]*x_6g.shape[2]])
-
-
-        for layer in self.janossy_orange_list:
-            x_1o= layer(x_1o)
-            x_2o= layer(x_2o)
-            x_3o= layer(x_3o)
-            x_4o= layer(x_4o)
-            x_5o= layer(x_5o)
-            x_6o= layer(x_6o)
-
-        for layer in self.janossy_green_list:
-            x_1g= layer(x_1g)
-            x_2g= layer(x_2g)
-            x_3g= layer(x_3g)
-            x_4g= layer(x_4g)
-            x_5g= layer(x_5g)
-            x_6g= layer(x_6g)
-
-        x_o=tf.stack([x_1o,x_2o,x_3o,x_4o,x_5o,x_6o],axis=-2)
-        x_g=tf.stack([x_1g,x_2g,x_3g,x_4g,x_5g,x_6g],axis=-2)
-
-
-        x_o= self.meanpool(x_o)
-        x_g= self.meanpool(x_g)
-
-        x_og= tf.concat([x_o, x_g], axis=1)
-        x_go= tf.concat([x_g, x_o], axis=1)
-
-        for layer in self.janossy_2_list:
-            x_og = layer(x_og)
-            x_go = layer(x_go)
-        #print(x_og.shape)
-        x_final= tf.stack([x_og, x_go], axis=-2)
-
-        x_final=self.meanpool(x_final)
-
-        x=self.out_layer(x_final)
-        # #print(x.shape)
-        # #print('----')
-        if self.return_s:
-            return x, s
-        else:
-            return x
+#
+# class DoubleJanossyPretrained(Model):
+#     def __init__(self, task, num_classes, embedding_size=64, cgcnn_num=3, d1=0.578, el=427, cl=265, fc_num=1, fc_size=23, fc_num2=1, fc_size2=23, regularizer='l2', return_s=False,  random_seed=0, **kwargs):
+#         super().__init__()
+#         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+#         he_initializer= initializers.he_uniform(seed=random_seed)
+#
+#         self.return_s=return_s
+#         self.task=task
+#         self.num_classes=num_classes
+#
+#         self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
+#
+#         transfer_weights= np.load('/Users/nilamandal/Desktop/spk-crystal-hierarchy/final_energy_cgcnn_params.npz')
+#         print('first')
+#         print(transfer_weights['fc_w_0'].shape)
+#         print(transfer_weights['fc_b_0'].shape)
+#         print('----')
+#         print('second')
+#         print(transfer_weights['fc_w_1'].shape)
+#         print(transfer_weights['fc_b_1'].shape)
+#         print('----')
+#         print('third')
+#         print(transfer_weights['fc_w_2'].shape)
+#         print(transfer_weights['fc_b_2'].shape)
+#         print('----')
+#         self.conv1= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_0']), bias_initializer=initializers.constant(transfer_weights['fc_b_0']), transfers=transfer_weights, transfer_idx='0')
+#         self.conv2= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_1']), bias_initializer=initializers.constant(transfer_weights['fc_b_1']), transfers=transfer_weights, transfer_idx='1')
+#         self.conv3= SuperCgcnn(activation= 'softplus', kernel_initializer=initializers.constant(transfer_weights['fc_w_2']), bias_initializer=initializers.constant(transfer_weights['fc_b_2']), transfers=transfer_weights, transfer_idx='2')
+#         #self.conv_list=[conv1, conv2, conv3]
+#
+#         self.disjoint2batch= Disjoint2Batch()
+#         self.dropout1= Dropout(d1)
+#
+#         self.pool= DoubleJanossyDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, activation='relu')
+#         #self.bn1= BatchNormalization()
+#         self.janossy_orange_list=[]
+#         for i in range(fc_num):
+#             fc= Dense(fc_size, activation='softplus', kernel_initializer=he_initializer)
+#             self.janossy_orange_list.append(fc)
+#
+#         self.janossy_green_list=[]
+#         for i in range(fc_num):
+#             fc= Dense(fc_size, activation='softplus', kernel_initializer=he_initializer)
+#             self.janossy_green_list.append(fc)
+#
+#         self.janossy_2_list=[]
+#         for i in range(fc_num2):
+#             fc= Dense(fc_size2, activation='softplus', kernel_initializer=he_initializer)
+#             self.janossy_2_list.append(fc)
+#
+#         self.meanpool= GlobalAvgPool()
+#         #we should have a dropout after aggregating crystal features
+#         if self.task=='c':
+#             self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
+#         elif self.task=='r':
+#             self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
+#
+#     def call(self, inputs):
+#         x, a, e, i = inputs
+#         element_idx=np.empty((len(x)))
+#         for id in range(len(x)):
+#             temp=np.nonzero(x[id])[0]
+#             element_idx[id]=int(str(temp[0])+str(temp[1]))
+#
+#         x= self.embedding(x)
+#         #embed_x, throwaway= self.disjoint2batch([x, a, i])
+#         x= self.conv1([x, a, e])
+#         x= tf.nn.softplus(x)
+#         x= self.conv2([x, a, e])
+#         x= tf.nn.softplus(x)
+#         x= self.conv3([x, a, e])
+#         x= tf.nn.softplus(x)
+#
+#         x= self.dropout1(x)
+#
+#         batch_X, batch_A= self.disjoint2batch([x, a, i])
+#
+#         x_pool_all, a, i, s= self.pool([batch_X, batch_A, i, element_idx])
+#
+#         x_pool_p0=x_pool_all[:,:,0]
+#         x_pool_p1=x_pool_all[:,:,1]
+#
+#         x_2o= tf.stack([x_pool_p0[:,0],x_pool_p0[:,2],x_pool_p0[:,1]], axis=1)
+#         x_3o= tf.stack([x_pool_p0[:,1],x_pool_p0[:,0],x_pool_p0[:,2]], axis=1)
+#         x_4o= tf.stack([x_pool_p0[:,1],x_pool_p0[:,2],x_pool_p0[:,0]], axis=1)
+#         x_5o= tf.stack([x_pool_p0[:,2],x_pool_p0[:,0],x_pool_p0[:,1]], axis=1)
+#         x_6o= tf.stack([x_pool_p0[:,2],x_pool_p0[:,1],x_pool_p0[:,0]], axis=1)
+#
+#         x_1o=tf.reshape(x_pool_p0, [x_pool_p0.shape[0],x_pool_p0.shape[1]*x_pool_p0.shape[2]])
+#         x_2o=tf.reshape(x_2o, [x_2o.shape[0],x_2o.shape[1]*x_2o.shape[2]])
+#         x_3o=tf.reshape(x_3o, [x_3o.shape[0],x_3o.shape[1]*x_3o.shape[2]])
+#         x_4o=tf.reshape(x_4o, [x_4o.shape[0],x_4o.shape[1]*x_4o.shape[2]])
+#         x_5o=tf.reshape(x_5o, [x_5o.shape[0],x_5o.shape[1]*x_5o.shape[2]])
+#         x_6o=tf.reshape(x_6o, [x_6o.shape[0],x_6o.shape[1]*x_6o.shape[2]])
+#
+#         x_2g= tf.stack([x_pool_p1[:,0],x_pool_p1[:,2],x_pool_p1[:,1]], axis=1)
+#         x_3g= tf.stack([x_pool_p1[:,1],x_pool_p1[:,0],x_pool_p1[:,2]], axis=1)
+#         x_4g= tf.stack([x_pool_p1[:,1],x_pool_p1[:,2],x_pool_p1[:,0]], axis=1)
+#         x_5g= tf.stack([x_pool_p1[:,2],x_pool_p1[:,0],x_pool_p1[:,1]], axis=1)
+#         x_6g= tf.stack([x_pool_p1[:,2],x_pool_p1[:,1],x_pool_p1[:,0]], axis=1)
+#
+#
+#         x_1g=tf.reshape(x_pool_p1, [x_pool_p1.shape[0],x_pool_p1.shape[1]*x_pool_p1.shape[2]])
+#         x_2g=tf.reshape(x_2g, [x_2g.shape[0],x_2g.shape[1]*x_2g.shape[2]])
+#         x_3g=tf.reshape(x_3g, [x_3g.shape[0],x_3g.shape[1]*x_3g.shape[2]])
+#         x_4g=tf.reshape(x_4g, [x_4g.shape[0],x_4g.shape[1]*x_4g.shape[2]])
+#         x_5g=tf.reshape(x_5g, [x_5g.shape[0],x_5g.shape[1]*x_5g.shape[2]])
+#         x_6g=tf.reshape(x_6g, [x_6g.shape[0],x_6g.shape[1]*x_6g.shape[2]])
+#
+#
+#         for layer in self.janossy_orange_list:
+#             x_1o= layer(x_1o)
+#             x_2o= layer(x_2o)
+#             x_3o= layer(x_3o)
+#             x_4o= layer(x_4o)
+#             x_5o= layer(x_5o)
+#             x_6o= layer(x_6o)
+#
+#         for layer in self.janossy_green_list:
+#             x_1g= layer(x_1g)
+#             x_2g= layer(x_2g)
+#             x_3g= layer(x_3g)
+#             x_4g= layer(x_4g)
+#             x_5g= layer(x_5g)
+#             x_6g= layer(x_6g)
+#
+#         x_o=tf.stack([x_1o,x_2o,x_3o,x_4o,x_5o,x_6o],axis=-2)
+#         x_g=tf.stack([x_1g,x_2g,x_3g,x_4g,x_5g,x_6g],axis=-2)
+#
+#
+#         x_o= self.meanpool(x_o)
+#         x_g= self.meanpool(x_g)
+#
+#         x_og= tf.concat([x_o, x_g], axis=1)
+#         x_go= tf.concat([x_g, x_o], axis=1)
+#
+#         for layer in self.janossy_2_list:
+#             x_og = layer(x_og)
+#             x_go = layer(x_go)
+#         #print(x_og.shape)
+#         x_final= tf.stack([x_og, x_go], axis=-2)
+#
+#         x_final=self.meanpool(x_final)
+#
+#         x=self.out_layer(x_final)
+#         # #print(x.shape)
+#         # #print('----')
+#         if self.return_s:
+#             return x, s
+#         else:
+#             return x

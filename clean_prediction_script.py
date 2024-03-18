@@ -326,10 +326,10 @@ if __name__ == '__main__':
     fullpath_of_model='./bn_bohb_rsync_copy/train_model_2023-12-01_18-34-45/train_model_9da6d403_1_trial_index=0,batch_size=4,column_lambda=61.9976,embedding_size=4,entropy_lambda=13915.1499,fc_num=2,fc_num_2023-12-01_18-34-47/'
 
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
-    fullpath_of_data_file='../Main_fol_Zintl/fere_binary_and_ternary.csv'
+    fullpath_of_data_file='../Main_fol_Zintl/just_ubem.csv'
     #write output path is the DIRECTORY where you want the output files to be saved.
     #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
-    write_output_path='./debug'
+    write_output_path='./ubems'
 
     result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path)
     print(result_dict)

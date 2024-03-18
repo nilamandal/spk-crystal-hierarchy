@@ -1,0 +1,12 @@
+{
+  "__trial_index__": 0,
+  "batch_size": 4,
+  "column_lambda": 61.997568244287464,
+  "embedding_size": 4,
+  "entropy_lambda": 13915.149938237226,
+  "fc_num": 2,
+  "fc_num2": 2,
+  "fc_size": 4,
+  "fc_size2": 16,
+  "lr": 0.01855649626726691
+}
