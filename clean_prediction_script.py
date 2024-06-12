@@ -11,7 +11,7 @@ import os
 import sys
 from pymatgen.core.structure import Structure
 import json
-from spektral_essential_objects import GaussianDistance,MyDataset, HNetDoubleJanossy, PartitionedData, HNetConcatJanossy
+from spektral_essential_objects import GaussianDistance,MyDataset, HNetSingleJanossy
 from sklearn import svm
 import pylab as pl
 from tensorflow.keras import backend as K
@@ -53,7 +53,7 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
         inputs, target = loader.__next__()
 
         outfile_main=open(write_output_path+'/pooling_eval.csv','w+')
-        outfile_main.write('name,abs_error,pool_margin,perfect,avg_acc,row_entropy,neg_col_entropy,num_unique \n')
+        outfile_main.write('name,pred, target,abs_error,pool_margin,perfect,avg_acc,row_entropy,neg_col_entropy,num_unique \n')
 
         pred, s_tensor = model(inputs, training=False)
 
@@ -157,7 +157,7 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
                 #    mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',0,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+','+str(len(np.unique(np.around(binary_feats, 3), axis=0)))+'\n'
                 else:
                     num_perfect+=1
-                mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',1,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+','+str(len(np.unique(np.around(binary_feats, 3), axis=0)))+'\n'
+                mainline= cifs[i]+','+str(float(pred[j]))+','+str(float(target[j]))+','+str(individual_error)+','+str(margin)+',1,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+','+str(len(np.unique(np.around(binary_feats, 3), axis=0)))+'\n'
                 outfile_main.write(mainline)
                 line= 'pool accuracy='+str(score)+'C='+str(C)+'\n'
                 outfile.write(line)
@@ -309,7 +309,8 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path):
 
     paramsdict= json.load(open(checkpoint_dir+'/params.json'))
 
-    model= HNetDoubleJanossy('r', 1, embedding_size=paramsdict['embedding_size'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], fc_num=paramsdict['fc_num'], fc_size=paramsdict['fc_size'], fc_size2=paramsdict['fc_size2'], fc_num2=paramsdict['fc_num2'], return_s=True)
+    model=HNetSingleJanossy('r', 1, embedding_size=paramsdict['embedding_size'], cgcnn_num2= paramsdict['cgcnn_2'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], return_s=True)
+    #model= HNetDoubleJanossy('r', 1, embedding_size=, el=, cl=, fc_num=paramsdict['fc_num'], fc_size=paramsdict['fc_size'], fc_size2=paramsdict['fc_size2'], fc_num2=paramsdict['fc_num2'], return_s=True)
 
     latest = tf.train.latest_checkpoint(checkpoint_dir)
     model.load_weights(latest)
@@ -322,15 +323,19 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path):
 if __name__ == '__main__':
 
     #fullpath of model is the path to the DIRECTORY where the saved model is located.
-    #In general, you will not need to change this unless Qian specifically requests.
-    fullpath_of_model='./bn_bohb_rsync_copy/train_model_2023-12-01_18-34-45/train_model_9da6d403_1_trial_index=0,batch_size=4,column_lambda=61.9976,embedding_size=4,entropy_lambda=13915.1499,fc_num=2,fc_num_2023-12-01_18-34-47/'
+    fullpath_of_model='../zintlsinglejanossy/train_model_f0b3e778_275_trial_index=2,batch_size=16,cgcnn_2=1,column_lambda=9845638.3108,embedding_size=16,entropy_lambda=1.2997,_2024-06-07_00-23-34/'
 
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
-    fullpath_of_data_file='../Main_fol_Zintl/just_ubem.csv'
+    #fullpath_of_data_file='../Main_fol_Zintl/Zintl_phases_trial_for_bonding_analysis.csv'
+    fullpath_of_data_file='../Main_fol_Zintl/Zintl_phases_trial_for_bonding_analysis.csv'
     #write output path is the DIRECTORY where you want the output files to be saved.
     #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
-    write_output_path='./ubems'
+    write_output_path='../zintlsinglejanossy/train_model_f0b3e778_meeting_figures/'
 
     result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path)
-    print(result_dict)
+
+    fullpath_of_data_file='../Main_fol_Zintl/val_no_metals.csv'
+    write_output_path='../zintlsinglejanossy/train_model_f0b3e778/'
+    result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path)
+    # print(result_dict)
     print('all tasks are complete')

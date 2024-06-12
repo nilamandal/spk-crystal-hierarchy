@@ -2,7 +2,7 @@ import tensorflow as tf
 import os
 import sys
 import argparse
-from spektral_essential_objects import GaussianDistance, MyDataset, RegularizedDiffPool, HNetDoubleJanossy
+from spektral_essential_objects import GaussianDistance, MyDataset, RegularizedDiffPool, HNetSingleJanossy
 from spektral.data import DisjointLoader
 from CorrectedRepeater import BOHBRepeater
 from tensorflow.keras.optimizers import SGD, Adam
@@ -22,11 +22,8 @@ from tensorflow.keras import backend as K
 import json
 
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
-
 parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='/home/nim18004/Main_fol_Zintl')
-parser.add_argument('--filename', dest='filename',
-                    help='csv where data is located', default='id_prop.csv')
+        help='Directory where dataset is located', default='/Users/nilamandal/desktop/Main_fol_Zintl')
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
                     help='num neighbors per atom', default=12)
 parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
@@ -34,8 +31,6 @@ parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
 parser.add_argument('--task', choices=['r', 'c'],
                     default='r', help='complete a regression or classification task (default: regression)')
 args = parser.parse_args(sys.argv[1:])
-
-
 
 def entropy_loss(s):
     entr = tf.negative(
@@ -112,53 +107,47 @@ def train_step(inputs, target, model, loss_fn, optimizer):
         return loss, sca
 
 def train_model(config):
-    if os.path.isfile('./result.png'):
-        resultdict= json.load(open('./result.json'))
-        return {"score": resultdict["score"]}
+    print('BEGUN INDIVIDUAL TRAINING')
+    #if os.path.isfile('./result.png'):
+    #    resultdict= json.load(open('./result.json'))
+    #    return {"score": resultdict["score"]}
     checkpoint_path='./goodmodel.ckpt'
 
-    epochs = 10
+    epochs = 2000
 
     embedding_size= config['embedding_size']
     batch_size= config['batch_size']
-    #dr1= config['dr1']
+
     entropy_lambda= config['entropy_lambda']
     column_lambda= config['column_lambda']
 
-    fc_size= config['fc_size']
-    fc_num= config['fc_num']
-    fc_size2= config['fc_size2']
-    fc_num2= config['fc_num2']
-
+    cgcnn2= config['cgcnn_2']
     lr= config['lr']
 
     # Load data and train model code here...
     train_df = pd.read_csv(os.path.join(args.datadir,'train_no_metals.csv'))
     train_df = train_df[train_df['num_elements']<=3]
-    #train_df= train_df.head(10)
     train_data= MyDataset(train_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     load_tr= DisjointLoader(train_data, batch_size=batch_size, epochs=epochs)
     load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
 
     val_df = pd.read_csv(os.path.join(args.datadir,'val_no_metals.csv'))
     val_df = val_df[val_df['num_elements']<=3]
-    #val_df= val_df.head(10)
     val_data= MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     load_va= DisjointLoader(val_data, batch_size=len(val_data))
 
     csv_log = CSVLogger("./callback_results.csv")
 
-
-    model= HNetDoubleJanossy('r', 1, embedding_size=embedding_size, el=entropy_lambda, cl=column_lambda, fc_num=fc_num, fc_size=fc_size, fc_size2=fc_size2, fc_num2=fc_num2, return_s=True)
+    model= HNetSingleJanossy('r', 1, embedding_size=embedding_size, cgcnn_num2= cgcnn2, el=entropy_lambda, cl=column_lambda, return_s=True)
     all_callbacks= CallbackList([csv_log], add_history=True, model=model)
-
+    #
     optim=Adam(lr)
     loss_fn= MeanSquaredError()
 
     train_metric=[]
     val_metric_list=[]
     early_stop_counter= 0
-    patience= 50
+    patience= 100
     epoch = step = 0
 
     best_val_loss = np.inf
@@ -228,19 +217,13 @@ def gen_plots(train_metric, val_metric):
 
 if __name__ == "__main__":
       NUM_MODELS = 500
-     # sys.stdout = open('./debug.txt', 'w')
 
       trial_space = {
             'embedding_size': tune.choice([4,8,16,32,64]),
             'batch_size': tune.choice([4,8,16,32,64]),
-            #'dr1': tune.uniform(0, 1),
             'entropy_lambda': tune.loguniform(1, 1e8),
             'column_lambda': tune.loguniform(1, 1e8),
-            #'min_delta': tune.loguniform(1e-3, 1e8),
-            'fc_size': tune.choice([4,8,16,32,64]),
-            'fc_num': tune.choice([1,2,3]),
-            'fc_size2': tune.choice([4,8,16,32,64]),
-            'fc_num2': tune.choice([1,2,3]),
+            'cgcnn_2': tune.choice([1,2,3]),
             'lr': tune.loguniform(1e-8, 1e-1)
         }
 
@@ -251,10 +234,7 @@ if __name__ == "__main__":
         stop_last_trials=False,
       )
 
-
-      bohb = BOHBRepeater(metric='score', mode='min', repeat=4, max_concurrent=12)
-      #bohb = tune.search.ConcurrencyLimiter(bohb, max_concurrent=4)
-
+      bohb = BOHBRepeater(metric='score', mode='min', repeat=4, max_concurrent=50)
       train_model_object = tune.with_resources(train_model, {"cpu": 1})
       tuner = tune.Tuner(train_model_object, tune_config=tune.TuneConfig(
         search_alg=bohb,
@@ -262,5 +242,6 @@ if __name__ == "__main__":
         metric='score',
         mode='min',
         num_samples=NUM_MODELS), param_space=trial_space)
+      print('CREATED all TUNING OBJECTS')
       results = tuner.fit()
       print(results)
