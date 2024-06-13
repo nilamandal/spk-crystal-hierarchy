@@ -537,7 +537,7 @@ class HNetDoubleJanossy(Model):
         else:
             return x
 
-class HNetSingleJanossy(Model):
+class HNetEdgepool(Model):
     def __init__(self, task, num_classes, embedding_size=52, cgcnn_num=3, cgcnn_num2=3, el=427, cl=265, regularizer='l2', return_s=False,  random_seed=0, path='./', **kwargs):
         super().__init__()
         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
@@ -586,21 +586,29 @@ class HNetSingleJanossy(Model):
 
         batch_X, batch_A= self.disjoint2batch([x, a, i])
 
-        x_pool, a_pool, i, s= self.pool([batch_X, batch_A, i])
+        x_pool, a_pool, i_pool, s= self.pool([batch_X, batch_A, i])
         x_pool= tf.reshape(x_pool, [x_pool.shape[0]*x_pool.shape[1], x_pool.shape[2]]) #reshape to disjoint form
 
+        e_pool= self.edgepool(e, a, s, i, a_pool)
+
+
+
+
         temp_a= tf.unstack(a_pool)
-        total_nodes= len(i)
+        total_nodes= len(i_pool)
         disjoint_a= np.zeros((total_nodes, total_nodes))
         begin=0
         step=len(temp_a[0])
         end=begin+step
 
         for j in temp_a:
-            disjoint_a[begin:end, begin:end]=j
+            disjoint_a[begin:end, begin:end]= np.ones((2,2))
             begin= begin+step
             end= begin+step
         disjoint_a= tf.sparse.from_dense(disjoint_a)
+        #print('new adj matrix after pooling')
+        #print(disjoint_a)
+
 
         for cgcnn2 in self.conv_list2:
             x_pool= cgcnn2([x_pool, disjoint_a])
@@ -614,3 +622,50 @@ class HNetSingleJanossy(Model):
             return x, s
         else:
             return x
+
+    def edgepool(self, e, a, s, i, a_pool):
+        indices = a.indices
+        i_nodes, j_nodes = indices[:, 0], indices[:, 1]
+
+        graph_sizes = tf.math.segment_sum(tf.ones_like(i), i)
+        max_n_nodes = tf.reduce_max(graph_sizes)
+        n_graphs = tf.shape(graph_sizes)[0]
+        relative_j_nodes = j_nodes - self._vectorised_get_cum_graph_size(j_nodes, graph_sizes)
+
+        new_indices = tf.transpose(tf.stack([i_nodes, relative_j_nodes]))
+
+        new_indices = tf.cast(new_indices, tf.int32)
+        n_graphs = tf.cast(n_graphs, tf.int32)
+        max_n_nodes = tf.cast(max_n_nodes, tf.int32)
+
+        dense_edge = tf.scatter_nd(
+            new_indices, e, (n_graphs * max_n_nodes, max_n_nodes, 41)
+        )
+
+        batch_edge = tf.reshape(dense_edge, (n_graphs, max_n_nodes, max_n_nodes, 41))
+        batch_edge = tf.cast(batch_edge, tf.float32)
+
+        #print(graph_sizes)
+        for g in batch_edge:
+            g_debug= tf.math.reduce_sum(g, axis=2)
+            print(g_debug)
+            print(tf.transpose(g_debug))
+            new_debug= tf.math.maximum(g_debug, tf.transpose(g_debug))
+            print(new_debug)
+            #now make this work when the features each have 41 elements
+            print('----------')
+        return np.nan
+
+    def _vectorised_get_cum_graph_size(self, nodes, graph_sizes):
+        """Takes a list of node ids and graph sizes ordered by segment ID and returns the number of nodes contained in graphs with smaller segment ID.
+        :param nodes: List of node ids of shape (nodes)
+        :param graph_sizes: List of graph sizes (i.e. tf.math.segment_sum(tf.ones_like(I), I) where I are the segment IDs).
+        :return: A list of shape (nodes) where each entry corresponds to the number of nodes contained in graphs with smaller segment ID for each node.
+        """
+        def get_cum_graph_size(node):
+            cum_graph_sizes = tf.cumsum(graph_sizes, exclusive=True)
+            indicator_if_smaller = tf.cast(node - cum_graph_sizes >= 0, tf.int32)
+            graph_id = tf.reduce_sum(indicator_if_smaller) - 1
+            return tf.cumsum(graph_sizes, exclusive=True)[graph_id]
+
+        return tf.map_fn(get_cum_graph_size, nodes)

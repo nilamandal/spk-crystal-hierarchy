@@ -2,7 +2,7 @@ import tensorflow as tf
 import os
 import sys
 import argparse
-from spektral_essential_objects import GaussianDistance, MyDataset, RegularizedDiffPool, HNetSingleJanossy
+from spektral_essential_objects import GaussianDistance, MyDataset, RegularizedDiffPool, HNetEdgepool
 from spektral.data import DisjointLoader
 from CorrectedRepeater import BOHBRepeater
 from tensorflow.keras.optimizers import SGD, Adam
@@ -108,13 +108,12 @@ def train_step(inputs, target, model, loss_fn, optimizer):
 
 def train_model(config):
     print('BEGUN INDIVIDUAL TRAINING')
-    #if os.path.isfile('./result.png'):
-    #    resultdict= json.load(open('./result.json'))
-    #    return {"score": resultdict["score"]}
+
     checkpoint_path='./goodmodel.ckpt'
 
-    epochs = 2000
-
+    epochs = 10
+    if epochs<1000:
+        print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
     embedding_size= config['embedding_size']
     batch_size= config['batch_size']
 
@@ -125,20 +124,20 @@ def train_model(config):
     lr= config['lr']
 
     # Load data and train model code here...
-    train_df = pd.read_csv(os.path.join(args.datadir,'train_no_metals.csv'))
-    train_df = train_df[train_df['num_elements']<=3]
+    train_df = pd.read_csv(os.path.join(args.datadir,'debug_train.csv'))
+    #train_df = train_df[train_df['num_elements']<=3].head(10)
     train_data= MyDataset(train_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     load_tr= DisjointLoader(train_data, batch_size=batch_size, epochs=epochs)
     load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
 
     val_df = pd.read_csv(os.path.join(args.datadir,'val_no_metals.csv'))
-    val_df = val_df[val_df['num_elements']<=3]
+    val_df = val_df.head(10)
     val_data= MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     load_va= DisjointLoader(val_data, batch_size=len(val_data))
-
+    print('loaded data')
     csv_log = CSVLogger("./callback_results.csv")
 
-    model= HNetSingleJanossy('r', 1, embedding_size=embedding_size, cgcnn_num2= cgcnn2, el=entropy_lambda, cl=column_lambda, return_s=True)
+    model= HNetEdgepool('r', 1, embedding_size=embedding_size, cgcnn_num2= cgcnn2, el=entropy_lambda, cl=column_lambda, return_s=True)
     all_callbacks= CallbackList([csv_log], add_history=True, model=model)
     #
     optim=Adam(lr)
@@ -216,7 +215,7 @@ def gen_plots(train_metric, val_metric):
 
 
 if __name__ == "__main__":
-      NUM_MODELS = 500
+      NUM_MODELS = 2
 
       trial_space = {
             'embedding_size': tune.choice([4,8,16,32,64]),
@@ -234,7 +233,7 @@ if __name__ == "__main__":
         stop_last_trials=False,
       )
 
-      bohb = BOHBRepeater(metric='score', mode='min', repeat=4, max_concurrent=50)
+      bohb = BOHBRepeater(metric='score', mode='min', repeat=4, max_concurrent=1)
       train_model_object = tune.with_resources(train_model, {"cpu": 1})
       tuner = tune.Tuner(train_model_object, tune_config=tune.TuneConfig(
         search_alg=bohb,

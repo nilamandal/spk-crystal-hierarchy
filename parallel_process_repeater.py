@@ -2,10 +2,10 @@ from spektral.data import Graph, Dataset, DisjointLoader
 import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import SGD, Adam
-#from tensorflow.keras.optimizers.schedules import ExponentialDecay, PiecewiseConstantDecay
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.losses import MeanSquaredError, SparseCategoricalCrossentropy
 from tensorflow.keras.metrics import sparse_categorical_accuracy, mean_squared_error
+from tensorflow.keras.callbacks import CallbackList, CSVLogger
 from sklearn.metrics import confusion_matrix
 import numpy as np
 import pandas as pd
@@ -20,7 +20,7 @@ from spektral_essential_objects import GaussianDistance, MyDataset, HNetDoubleJa
 from multiprocessing import Process, Lock, Value, Manager, Semaphore
 from scipy.stats import qmc
 import matplotlib.pyplot as plt
-from tensorflow.keras.callbacks import CallbackList, CSVLogger
+
 
 begin_time = time.time()
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
