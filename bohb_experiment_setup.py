@@ -8,7 +8,7 @@ from CorrectedRepeater import BOHBRepeater
 from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.losses import MeanSquaredError
 import numpy as np
-from tensorflow.keras.metrics import sparse_categorical_accuracy, mean_squared_error
+from tensorflow.keras.metrics import sparse_categorical_accuracy #, mean_squared_error
 from ray import tune
 from ray.tune.search.bayesopt import BayesOptSearch
 from ray.tune.schedulers.hb_bohb import HyperBandForBOHB
@@ -111,7 +111,7 @@ def train_model(config):
 
     checkpoint_path='./goodmodel.ckpt'
 
-    epochs = 10
+    epochs = 100
     if epochs<1000:
         print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
     embedding_size= config['embedding_size']
@@ -124,14 +124,14 @@ def train_model(config):
     lr= config['lr']
 
     # Load data and train model code here...
-    train_df = pd.read_csv(os.path.join(args.datadir,'debug_train.csv'))
-    #train_df = train_df[train_df['num_elements']<=3].head(10)
+    train_df = pd.read_csv(os.path.join(args.datadir,'train_no_metals.csv'))
+    #train_df = train_df.head(10)
     train_data= MyDataset(train_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     load_tr= DisjointLoader(train_data, batch_size=batch_size, epochs=epochs)
     load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
 
     val_df = pd.read_csv(os.path.join(args.datadir,'val_no_metals.csv'))
-    val_df = val_df.head(10)
+    #val_df = val_df.head(10)
     val_data= MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     load_va= DisjointLoader(val_data, batch_size=len(val_data))
     print('loaded data')
@@ -154,6 +154,7 @@ def train_model(config):
     logs = {}
     all_callbacks.on_train_begin(logs=logs)
     for batch in load_tr:
+            print(epoch)
             if step==0:
                 all_callbacks.on_epoch_begin(epoch, logs=logs)
             step += 1
@@ -215,7 +216,7 @@ def gen_plots(train_metric, val_metric):
 
 
 if __name__ == "__main__":
-      NUM_MODELS = 2
+      NUM_MODELS = 1
 
       trial_space = {
             'embedding_size': tune.choice([4,8,16,32,64]),

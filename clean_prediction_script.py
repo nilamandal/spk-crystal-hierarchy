@@ -11,26 +11,11 @@ import os
 import sys
 from pymatgen.core.structure import Structure
 import json
-from spektral_essential_objects import GaussianDistance,MyDataset, HNetSingleJanossy
+from spektral_essential_objects import GaussianDistance,MyDataset, HNetEdgepool
 from sklearn import svm
 import pylab as pl
 from tensorflow.keras import backend as K
-
-
-#this function computes the row regularization value for help with model evaluation.
-def entropy_loss(s):
-    entr = tf.negative(
-        tf.reduce_sum(tf.multiply(s, K.log(s + K.epsilon())), axis=-1)
-    )
-    entr_loss = tf.reduce_mean(entr, axis=-1)
-    return entr_loss
-
-#this is a wrapper function for computing model regularization values
-def row_e_and_column_p(s):
-    row= entropy_loss(s)
-    column_product= tf.math.reduce_prod(tf.divide(tf.reduce_sum(s, axis=0),s.shape[0]))
-
-    return float(column_product), float(row)
+from util_functions import entropy_loss, row_e_and_column_p
 
 #This function handles all evaluation of the data. It computes the model's prediction for each crystal,
 #the error for each crystal, and the poolings for each crystal. The prediction, error value, and a performance
@@ -125,7 +110,7 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
                     outfile.write(line)
 
                 pl.figure()
-                coloroptions=['#214cc9', '#c20d42', '#287f1b']
+                coloroptions=['#214cc9', '#c20d42', '#287f1b', '#d8c800']
                 colorcode=0
                 sizecode=100
                 print(specieslist)
@@ -301,15 +286,15 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path):
     data_dir = os.path.dirname(fullpath_of_data_file)
 
     val_df = pd.read_csv(fullpath_of_data_file, header=0)
-    val_df = val_df[val_df['num_elements']<=3]
+    #val_df = val_df[val_df['num_elements']<=3]
     #val_df= val_df['FERE' not in val_df['id']]
     data= MyDataset(val_df, data_dir, 8, 12, 'r')
     loader_va= DisjointLoader(data, shuffle=False, batch_size=len(val_df))
     cifs=data.get_cifs()
 
     paramsdict= json.load(open(checkpoint_dir+'/params.json'))
-
-    model=HNetSingleJanossy('r', 1, embedding_size=paramsdict['embedding_size'], cgcnn_num2= paramsdict['cgcnn_2'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], return_s=True)
+    model= HNetEdgepool('r', 1, embedding_size=paramsdict['embedding_size'], cgcnn_num2= paramsdict['cgcnn_2'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], return_s=True)
+    #model=HNetSingleJanossy('r', 1, embedding_size=paramsdict['embedding_size'], cgcnn_num2= paramsdict['cgcnn_2'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], return_s=True)
     #model= HNetDoubleJanossy('r', 1, embedding_size=, el=, cl=, fc_num=paramsdict['fc_num'], fc_size=paramsdict['fc_size'], fc_size2=paramsdict['fc_size2'], fc_num2=paramsdict['fc_num2'], return_s=True)
 
     latest = tf.train.latest_checkpoint(checkpoint_dir)
@@ -322,20 +307,29 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path):
 
 if __name__ == '__main__':
 
-    #fullpath of model is the path to the DIRECTORY where the saved model is located.
-    fullpath_of_model='../zintlsinglejanossy/train_model_f0b3e778_275_trial_index=2,batch_size=16,cgcnn_2=1,column_lambda=9845638.3108,embedding_size=16,entropy_lambda=1.2997,_2024-06-07_00-23-34/'
+    subpaths=['train_model_9074d49a_11_trial_index=2,batch_size=16,cgcnn_2=2,column_lambda=44.6674,embedding_size=32,entropy_lambda=50.3886,lr=0._2024-07-30_13-35-06',
+                'train_model_066a14b4_29_trial_index=0,batch_size=64,cgcnn_2=1,column_lambda=643.3015,embedding_size=4,entropy_lambda=6350614.0309,_2024-07-30_13-35-06',
+                'train_model_1e9154ac_31_trial_index=2,batch_size=64,cgcnn_2=1,column_lambda=643.3015,embedding_size=4,entropy_lambda=6350614.0309,_2024-07-30_13-35-06',
+                'train_model_8618ae9a_12_trial_index=3,batch_size=16,cgcnn_2=2,column_lambda=44.6674,embedding_size=32,entropy_lambda=50.3886,lr=0._2024-07-30_13-35-06',
+                'train_model_70bc7024_90_trial_index=1,batch_size=32,cgcnn_2=1,column_lambda=2647.4746,embedding_size=8,entropy_lambda=99856.4093,l_2024-07-30_13-35-06']
 
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
     #fullpath_of_data_file='../Main_fol_Zintl/Zintl_phases_trial_for_bonding_analysis.csv'
-    fullpath_of_data_file='../Main_fol_Zintl/Zintl_phases_trial_for_bonding_analysis.csv'
-    #write output path is the DIRECTORY where you want the output files to be saved.
-    #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
-    write_output_path='../zintlsinglejanossy/train_model_f0b3e778_meeting_figures/'
-
-    result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path)
-
     fullpath_of_data_file='../Main_fol_Zintl/val_no_metals.csv'
-    write_output_path='../zintlsinglejanossy/train_model_f0b3e778/'
-    result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path)
+
+    for pathstring in subpaths:
+        #fullpath of model is the path to the DIRECTORY where the saved model is located.
+        fullpath_of_model='../zintl_edgepool2/'+pathstring+'/'
+
+
+        #write output path is the DIRECTORY where you want the output files to be saved.
+        #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
+        write_output_path=fullpath_of_model+'validation_eval/'
+
+        result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path)
+
+    #fullpath_of_data_file='../Main_fol_Zintl/val_no_metals.csv'
+    #write_output_path='../zintlsinglejanossy/train_model_f0b3e778/'
+    #result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path)
     # print(result_dict)
-    print('all tasks are complete')
+    #print('all tasks are complete')

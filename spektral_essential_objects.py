@@ -23,6 +23,7 @@ from tensorflow.keras import activations
 from keras import initializers
 from spektral.layers.ops.scatter import deserialize_scatter
 from tensorflow.keras.callbacks import Callback
+from tensorflow.python.ops.linalg.sparse import sparse_csr_matrix_ops
 
 class GaussianDistance(object):
     """
@@ -125,11 +126,9 @@ class MyDataset(Dataset):
                     if adj[i,k]==1:
                         edgeidxtemp.append((i,k))
                         edgefeat.append(nbr_fea[i][j])
-            #if (adj==adj.transpose()).all():
-            #    num_symmetric+=1
-            #else:
-            #    num_asymmetric+=1
+
             adj=sp.csr_matrix(adj)
+
             edge_idx, edges= reorder(edge_index=np.array(edgeidxtemp), edge_features=np.array(edgefeat))
 
             if self.task=='c':
@@ -144,9 +143,7 @@ class MyDataset(Dataset):
                 print(self.task, ' is not c or r.')
             allgraphs.append(MG)
         self.all_atomic_numbers= set(all_atomic_numbers)
-        #print('num symmetric:', num_symmetric)
-        #print('num asymmetric:', num_asymmetric)
-        #print('---')
+
         return allgraphs
 
     def get_cifs(self):
@@ -167,13 +164,31 @@ class RegularizedDiffPool(DiffPool):
         self.saveindex=1
         self.savepath= path
         self.assignment_fc= Dense(self.k, use_bias=False)
-        self.masker= Masking(mask_value=[0.0, 0.0])
+        self.masker= Masking(mask_value=np.zeros(self.k))
 
     def build(self, input_shape):
         in_channels = input_shape[0][-1]
         if self.channels is None:
             self.channels = in_channels
         super(DiffPool, self).build(input_shape)
+
+    def call(self, inputs, mask=None):
+        x, a, i = self.get_inputs(inputs)
+
+        # Graph filter for GNNs
+        if K.is_sparse(a):
+            #i_n = tf.sparse.eye(self.n_nodes, dtype=a.dtype)
+            i_sub=tf.one_hot(list(range(self.n_nodes)),depth=self.n_nodes)
+            i_n= tf.sparse.from_dense(tf.stack([i_sub]*x.shape[0]))
+            a_ = tf.sparse.add(a, i_n)
+            #print(a_)
+        else:
+            i_n = tf.eye(self.n_nodes, dtype=a.dtype)
+            a_ = a + i_n
+        fltr = ops.normalize_A(a_)
+
+        output = self.pool(x, a, i, fltr=fltr, mask=mask)
+        return output
 
     def select(self, x, a, i, fltr=None, mask=None):
         #print('select')
@@ -538,7 +553,7 @@ class HNetDoubleJanossy(Model):
             return x
 
 class HNetEdgepool(Model):
-    def __init__(self, task, num_classes, embedding_size=52, cgcnn_num=3, cgcnn_num2=3, el=427, cl=265, regularizer='l2', return_s=False,  random_seed=0, path='./', **kwargs):
+    def __init__(self, task, num_classes, embedding_size=52, cgcnn_num=3, cgcnn_num2=3, el=427, cl=265, regularizer='l2', return_s=False,  random_seed=0, path='./', k= 2, **kwargs):
         super().__init__()
         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
         he_initializer= initializers.he_uniform(seed=random_seed)
@@ -546,6 +561,7 @@ class HNetEdgepool(Model):
         self.return_s=return_s
         self.task=task
         self.num_classes=num_classes
+        self.k= k
 
         self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
 
@@ -554,9 +570,7 @@ class HNetEdgepool(Model):
             conv= ModifiedCrystalConv(activation= 'softplus', kernel_initializer=he_initializer)#does this l2 have a lambda
             self.conv_list.append(conv)
 
-        self.disjoint2batch= Disjoint2Batch()
-
-        self.pool= RegularizedDiffPool(k=2, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, path=path)
+        self.pool= RegularizedDiffPool(k=self.k, kernel_initializer=he_initializer, column_lambda=cl, entr_lambda=el, return_selection=True, path=path)
 
         self.conv_list2=[]
         for i in range(cgcnn_num2):
@@ -573,48 +587,27 @@ class HNetEdgepool(Model):
 
     def call(self, inputs):
         x, a, e, i = inputs
-        element_idx=np.empty((len(x)))
-        for id in range(len(x)):
-            temp=np.nonzero(x[id])[0]
-            element_idx[id]=int(str(temp[0])+str(temp[1]))
-
         x= self.embedding(x)
-
+        #print(e)
         for cgcnn in self.conv_list:
             x= cgcnn([x, a, e])
             x= tf.nn.softplus(x)
 
-        batch_X, batch_A= self.disjoint2batch([x, a, i])
+        batch_X = ops.disjoint_signal_to_batch(x, i)
+        batch_A= self.disjoint_adjacency_to_batch(a, i)
 
         x_pool, a_pool, i_pool, s= self.pool([batch_X, batch_A, i])
         x_pool= tf.reshape(x_pool, [x_pool.shape[0]*x_pool.shape[1], x_pool.shape[2]]) #reshape to disjoint form
 
-        e_pool= self.edgepool(e, a, s, i, a_pool)
+        e_pool= self.edgepool(e, batch_A, s, i)
 
-
-
-
-        temp_a= tf.unstack(a_pool)
-        total_nodes= len(i_pool)
-        disjoint_a= np.zeros((total_nodes, total_nodes))
-        begin=0
-        step=len(temp_a[0])
-        end=begin+step
-
-        for j in temp_a:
-            disjoint_a[begin:end, begin:end]= np.ones((2,2))
-            begin= begin+step
-            end= begin+step
-        disjoint_a= tf.sparse.from_dense(disjoint_a)
-        #print('new adj matrix after pooling')
-        #print(disjoint_a)
-
+        disjoint_a, edges= self.batch2disjoint(a_pool, e_pool, len(i_pool))
 
         for cgcnn2 in self.conv_list2:
-            x_pool= cgcnn2([x_pool, disjoint_a])
+            x_pool= cgcnn2([x_pool, disjoint_a, edges])
             x_pool= tf.nn.softplus(x_pool)
 
-        x_pool= tf.reshape(x_pool, [int(x_pool.shape[0]/2), int(x_pool.shape[1]*2)])
+        x_pool= tf.reshape(x_pool, [int(x_pool.shape[0]/self.k), int(x_pool.shape[1]*self.k)])
 
         x=self.out_layer(x_pool)
 
@@ -623,49 +616,104 @@ class HNetEdgepool(Model):
         else:
             return x
 
-    def edgepool(self, e, a, s, i, a_pool):
-        indices = a.indices
+    def disjoint_adjacency_to_batch(self, A, I):#sparse version
+        I = tf.cast(I, tf.int64)
+        indices = A.indices
+        values = A.values
         i_nodes, j_nodes = indices[:, 0], indices[:, 1]
 
-        graph_sizes = tf.math.segment_sum(tf.ones_like(i), i)
+        graph_sizes = tf.math.segment_sum(tf.ones_like(I), I)
         max_n_nodes = tf.reduce_max(graph_sizes)
         n_graphs = tf.shape(graph_sizes)[0]
-        relative_j_nodes = j_nodes - self._vectorised_get_cum_graph_size(j_nodes, graph_sizes)
 
-        new_indices = tf.transpose(tf.stack([i_nodes, relative_j_nodes]))
+        offset = tf.gather(I, i_nodes)
+        offset = tf.gather(tf.cumsum(graph_sizes, exclusive=True), offset)
 
-        new_indices = tf.cast(new_indices, tf.int32)
-        n_graphs = tf.cast(n_graphs, tf.int32)
-        max_n_nodes = tf.cast(max_n_nodes, tf.int32)
+        relative_j_nodes = j_nodes - offset
+        relative_i_nodes = i_nodes - offset
+        real_new_indices= tf.stack([tf.gather(I, i_nodes),relative_i_nodes,relative_j_nodes], axis=1)
 
-        dense_edge = tf.scatter_nd(
-            new_indices, e, (n_graphs * max_n_nodes, max_n_nodes, 41)
+        batch = tf.sparse.SparseTensor(real_new_indices,values,(n_graphs, max_n_nodes, max_n_nodes))
+
+        return batch
+
+
+    def edgepool(self, e, batch_a, s, i):
+        indices = batch_a.indices
+        graph_sizes = tf.math.segment_sum(tf.ones_like(i), i)
+        max_n_nodes = tf.cast(tf.reduce_max(graph_sizes), tf.int32)
+        n_graphs = tf.cast(tf.shape(graph_sizes)[0], tf.int32)
+
+        batch_edge_placeholder = tf.sparse.SparseTensor(indices,tf.reduce_sum(e, axis=1),(n_graphs, max_n_nodes, max_n_nodes))
+        s_sparse= tf.sparse.from_dense(s)
+        #print(batch_edge_placeholder.dense_shape)
+        #print(s_sparse.dense_shape)
+        part_1= self.sparse_multiply(tf.sparse.transpose(s_sparse, perm=[0,2,1]), batch_edge_placeholder)
+        batch_e= self.sparse_multiply(part_1,s_sparse)
+
+
+        return batch_e
+
+    def sparse_multiply(self, a: tf.SparseTensor, b: tf.SparseTensor):
+        a_sm = sparse_csr_matrix_ops.sparse_tensor_to_csr_sparse_matrix(
+            a.indices, a.values, a.dense_shape
         )
 
-        batch_edge = tf.reshape(dense_edge, (n_graphs, max_n_nodes, max_n_nodes, 41))
-        batch_edge = tf.cast(batch_edge, tf.float32)
+        b_sm = sparse_csr_matrix_ops.sparse_tensor_to_csr_sparse_matrix(
+            b.indices, b.values, b.dense_shape
+        )
 
-        #print(graph_sizes)
-        for g in batch_edge:
-            g_debug= tf.math.reduce_sum(g, axis=2)
-            print(g_debug)
-            print(tf.transpose(g_debug))
-            new_debug= tf.math.maximum(g_debug, tf.transpose(g_debug))
-            print(new_debug)
-            #now make this work when the features each have 41 elements
-            print('----------')
-        return np.nan
+        c_sm = sparse_csr_matrix_ops.sparse_matrix_sparse_mat_mul(
+            a=a_sm, b=b_sm, type=tf.float32
+        )
 
-    def _vectorised_get_cum_graph_size(self, nodes, graph_sizes):
-        """Takes a list of node ids and graph sizes ordered by segment ID and returns the number of nodes contained in graphs with smaller segment ID.
-        :param nodes: List of node ids of shape (nodes)
-        :param graph_sizes: List of graph sizes (i.e. tf.math.segment_sum(tf.ones_like(I), I) where I are the segment IDs).
-        :return: A list of shape (nodes) where each entry corresponds to the number of nodes contained in graphs with smaller segment ID for each node.
-        """
-        def get_cum_graph_size(node):
-            cum_graph_sizes = tf.cumsum(graph_sizes, exclusive=True)
-            indicator_if_smaller = tf.cast(node - cum_graph_sizes >= 0, tf.int32)
-            graph_id = tf.reduce_sum(indicator_if_smaller) - 1
-            return tf.cumsum(graph_sizes, exclusive=True)[graph_id]
+        c = sparse_csr_matrix_ops.csr_sparse_matrix_to_sparse_tensor(
+            c_sm, tf.float32
+        )
 
-        return tf.map_fn(get_cum_graph_size, nodes)
+        return tf.SparseTensor(
+            c.indices, c.values, dense_shape=c.dense_shape
+        )
+
+    def batch2disjoint(self, batch_adj, batch_edge, total_nodes):
+        #adj
+        temp_a= tf.unstack(batch_adj)
+        disjoint_adj= np.zeros((total_nodes, total_nodes))
+        begin=0
+        step=len(temp_a[0])
+        end=begin+step
+
+        for j in temp_a:
+            disjoint_adj[begin:end, begin:end]= np.ones((self.k,self.k))
+            begin= begin+step
+            end= begin+step
+        disjoint_adj= tf.sparse.from_dense(disjoint_adj)
+
+        #edge
+        adj_indices=disjoint_adj.indices
+        disjoint_e= np.zeros((total_nodes, total_nodes))
+
+        #temp_e= tf.unstack(batch_edge)
+        edge_idx= batch_edge.indices
+        edge_vals= batch_edge.values
+
+
+        edge_idx, edges= reorder(edge_index=np.array(adj_indices), edge_features=np.array(edge_vals))
+        #print(edge_idx)
+        #print(edges.shape)
+        return disjoint_adj, np.reshape(edges, [edges.shape[0],1])
+
+    # @tf.autograph.experimental.do_not_convert
+    # def _vectorised_get_cum_graph_size(self, nodes, graph_sizes):
+    #     """Takes a list of node ids and graph sizes ordered by segment ID and returns the number of nodes contained in graphs with smaller segment ID.
+    #     :param nodes: List of node ids of shape (nodes)
+    #     :param graph_sizes: List of graph sizes (i.e. tf.math.segment_sum(tf.ones_like(I), I) where I are the segment IDs).
+    #     :return: A list of shape (nodes) where each entry corresponds to the number of nodes contained in graphs with smaller segment ID for each node.
+    #     """
+    #     def get_cum_graph_size(node):
+    #         cum_graph_sizes = tf.cumsum(graph_sizes, exclusive=True)
+    #         indicator_if_smaller = tf.cast(node - cum_graph_sizes >= 0, tf.int32)
+    #         graph_id = tf.reduce_sum(indicator_if_smaller) - 1
+    #         return tf.cumsum(graph_sizes, exclusive=True)[graph_id]
+    #
+    #     return tf.map_fn(get_cum_graph_size, nodes)
