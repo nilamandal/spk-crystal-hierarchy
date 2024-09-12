@@ -307,19 +307,17 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path):
 
 if __name__ == '__main__':
 
-    subpaths=['train_model_9074d49a_11_trial_index=2,batch_size=16,cgcnn_2=2,column_lambda=44.6674,embedding_size=32,entropy_lambda=50.3886,lr=0._2024-07-30_13-35-06',
-                'train_model_066a14b4_29_trial_index=0,batch_size=64,cgcnn_2=1,column_lambda=643.3015,embedding_size=4,entropy_lambda=6350614.0309,_2024-07-30_13-35-06',
-                'train_model_1e9154ac_31_trial_index=2,batch_size=64,cgcnn_2=1,column_lambda=643.3015,embedding_size=4,entropy_lambda=6350614.0309,_2024-07-30_13-35-06',
-                'train_model_8618ae9a_12_trial_index=3,batch_size=16,cgcnn_2=2,column_lambda=44.6674,embedding_size=32,entropy_lambda=50.3886,lr=0._2024-07-30_13-35-06',
-                'train_model_70bc7024_90_trial_index=1,batch_size=32,cgcnn_2=1,column_lambda=2647.4746,embedding_size=8,entropy_lambda=99856.4093,l_2024-07-30_13-35-06']
-
+    subpaths=['train_model_20d88373_453_trial_index=0,batch_size=4,cgcnn_2=1,column_lambda=228324.9475,embedding_size=4,entropy_lambda=13.1296,lr_2024-08-16_17-26-26',
+                'train_model_4dcfec30_454_trial_index=1,batch_size=4,cgcnn_2=1,column_lambda=228324.9475,embedding_size=4,entropy_lambda=13.1296,lr_2024-08-16_17-27-34',
+                'train_model_8e164a33_312_trial_index=3,batch_size=4,cgcnn_2=1,column_lambda=3997271.6109,embedding_size=4,entropy_lambda=1.9936,lr_2024-08-16_15-09-32',
+                '']
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
     #fullpath_of_data_file='../Main_fol_Zintl/Zintl_phases_trial_for_bonding_analysis.csv'
     fullpath_of_data_file='../Main_fol_Zintl/val_no_metals.csv'
 
     for pathstring in subpaths:
         #fullpath of model is the path to the DIRECTORY where the saved model is located.
-        fullpath_of_model='../zintl_edgepool2/'+pathstring+'/'
+        fullpath_of_model='../zintl_edgepool4/'+pathstring+'/'
 
 
         #write output path is the DIRECTORY where you want the output files to be saved.

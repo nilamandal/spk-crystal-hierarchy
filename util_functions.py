@@ -112,3 +112,5 @@ def scale_dls_only(c):
     newpath='./sc24_scaled/'+c.split('/')[-1][:-7]+'.cif'
     structure.to(filename=newpath)
     return newpath
+
+check_env_versions()

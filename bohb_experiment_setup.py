@@ -193,6 +193,8 @@ def train_model(config):
     all_callbacks.on_train_end(logs)
     gen_plots(train_metric, val_metric_list)
     # Return final stats.
+    del model
+    del all_callbacks
     return {"score": best_model_mse}
 
 
@@ -216,7 +218,7 @@ def gen_plots(train_metric, val_metric):
 
 
 if __name__ == "__main__":
-      NUM_MODELS = 1
+      NUM_MODELS = 10
 
       trial_space = {
             'embedding_size': tune.choice([4,8,16,32,64]),
