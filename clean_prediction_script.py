@@ -11,11 +11,11 @@ import os
 import sys
 from pymatgen.core.structure import Structure
 import json
-from spektral_essential_objects import GaussianDistance,MyDataset, HNetEdgepool
+from spektral_essential_objects import GaussianDistance, MyDataset, HNetSingleJanossy
 from sklearn import svm
 import pylab as pl
 from tensorflow.keras import backend as K
-from util_functions import entropy_loss, row_e_and_column_p
+#from util_functions import entropy_loss, row_e_and_column_p
 
 #This function handles all evaluation of the data. It computes the model's prediction for each crystal,
 #the error for each crystal, and the poolings for each crystal. The prediction, error value, and a performance
@@ -94,8 +94,8 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
                 pl.savefig(savepath+'/'+tempcifname+'coloredbytarget.png')
 
                 C, score, margin, svc_pred= evaluate_pool(binary_feats, binary_targets)
-                column_entropy, row_entropy= row_e_and_column_p(np.array(binary_feats))
-
+                #column_entropy, row_entropy= row_e_and_column_p(np.array(binary_feats))
+                column_entropy, row_entropy= np.nan, np.nan
                 specieslist=[]
 
                 for k in range(len(crystal)):
@@ -292,42 +292,52 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path):
     loader_va= DisjointLoader(data, shuffle=False, batch_size=len(val_df))
     cifs=data.get_cifs()
 
-    paramsdict= json.load(open(checkpoint_dir+'/params.json'))
-    model= HNetEdgepool('r', 1, embedding_size=paramsdict['embedding_size'], cgcnn_num2= paramsdict['cgcnn_2'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], return_s=True)
+    #paramsdict= json.load(open(checkpoint_dir+'/params.json'))
+    #model= HNetEdgepool('r', 1, embedding_size=paramsdict['embedding_size'], cgcnn_num2= paramsdict['cgcnn_2'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], return_s=True)
+    try:
+        #print('hello')
+        #paramsdict= json.load(open(checkpoint_dir+'/result.json'))
+        paramsdict= json.load(open(checkpoint_dir+'/params.json'))
+        print(paramsdict)
+        model= HNetSingleJanossy('r', 1, beta=paramsdict['beta'], embedding_size= paramsdict['embedding_size'], return_s=True)
+
+        latest = tf.train.latest_checkpoint(checkpoint_dir)
+        model.load_weights(latest)
+        if not os.path.exists(write_output_path):
+            os.makedirs(write_output_path)
+        result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
+
+        return result_dict
+    except:
+        print('params dict not available')
+
+
     #model=HNetSingleJanossy('r', 1, embedding_size=paramsdict['embedding_size'], cgcnn_num2= paramsdict['cgcnn_2'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], return_s=True)
     #model= HNetDoubleJanossy('r', 1, embedding_size=, el=, cl=, fc_num=paramsdict['fc_num'], fc_size=paramsdict['fc_size'], fc_size2=paramsdict['fc_size2'], fc_num2=paramsdict['fc_num2'], return_s=True)
-
-    latest = tf.train.latest_checkpoint(checkpoint_dir)
-    model.load_weights(latest)
-    if not os.path.exists(write_output_path):
-        os.makedirs(write_output_path)
-    result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
-    #return 'ok'
-    return result_dict
+    #
+    # latest = tf.train.latest_checkpoint(checkpoint_dir)
+    # model.load_weights(latest)
+    # if not os.path.exists(write_output_path):
+    #     os.makedirs(write_output_path)
+    # result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
+    # #return 'ok'
+    # return result_dict
 
 if __name__ == '__main__':
 
-    subpaths=['train_model_20d88373_453_trial_index=0,batch_size=4,cgcnn_2=1,column_lambda=228324.9475,embedding_size=4,entropy_lambda=13.1296,lr_2024-08-16_17-26-26',
-                'train_model_4dcfec30_454_trial_index=1,batch_size=4,cgcnn_2=1,column_lambda=228324.9475,embedding_size=4,entropy_lambda=13.1296,lr_2024-08-16_17-27-34',
-                'train_model_8e164a33_312_trial_index=3,batch_size=4,cgcnn_2=1,column_lambda=3997271.6109,embedding_size=4,entropy_lambda=1.9936,lr_2024-08-16_15-09-32',
-                '']
+    subpaths=[21,5]
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
     #fullpath_of_data_file='../Main_fol_Zintl/Zintl_phases_trial_for_bonding_analysis.csv'
-    fullpath_of_data_file='../Main_fol_Zintl/val_no_metals.csv'
+    fullpath_of_data_file='../Main_fol_Zintl/testcorrectness.csv'
 
     for pathstring in subpaths:
+        pathstring= str(pathstring)
         #fullpath of model is the path to the DIRECTORY where the saved model is located.
-        fullpath_of_model='../zintl_edgepool4/'+pathstring+'/'
+        fullpath_of_model='../serious_lhc/'+pathstring+'/'
 
 
         #write output path is the DIRECTORY where you want the output files to be saved.
         #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
-        write_output_path=fullpath_of_model+'validation_eval/'
+        write_output_path=fullpath_of_model+'testcorrectness/'
 
         result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path)
-
-    #fullpath_of_data_file='../Main_fol_Zintl/val_no_metals.csv'
-    #write_output_path='../zintlsinglejanossy/train_model_f0b3e778/'
-    #result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path)
-    # print(result_dict)
-    #print('all tasks are complete')

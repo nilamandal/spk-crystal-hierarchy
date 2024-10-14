@@ -374,7 +374,7 @@ if __name__ == '__main__':
     num_complete_models= 0
     sampler = qmc.LatinHypercube(d=9)
     quantity=5
-    #embeddingsize, bs, fc_size, fc_size2, fc_num, fc_num2, entropy_lambda, column_lambda, lr
+    #embeddingsize, bs, fc_size, fc_size2, fc_num, fc_num2, lr
     l_bounds= [2, 2, 2, 2, 1, 1, 1, 1, -6]#, 0, 0, 0]
     u_bounds= [6, 6, 6, 6, 3, 3, 8, 8, -1]#, 4, 4, 4]
     while num_complete_models<=200:

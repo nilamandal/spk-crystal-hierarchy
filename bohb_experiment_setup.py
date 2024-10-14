@@ -5,7 +5,7 @@ import argparse
 from spektral_essential_objects import GaussianDistance, MyDataset, RegularizedDiffPool, HNetSingleJanossy
 from spektral.data import DisjointLoader
 from CorrectedRepeater import BOHBRepeater
-from tensorflow.keras.optimizers import SGD, Adam
+from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import MeanSquaredError
 import numpy as np
 from tensorflow.keras.metrics import sparse_categorical_accuracy #, mean_squared_error
@@ -23,7 +23,7 @@ import json
 
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='/home/nim18004/Main_fol_Zintl')
+        help='Directory where dataset is located', default='/Users/nilamandal/desktop/Main_fol_Zintl')
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
                     help='num neighbors per atom', default=12)
 parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
@@ -113,13 +113,13 @@ def train_model(config):
 
     checkpoint_path='./goodmodel.ckpt'
 
-    epochs = 1000
+    epochs = 10
     if epochs<1000:
         print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
 
-    #embedding_size= config['embedding_size']
+    embedding_size= config['embedding_size']
     batch_size= config['batch_size']
-    #entropy_lambda= config['entropy_lambda']
+    entropy_lambda= config['entropy_lambda']
     softmax_beta= config['softmax_beta']
     lr= config['lr']
 
@@ -226,9 +226,9 @@ if __name__ == "__main__":
       NUM_MODELS = 10
 
       trial_space = {
-            #'embedding_size': tune.choice([4,8,16,32,64]),
+            'embedding_size': tune.choice([4,8,16,32,64]),
             'batch_size': tune.choice([4,8,16,32,64]),
-            #'entropy_lambda': tune.loguniform(1, 1e8),
+            'entropy_lambda': tune.loguniform(1, 1e8),
             'softmax_beta': tune.loguniform(1, 1e8),
             'lr': tune.loguniform(1e-8, 1e-1)
         }
