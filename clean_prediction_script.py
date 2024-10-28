@@ -11,7 +11,7 @@ import os
 import sys
 from pymatgen.core.structure import Structure
 import json
-from spektral_essential_objects import GaussianDistance, MyDataset, HNetSingleJanossy
+from spektral_essential_objects import GaussianDistance, MyDataset, Edgepool
 from sklearn import svm
 import pylab as pl
 from tensorflow.keras import backend as K
@@ -294,15 +294,19 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path):
 
     #paramsdict= json.load(open(checkpoint_dir+'/params.json'))
     #model= HNetEdgepool('r', 1, embedding_size=paramsdict['embedding_size'], cgcnn_num2= paramsdict['cgcnn_2'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], return_s=True)
+    config={
+        "embedding_size": 64,
+        "batch_size": 64,
+        "beta": 13.051170511085838,
+        "lr": 0.0382548618056543
+    }
+    model= Edgepool('r', 1, embedding_size=config['embedding_size'], beta=config['beta'], return_s=True)
+    latest = tf.train.latest_checkpoint(checkpoint_dir)
+    model.load_weights(latest)
     try:
-        #print('hello')
-        #paramsdict= json.load(open(checkpoint_dir+'/result.json'))
-        paramsdict= json.load(open(checkpoint_dir+'/params.json'))
-        print(paramsdict)
-        model= HNetSingleJanossy('r', 1, beta=paramsdict['beta'], embedding_size= paramsdict['embedding_size'], return_s=True)
 
-        latest = tf.train.latest_checkpoint(checkpoint_dir)
-        model.load_weights(latest)
+
+        #model.load_weights(latest)
         if not os.path.exists(write_output_path):
             os.makedirs(write_output_path)
         result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
@@ -315,29 +319,24 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path):
     #model=HNetSingleJanossy('r', 1, embedding_size=paramsdict['embedding_size'], cgcnn_num2= paramsdict['cgcnn_2'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], return_s=True)
     #model= HNetDoubleJanossy('r', 1, embedding_size=, el=, cl=, fc_num=paramsdict['fc_num'], fc_size=paramsdict['fc_size'], fc_size2=paramsdict['fc_size2'], fc_num2=paramsdict['fc_num2'], return_s=True)
     #
-    # latest = tf.train.latest_checkpoint(checkpoint_dir)
-    # model.load_weights(latest)
-    # if not os.path.exists(write_output_path):
-    #     os.makedirs(write_output_path)
-    # result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
-    # #return 'ok'
+
     # return result_dict
 
 if __name__ == '__main__':
 
-    subpaths=[21,5]
+    subpaths=[0]
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
-    #fullpath_of_data_file='../Main_fol_Zintl/Zintl_phases_trial_for_bonding_analysis.csv'
-    fullpath_of_data_file='../Main_fol_Zintl/testcorrectness.csv'
+    fullpath_of_data_file='../Main_fol_Zintl/Zintl_phases_trial_for_bonding_analysis.csv'
+    #fullpath_of_data_file='../Main_fol_Zintl/val_no_metals.csv'
 
     for pathstring in subpaths:
         pathstring= str(pathstring)
         #fullpath of model is the path to the DIRECTORY where the saved model is located.
-        fullpath_of_model='../serious_lhc/'+pathstring+'/'
+        fullpath_of_model='../serious_lhc/serious_lhc_2/'+pathstring+'/'
 
 
         #write output path is the DIRECTORY where you want the output files to be saved.
         #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
-        write_output_path=fullpath_of_model+'testcorrectness/'
+        write_output_path=fullpath_of_model+'bondanalysis/'
 
         result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path)
