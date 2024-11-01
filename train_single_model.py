@@ -2,7 +2,8 @@ import tensorflow as tf
 import os
 import sys
 import argparse
-from spektral_essential_objects import MyDataset, HNetSingleJanossy
+from spektral_essential_objects import MyDataset, HNetSingleJanossy#, SparseEdgepool
+from edgepool_w_error_objects import SparseEdgepool
 from spektral.data import DisjointLoader
 from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.losses import MeanSquaredError
@@ -107,31 +108,33 @@ def train_model(config):
 
     checkpoint_path='./goodmodel.ckpt'
 
-    epochs = 10
+    epochs = 100
     if epochs<1000:
         print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
-
-    embedding_size= config['embedding_size']
-    batch_size= config['batch_size']
-    entropy_lambda= config['entropy_lambda']
-    softmax_beta= config['softmax_beta']
-    lr= config['lr']
+    #
+    # embedding_size= config['embedding_size']
+    # batch_size= config['batch_size']
+    # entropy_lambda= config['entropy_lambda']
+    # softmax_beta= config['softmax_beta']
+    # lr= config['lr']
+    batch_size= 32
+    lr= 0.0001
 
     # Load data and train model code here...
     train_df = pd.read_csv(os.path.join(args.datadir,'train_no_metals.csv'))
-    #train_df = train_df.head(20)
+    #train_df = train_df.head(1000)
     train_data= MyDataset(train_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     load_tr= DisjointLoader(train_data, batch_size=batch_size, epochs=epochs)
     load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
 
     val_df = pd.read_csv(os.path.join(args.datadir,'val_no_metals.csv'))
-    #val_df = val_df.head(20)
+    #val_df = val_df.head(1000)
     val_data= MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
     load_va= DisjointLoader(val_data, batch_size=len(val_data))
     print('loaded data')
     csv_log = CSVLogger("./callback_results.csv")
 
-    model= HNetSingleJanossy('r', 1, beta=softmax_beta, return_s=True)
+    model= SparseEdgepool('r', 1, return_s=True)
 
     all_callbacks= CallbackList([csv_log], add_history=True, model=model)
     #
@@ -217,8 +220,9 @@ def gen_plots(train_metric, val_metric):
 
 
 if __name__ == "__main__":
-      NUM_MODELS = 10
-      for n in range(NUM_MODELS):
-         beta= 10**random.uniform(0.0, 8.0)
-         lr= 10**random.uniform(-8.0, -1.0)
-         print(beta, lr)
+    train_model([])
+      # NUM_MODELS = 10
+      # for n in range(NUM_MODELS):
+      #    beta= 10**random.uniform(0.0, 8.0)
+      #    lr= 10**random.uniform(-8.0, -1.0)
+      #    print(beta, lr)
