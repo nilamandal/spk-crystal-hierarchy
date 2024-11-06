@@ -2,8 +2,8 @@ import tensorflow as tf
 import os
 import sys
 import argparse
-from spektral_essential_objects import MyDataset, HNetSingleJanossy#, SparseEdgepool
-from edgepool_w_error_objects import SparseEdgepool
+from spektral_essential_objects import MyDataset, SparseEdgepool
+#from edgepool_w_error_objects import SparseEdgepool
 from spektral.data import DisjointLoader
 from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.losses import MeanSquaredError

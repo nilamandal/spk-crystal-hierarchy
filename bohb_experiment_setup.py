@@ -2,7 +2,7 @@ import tensorflow as tf
 import os
 import sys
 import argparse
-from spektral_essential_objects import GaussianDistance, MyDataset, RegularizedDiffPool, HNetSingleJanossy
+from spektral_essential_objects import MyDataset, SparseEdgepool
 from spektral.data import DisjointLoader
 from CorrectedRepeater import BOHBRepeater
 from tensorflow.keras.optimizers import Adam
@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from tensorflow.keras.callbacks import CallbackList, CSVLogger
 from tensorflow.keras import backend as K
 import json
-
+import resource
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 parser.add_argument('--datadir', dest='datadir',
         help='Directory where dataset is located', default='/Users/nilamandal/desktop/Main_fol_Zintl')
@@ -113,35 +113,29 @@ def train_model(config):
 
     checkpoint_path='./goodmodel.ckpt'
 
-    epochs = 10
+    epochs = 1000
     if epochs<1000:
         print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
-
-    embedding_size= config['embedding_size']
-    batch_size= config['batch_size']
-    entropy_lambda= config['entropy_lambda']
-    softmax_beta= config['softmax_beta']
-    lr= config['lr']
 
     # Load data and train model code here...
     train_df = pd.read_csv(os.path.join(args.datadir,'train_no_metals.csv'))
     #train_df = train_df.head(20)
-    train_data= MyDataset(train_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
-    load_tr= DisjointLoader(train_data, batch_size=batch_size, epochs=epochs)
+    train_data= MyDataset(train_df, args.datadir, args.radius_angstroms, config['num_nbrs'], args.task)
+    load_tr= DisjointLoader(train_data, batch_size=config['batch_size'], epochs=epochs)
     load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
 
     val_df = pd.read_csv(os.path.join(args.datadir,'val_no_metals.csv'))
     #val_df = val_df.head(20)
-    val_data= MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
+    val_data= MyDataset(val_df, args.datadir, args.radius_angstroms, config['num_nbrs'], args.task)
     load_va= DisjointLoader(val_data, batch_size=len(val_data))
     print('loaded data')
     csv_log = CSVLogger("./callback_results.csv")
 
-    model= HNetSingleJanossy('r', 1, beta=softmax_beta, return_s=True)
+    model= SparseEdgepool('r', 1, embedding_size=config['embedding_size'], cgcnn_num=config['cgcnn_num'], cgcnn_num2=config['cgcnn_num2'], softmax_beta=config['softmax_beta'], return_s=True)
 
     all_callbacks= CallbackList([csv_log], add_history=True, model=model)
     #
-    optim=Adam(lr)
+    optim=Adam(config['lr'])
     loss_fn= MeanSquaredError()
 
     train_metric=[]
@@ -155,6 +149,9 @@ def train_model(config):
     logs = {}
     all_callbacks.on_train_begin(logs=logs)
     for batch in load_tr:
+            #print(epoch)
+            #print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+            # peak memory usage (kilobytes on Linux, bytes on OS X)
             #print(epoch)
             if step==0:
                 all_callbacks.on_epoch_begin(epoch, logs=logs)
@@ -223,12 +220,14 @@ def gen_plots(train_metric, val_metric):
 
 
 if __name__ == "__main__":
-      NUM_MODELS = 10
+      NUM_MODELS = 2
 
       trial_space = {
             'embedding_size': tune.choice([4,8,16,32,64]),
+            'cgcnn_num': tune.choice([1,2,3]),
+            'cgcnn_num2': tune.choice([1,2,3]),
+            'num_nbrs': tune.choice([1,2,3,4,5,6,7,8,9,10,11,12]),
             'batch_size': tune.choice([4,8,16,32,64]),
-            'entropy_lambda': tune.loguniform(1, 1e8),
             'softmax_beta': tune.loguniform(1, 1e8),
             'lr': tune.loguniform(1e-8, 1e-1)
         }
@@ -240,7 +239,7 @@ if __name__ == "__main__":
         stop_last_trials=False,
       )
 
-      bohb = BOHBRepeater(metric='score', mode='min', repeat=2, max_concurrent=1)
+      bohb = BOHBRepeater(metric='score', mode='min', repeat=1, max_concurrent=1)
       train_model_object = tune.with_resources(train_model, {"cpu": 1})
       tuner = tune.Tuner(train_model_object, tune_config=tune.TuneConfig(
         search_alg=bohb,
