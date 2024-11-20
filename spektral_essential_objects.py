@@ -62,6 +62,9 @@ class MyDataset(Dataset):
         self.radius_angstroms= r_a
         self.num_nbrs= num_nbrs
         self.task= task
+        self.electronegativity_lookup= {1:2.2, 3:0.98, 4:1.57, 11:0.93, 12:1.31, 13:1.61, 14:1.9, 15:2.19, 19:0.82,
+            20:1, 25:1.55, 30:1.65, 31:1.81, 32:2.01, 33:2.18, 37:0.82, 38:0.95, 48:1.69, 49:1.69, 50:1.96, 51:2.05,
+            55:0.79, 56:0.89, 70:1.1, 80:2, 81:1.62, 82:2.33, 83:2.02}
 
         super().__init__()
 
@@ -69,8 +72,8 @@ class MyDataset(Dataset):
         df = self.dataframe.sample(frac=1).reset_index(drop=True)
         allgraphs=[]
         cifs=list(df['id'])
-        num_symmetric=0
-        num_asymmetric=0
+        #num_symmetric=0
+        #num_asymmetric=0
         self.cifs=cifs
         all_atomic_numbers=[]
         for c in cifs:
@@ -90,10 +93,12 @@ class MyDataset(Dataset):
                 row_encoding= np.zeros(9)
                 group_encoding[atom.specie.group-1]=1
                 row_encoding[atom.specie.row-1]=1
-                atom_hot=np.concatenate((group_encoding, row_encoding))
+                electronegativity= [self.electronegativity_lookup[atom.specie.number]]
+                atom_hot=np.concatenate((group_encoding, row_encoding, electronegativity))
                 atom_fea.append(atom_hot)
 
             atom_fea= np.vstack(atom_fea)
+
             all_nbrs = crystal.get_all_neighbors(self.radius_angstroms, include_index=True)
             all_nbrs = [sorted(nbrs, key=lambda x: x[1]) for nbrs in all_nbrs]
             nbr_fea_idx, nbr_fea = [], []
@@ -199,14 +204,6 @@ class RegularizedDiffPool(DiffPool):
         stdev= tf.math.add(tf.math.reduce_std(masked_tensor, axis=1), K.epsilon()) #+epsilon in case of std=0 (when column is all the same value)
         mean_stack=tf.stack([means]*s.shape[1], axis=1)
         stdev_stack= tf.stack([stdev]*s.shape[1], axis=1)
-
-        #######version without beta:
-
-        #s_interim= tf.subtract(s, mean_stack)
-        #normalized_crystal= tf.ragged.boolean_mask(s_interim, masked_s._keras_mask)
-        #normalized_crystal = activations.softmax(normalized_crystal, axis=-1)
-
-        #s= normalized_crystal.to_tensor(default_value=0.)
 
         ###### version with beta
         s_interim= tf.math.divide(tf.subtract(s, mean_stack), stdev_stack)
@@ -545,11 +542,9 @@ class SparseEdgepool(Model):
 
         batch_edge_placeholder = tf.sparse.SparseTensor(indices,tf.reduce_sum(e, axis=1),(n_graphs, max_n_nodes, max_n_nodes))
         s_sparse= tf.sparse.from_dense(s)
-        #print(batch_edge_placeholder.dense_shape)
-        #print(s_sparse.dense_shape)
+
         part_1= self.sparse_multiply(tf.sparse.transpose(s_sparse, perm=[0,2,1]), batch_edge_placeholder)
         batch_e= self.sparse_multiply(part_1,s_sparse)
-
 
         return batch_e
 

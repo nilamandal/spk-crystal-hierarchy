@@ -11,7 +11,7 @@ import os
 import sys
 from pymatgen.core.structure import Structure
 import json
-from spektral_essential_objects import GaussianDistance, MyDataset, Edgepool
+from spektral_essential_objects import GaussianDistance, MyDataset, SparseEdgepool
 from sklearn import svm
 import pylab as pl
 from tensorflow.keras import backend as K
@@ -38,7 +38,7 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
         inputs, target = loader.__next__()
 
         outfile_main=open(write_output_path+'/pooling_eval.csv','w+')
-        outfile_main.write('name,pred, target,abs_error,pool_margin,perfect,avg_acc,row_entropy,neg_col_entropy,num_unique \n')
+        outfile_main.write('name,pred,target,abs_error,pool_margin,perfect,avg_acc,row_entropy,neg_col_entropy,num_unique \n')
 
         pred, s_tensor = model(inputs, training=False)
 
@@ -59,7 +59,6 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
                 maes_for_plot.append(individual_error)
                 crystal= Structure.from_file(os.path.join(fullpath_of_data_file,cifs[i]))
                 crystal_size.append(len(crystal))
-                #tempdf=df[df['id']==cifs[i]]
 
                 ground_truth_P1= df[df['id']==cifs[i]].P1.values[0]
 
@@ -82,7 +81,6 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
                         truth_val=1
                     else:
                         truth_val= 0
-                    #line="{},{},{},{},{},{},{},{},{} \n".format(k, crystal[k].specie, crystal[k].a, crystal[k].b, crystal[k].c, assign[k,0], assign[k,1], truth_val)
                     binary_targets.append(truth_val)
                     binary_feats.append(assign[k].numpy())
                 pl.figure()
@@ -113,16 +111,16 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
                 coloroptions=['#214cc9', '#c20d42', '#287f1b', '#d8c800']
                 colorcode=0
                 sizecode=100
-                print(specieslist)
+                #print(specieslist)
                 specieslist= np.array(specieslist)
                 species_unique= np.unique(specieslist)
-                print(species_unique)
+                #print(species_unique)
                 for x in species_unique:
                     useful_index= np.where(specieslist==x)[0]
                     pl.scatter(np.array(binary_feats)[useful_index,0], np.array(binary_feats)[useful_index,1], s=sizecode, c=coloroptions[colorcode], label=x)
                     colorcode+=1
                     sizecode= sizecode/2
-                print('---')
+                #print('---')
 
                 pl.xlabel('P1 assignment')
                 pl.ylabel('P2 assignment')
@@ -163,21 +161,21 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
 
                 i+=1
 
-        plus75= [x for x in class_accuracies_for_plot if x>=0.75]
+        #plus75= [x for x in class_accuracies_for_plot if x>=0.75]
 
-        pl.figure()
-        pl.scatter(maes_for_plot, class_accuracies_for_plot, alpha=.33)
-        pl.xlabel('Absolute error (eV/atom)')
-        pl.ylabel('SVM classification accuracy')
-        pl.title('Absolute error vs cation/anion classification accuracy')
-        pl.savefig(write_output_path+'/mae_vs_acc.png')
-        pl.figure()
-        pl.scatter(maes_for_plot, crystal_size, alpha=.33)
-        pl.xlabel('Absolute error (eV/atom)')
-        pl.ylabel('Num atoms in crystal')
-        pl.title('Absolute error vs num atoms in crystal')
-        pl.savefig(write_output_path+'/mae_vs_size.png')
-        pool_acc_vs_crystal_size(crystal_size,class_accuracies_for_plot, write_output_path)
+        #pl.figure()
+        #pl.scatter(maes_for_plot, class_accuracies_for_plot, alpha=.33)
+        #pl.xlabel('Absolute error (eV/atom)')
+        #pl.ylabel('SVM classification accuracy')
+        #pl.title('Absolute error vs cation/anion classification accuracy')
+        #pl.savefig(write_output_path+'/mae_vs_acc.png')
+        #pl.figure()
+        #pl.scatter(maes_for_plot, crystal_size, alpha=.33)
+        #pl.xlabel('Absolute error (eV/atom)')
+        #pl.ylabel('Num atoms in crystal')
+        #pl.title('Absolute error vs num atoms in crystal')
+        #pl.savefig(write_output_path+'/mae_vs_size.png')
+        #pool_acc_vs_crystal_size(crystal_size,class_accuracies_for_plot, write_output_path)
 
         outs = tf.reduce_mean(mean_squared_error(target, pred))
 
@@ -279,64 +277,54 @@ def evaluate_pool(binary_feats, binary_targets):
 
 def main(fullpath_of_model, fullpath_of_data_file, write_output_path):
 
-    checkpoint_path = fullpath_of_model+"goodmodel.ckpt.index"
-
+    #checkpoint_path = fullpath_of_model+"goodmodel.ckpt.index"
+    checkpoint_path= fullpath_of_model+'model.ckpt.index'
     checkpoint_dir = os.path.dirname(checkpoint_path)
 
     data_dir = os.path.dirname(fullpath_of_data_file)
-
+    #config= json.load(open(checkpoint_dir+'/params.json'))
+    config= {
+        "embedding_size": 128.0,
+        "cgcnn_num": 3.0,
+        "cgcnn_num2": 1.0,
+        "num_nbrs": 11.0,
+        "batch_size": 128.0,
+        "softmax_beta": 1.2840318289280799,
+        "lr": 2.1589104292507738e-07,
+        "idx": "debugging_0",
+        "score": 8774.866177757098
+    }
     val_df = pd.read_csv(fullpath_of_data_file, header=0)
-    #val_df = val_df[val_df['num_elements']<=3]
-    #val_df= val_df['FERE' not in val_df['id']]
-    data= MyDataset(val_df, data_dir, 8, 12, 'r')
+
+    data= MyDataset(val_df, data_dir, 8, int(config['num_nbrs']), 'r')
     loader_va= DisjointLoader(data, shuffle=False, batch_size=len(val_df))
     cifs=data.get_cifs()
 
-    #paramsdict= json.load(open(checkpoint_dir+'/params.json'))
-    #model= HNetEdgepool('r', 1, embedding_size=paramsdict['embedding_size'], cgcnn_num2= paramsdict['cgcnn_2'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], return_s=True)
-    config={
-        "embedding_size": 64,
-        "batch_size": 64,
-        "beta": 13.051170511085838,
-        "lr": 0.0382548618056543
-    }
-    model= Edgepool('r', 1, embedding_size=config['embedding_size'], beta=config['beta'], return_s=True)
+    model= SparseEdgepool('r', 1, embedding_size=int(config['embedding_size']), cgcnn_num=int(config['cgcnn_num']), cgcnn_num2=int(config['cgcnn_num2']), softmax_beta=config['softmax_beta'], return_s=True)
     latest = tf.train.latest_checkpoint(checkpoint_dir)
     model.load_weights(latest)
-    try:
+    if not os.path.exists(write_output_path):
+        os.makedirs(write_output_path)
+    result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
 
+    return result_dict
 
-        #model.load_weights(latest)
-        if not os.path.exists(write_output_path):
-            os.makedirs(write_output_path)
-        result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
-
-        return result_dict
-    except:
-        print('params dict not available')
-
-
-    #model=HNetSingleJanossy('r', 1, embedding_size=paramsdict['embedding_size'], cgcnn_num2= paramsdict['cgcnn_2'], el=paramsdict['entropy_lambda'], cl=paramsdict['column_lambda'], return_s=True)
-    #model= HNetDoubleJanossy('r', 1, embedding_size=, el=, cl=, fc_num=paramsdict['fc_num'], fc_size=paramsdict['fc_size'], fc_size2=paramsdict['fc_size2'], fc_num2=paramsdict['fc_num2'], return_s=True)
-    #
-
-    # return result_dict
 
 if __name__ == '__main__':
 
-    subpaths=[0]
+    subpaths=['debugging_0/10']
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
-    fullpath_of_data_file='../Main_fol_Zintl/Zintl_phases_trial_for_bonding_analysis.csv'
-    #fullpath_of_data_file='../Main_fol_Zintl/val_no_metals.csv'
+    #fullpath_of_data_file='../Main_fol_Zintl/Zintl_phases_trial_for_bonding_analysis.csv'
+    fullpath_of_data_file='../Main_fol_Zintl/val_no_metals.csv'
 
     for pathstring in subpaths:
         pathstring= str(pathstring)
         #fullpath of model is the path to the DIRECTORY where the saved model is located.
-        fullpath_of_model='../serious_lhc/serious_lhc_2/'+pathstring+'/'
+        fullpath_of_model='../spk_edgepool_11_14/'+pathstring+'/'
 
 
         #write output path is the DIRECTORY where you want the output files to be saved.
         #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
-        write_output_path=fullpath_of_model+'bondanalysis/'
+        write_output_path=fullpath_of_model+'validationset/'
 
         result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path)
