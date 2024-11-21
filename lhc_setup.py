@@ -4,7 +4,7 @@ import sys
 import argparse
 from spektral_essential_objects import MyDataset, SparseEdgepool
 from spektral.data import DisjointLoader
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam, schedules
 from tensorflow.keras.losses import MeanSquaredError
 import numpy as np
 from tensorflow.keras.metrics import sparse_categorical_accuracy #, mean_squared_error
@@ -82,7 +82,7 @@ def train_model(config):
 
     checkpoint_path=write_output_path+'goodmodel.ckpt'
 
-    epochs = 200
+    epochs = 1000
     if epochs<1000:
         print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
 
@@ -104,13 +104,18 @@ def train_model(config):
 
     all_callbacks= CallbackList([csv_log], add_history=True, model=model)
     #
-    optim=Adam(config['lr'])
+
+    learning_rate_fn = schedules.InverseTimeDecay(config['lr'], int(config['decay_steps']), config['decay_rate'])
+
+
+
+    optim=Adam(learning_rate_fn)
     loss_fn= MeanSquaredError()
 
     train_metric=[]
     val_metric_list=[]
     early_stop_counter= 0
-    patience= 10
+    patience= 1000
     epoch = step = 0
 
     best_model_mse = np.inf
@@ -153,7 +158,7 @@ def train_model(config):
                 if epoch>0:
                     if val_mse<best_model_mse:
                         early_stop_counter=0
-                        model.save_weights(write_output_path+str(epoch)+'/model.ckpt')
+                        model.save_weights(write_output_path+'/model.ckpt')
                         best_model_mse= val_mse
                     else:
                         early_stop_counter+=1
@@ -198,13 +203,13 @@ def gen_plots(train_metric, val_metric, savepath):
 
 
 if __name__ == "__main__":
-      NUM_MODELS = 20
+      NUM_MODELS = 50
       #num_complete_models= 0
-      sampler = qmc.LatinHypercube(d=7, seed=2)
+      sampler = qmc.LatinHypercube(d=9, seed=0)
       sample= sampler.random(n=NUM_MODELS)
 
-      l_bounds=[1,0,0,0,1,0,-8]
-      u_bounds=[8,5,5,12,8,8,-1]
+      l_bounds=[1,0,0,0,1,0,-5,1,0]
+      u_bounds=[8,5,5,12,8,8,-1,200,1]
       scaled_sample= qmc.scale(sample, l_bounds, u_bounds)
       i=0
 
@@ -217,7 +222,9 @@ if __name__ == "__main__":
          config['batch_size']= 2**np.ceil(s[4])
          config['softmax_beta']= 10**s[5]
          config['lr']= 10**s[6]
-         config['idx']= 'debugging_'+str(i)
+         config['decay_steps']= np.ceil(s[7])
+         config['decay_rate']= s[8]
+         config['idx']= '../debugging2/'+str(i)
          print(config)
          train_model(config)
          i+=1

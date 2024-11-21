@@ -275,25 +275,25 @@ def evaluate_pool(binary_feats, binary_targets):
         best_pred= preds[best_C]
         return best_C, best_score, best_margin, best_pred
 
-def main(fullpath_of_model, fullpath_of_data_file, write_output_path):
+def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath):
 
     #checkpoint_path = fullpath_of_model+"goodmodel.ckpt.index"
     checkpoint_path= fullpath_of_model+'model.ckpt.index'
     checkpoint_dir = os.path.dirname(checkpoint_path)
 
     data_dir = os.path.dirname(fullpath_of_data_file)
-    #config= json.load(open(checkpoint_dir+'/params.json'))
-    config= {
-        "embedding_size": 128.0,
-        "cgcnn_num": 3.0,
-        "cgcnn_num2": 1.0,
-        "num_nbrs": 11.0,
-        "batch_size": 128.0,
-        "softmax_beta": 1.2840318289280799,
-        "lr": 2.1589104292507738e-07,
-        "idx": "debugging_0",
-        "score": 8774.866177757098
-    }
+    config= json.load(open(parampath+'/params.json'))
+    # config= {
+    #     "embedding_size": 128.0,
+    #     "cgcnn_num": 3.0,
+    #     "cgcnn_num2": 1.0,
+    #     "num_nbrs": 11.0,
+    #     "batch_size": 128.0,
+    #     "softmax_beta": 1.2840318289280799,
+    #     "lr": 2.1589104292507738e-07,
+    #     "idx": "debugging_0",
+    #     "score": 8774.866177757098
+    # }
     val_df = pd.read_csv(fullpath_of_data_file, header=0)
 
     data= MyDataset(val_df, data_dir, 8, int(config['num_nbrs']), 'r')
@@ -312,7 +312,7 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path):
 
 if __name__ == '__main__':
 
-    subpaths=['debugging_0/10']
+    subpaths=['141']
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
     #fullpath_of_data_file='../Main_fol_Zintl/Zintl_phases_trial_for_bonding_analysis.csv'
     fullpath_of_data_file='../Main_fol_Zintl/val_no_metals.csv'
@@ -320,11 +320,11 @@ if __name__ == '__main__':
     for pathstring in subpaths:
         pathstring= str(pathstring)
         #fullpath of model is the path to the DIRECTORY where the saved model is located.
-        fullpath_of_model='../spk_edgepool_11_14/'+pathstring+'/'
-
+        fullpath_of_model='../spk_good_11_21/0/'+pathstring+'/'
+        parampath_for_model= '../spk_good_11_21/0/'
 
         #write output path is the DIRECTORY where you want the output files to be saved.
         #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
         write_output_path=fullpath_of_model+'validationset/'
 
-        result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path)
+        result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath_for_model)
