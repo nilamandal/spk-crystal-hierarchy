@@ -108,7 +108,7 @@ def train_model(config):
 
     checkpoint_path='./goodmodel.ckpt'
 
-    epochs = 100
+    epochs = 1000
     if epochs<1000:
         print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
     #
@@ -117,28 +117,27 @@ def train_model(config):
     # entropy_lambda= config['entropy_lambda']
     # softmax_beta= config['softmax_beta']
     # lr= config['lr']
-    batch_size= 32
-    lr= 0.0001
+
 
     # Load data and train model code here...
-    train_df = pd.read_csv(os.path.join(args.datadir,'train_no_metals.csv'))
+    train_df = pd.read_csv(os.path.join(args.datadir,'train_by_fam.csv'))
     #train_df = train_df.head(1000)
-    train_data= MyDataset(train_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
-    load_tr= DisjointLoader(train_data, batch_size=batch_size, epochs=epochs)
+    train_data= MyDataset(train_df, args.datadir, 8, int(config['num_nbrs']), args.task)
+    load_tr= DisjointLoader(train_data, batch_size=int(config['batch_size']), epochs=epochs)
     load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
 
-    val_df = pd.read_csv(os.path.join(args.datadir,'val_no_metals.csv'))
-    #val_df = val_df.head(1000)
-    val_data= MyDataset(val_df, args.datadir, args.radius_angstroms, args.num_nbrs, args.task)
+    val_df = pd.read_csv(os.path.join(args.datadir,'val_by_fam.csv'))
+
+    val_data= MyDataset(val_df, args.datadir, 8, int(config['num_nbrs']), args.task)
     load_va= DisjointLoader(val_data, batch_size=len(val_data))
     print('loaded data')
     csv_log = CSVLogger("./callback_results.csv")
 
-    model= SparseEdgepool('r', 1, return_s=True)
+    model= SparseEdgepool('r', 1, embedding_size=int(config['embedding_size']), cgcnn_num=int(config['cgcnn_num']), cgcnn_num2=int(config['cgcnn_num2']), softmax_beta=config['softmax_beta'], return_s=True)
 
     all_callbacks= CallbackList([csv_log], add_history=True, model=model)
     #
-    optim=Adam(lr)
+    optim=Adam(config['lr'])
     loss_fn= MeanSquaredError()
 
     train_metric=[]
@@ -220,7 +219,15 @@ def gen_plots(train_metric, val_metric):
 
 
 if __name__ == "__main__":
-    train_model([])
+    train_model({
+      "batch_size": 8,
+      "cgcnn_num": 2,
+      "cgcnn_num2": 3,
+      "embedding_size": 16,
+      "lr": 0.0008101234899904364,
+      "num_nbrs": 6,
+      "softmax_beta": 97.15880528060197
+    })
       # NUM_MODELS = 10
       # for n in range(NUM_MODELS):
       #    beta= 10**random.uniform(0.0, 8.0)

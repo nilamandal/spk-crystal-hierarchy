@@ -312,19 +312,19 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath)
 
 if __name__ == '__main__':
 
-    subpaths=['141']
+    subpaths=['hnet_yes_fam/train_model_9ae18f48']
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
     #fullpath_of_data_file='../Main_fol_Zintl/Zintl_phases_trial_for_bonding_analysis.csv'
-    fullpath_of_data_file='../Main_fol_Zintl/val_no_metals.csv'
+    fullpath_of_data_file='../Main_fol_Zintl/test_by_family.csv'
 
     for pathstring in subpaths:
         pathstring= str(pathstring)
         #fullpath of model is the path to the DIRECTORY where the saved model is located.
-        fullpath_of_model='../spk_good_11_21/0/'+pathstring+'/'
-        parampath_for_model= '../spk_good_11_21/0/'
+        fullpath_of_model='../'+pathstring+'/'
+        parampath_for_model= fullpath_of_model
 
         #write output path is the DIRECTORY where you want the output files to be saved.
         #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
-        write_output_path=fullpath_of_model+'validationset/'
+        write_output_path=fullpath_of_model+'test_by_fam/'
 
         result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath_for_model)

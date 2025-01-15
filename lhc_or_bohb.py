@@ -4,7 +4,7 @@ import sys
 import argparse
 from spektral_essential_objects import MyDataset, SparseEdgepool
 from spektral.data import DisjointLoader
-from tensorflow.keras.optimizers import Adam, schedules
+from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import MeanSquaredError
 import numpy as np
 from tensorflow.keras.metrics import sparse_categorical_accuracy #, mean_squared_error
@@ -18,14 +18,9 @@ from scipy.stats import qmc
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import pandas as pd
 
-from ray import tune
-from ray.tune.search.bayesopt import BayesOptSearch
-from ray.tune.schedulers.hb_bohb import HyperBandForBOHB
-from ray.tune.search.bohb import TuneBOHB
-
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='/Users/nilamandal/desktop/Main_fol_Zintl')
+        help='Directory where dataset is located', default='../Main_fol_Zintl')
 
 parser.add_argument('--task', choices=['r', 'c'],
                     default='r', help='complete a regression or classification task (default: regression)')
@@ -81,9 +76,9 @@ def train_step(inputs, target, model, loss_fn, optimizer):
 
 def train_model(config):
     print('BEGUN INDIVIDUAL TRAINING')
-    write_output_path='./'
-    #if not os.path.exists(write_output_path):
-      #os.makedirs(write_output_path)
+    write_output_path='./'+config['idx']+'/'
+    if not os.path.exists(write_output_path):
+      os.makedirs(write_output_path)
 
     checkpoint_path=write_output_path+'goodmodel.ckpt'
 
@@ -92,13 +87,13 @@ def train_model(config):
         print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
 
     # Load data and train model code here...
-    train_df = pd.read_csv(os.path.join(args.datadir,'train_by_fam.csv'))
+    train_df = pd.read_csv(os.path.join(args.datadir,'train_no_metals.csv'))
     #train_df = train_df.head(20)
     train_data= MyDataset(train_df, args.datadir, 8, int(config['num_nbrs']), args.task)
     load_tr= DisjointLoader(train_data, batch_size=int(config['batch_size']), epochs=epochs)
     load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
 
-    val_df = pd.read_csv(os.path.join(args.datadir,'val_by_fam.csv'))
+    val_df = pd.read_csv(os.path.join(args.datadir,'val_no_metals.csv'))
 
     val_data= MyDataset(val_df, args.datadir, 8, int(config['num_nbrs']), args.task)
     load_va= DisjointLoader(val_data, batch_size=len(val_data))
@@ -109,11 +104,6 @@ def train_model(config):
 
     all_callbacks= CallbackList([csv_log], add_history=True, model=model)
     #
-
-    #learning_rate_fn = schedules.InverseTimeDecay(config['lr'], int(config['decay_steps']), config['decay_rate'])
-
-
-
     optim=Adam(config['lr'])
     loss_fn= MeanSquaredError()
 
@@ -163,7 +153,7 @@ def train_model(config):
                 if epoch>0:
                     if val_mse<best_model_mse:
                         early_stop_counter=0
-                        model.save_weights(write_output_path+'/model.ckpt')
+                        model.save_weights(write_output_path+str(epoch)+'/model.ckpt')
                         best_model_mse= val_mse
                     else:
                         early_stop_counter+=1
@@ -208,8 +198,7 @@ def gen_plots(train_metric, val_metric, savepath):
 
 
 if __name__ == "__main__":
-      NUM_MODELS = 2
-
+      NUM_MODELS = 100
       trial_space = {
             'embedding_size': tune.choice([4,8,16,32,64]),
             'cgcnn_num': tune.choice([1,2,3]),
@@ -218,16 +207,14 @@ if __name__ == "__main__":
             'batch_size': tune.choice([4,8,16,32,64]),
             'softmax_beta': tune.loguniform(1, 1e8),
             'lr': tune.loguniform(1e-8, 1e-1)
-        }
-
+      }
       bohb_hyperband = HyperBandForBOHB(
         time_attr="training_iteration",
         max_t=10,
         reduction_factor=4,
         stop_last_trials=False,
       )
-
-      bohb = TuneBOHB(metric='score', mode='min', max_concurrent=1)
+      bohb = BOHBRepeater(metric='score', mode='min', repeat=1, max_concurrent=10)
       train_model_object = tune.with_resources(train_model, {"cpu": 1})
       tuner = tune.Tuner(train_model_object, tune_config=tune.TuneConfig(
         search_alg=bohb,
@@ -238,3 +225,28 @@ if __name__ == "__main__":
       print('CREATED all TUNING OBJECTS')
       results = tuner.fit()
       print(results)
+      #num_complete_models= 0
+      #sampler = qmc.LatinHypercube(d=7, seed=15)
+      #sample= sampler.random(n=NUM_MODELS)
+
+      #l_bounds=[1,0,0,0,1,0,-8]
+      #u_bounds=[8,5,5,12,8,8,-1]
+      #scaled_sample= qmc.scale(sample, l_bounds, u_bounds)
+      #i=0
+
+      #for s in scaled_sample:
+       #  config={}
+        # config['embedding_size']= 2**np.ceil(s[0])
+        # config['cgcnn_num']= np.ceil(s[1])
+        # config['cgcnn_num2']= np.ceil(s[2])
+        # config['num_nbrs']= np.ceil(s[3])
+        # config['batch_size']= 2**np.ceil(s[4])
+        # config['softmax_beta']= 10**s[5]
+        # config['lr']= 10**s[6]
+        # config['idx']= 'lhc_15_noearlystop/'+str(i)
+        # print(config)
+        # try:
+        #     train_model(config)
+        # except:
+        #     pass
+        # i+=1

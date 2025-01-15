@@ -73,6 +73,8 @@ def check_env_versions():
     print(numpy.__version__)
     import ray
     print(ray.__version__)
+    import ConfigSpace
+    print(ConfigSpace.__version__)
 
 
 def get_available(filename):
