@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Ba2HgBi2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   5.72416589
+_cell_length_b   5.79090192
+_cell_length_c   14.37827825
+_cell_angle_alpha   90.01106937
+_cell_angle_beta   88.92128418
+_cell_angle_gamma   120.40090647
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Ba2HgBi2
+_chemical_formula_sum   'Ba4 Hg2 Bi4'
+_cell_volume   410.98393433
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Bi  Bi0  1  0.64191942  0.32112284  0.38943222  1
+  Bi  Bi1  1  0.35812018  0.67890054  0.11054281  1
+  Bi  Bi2  1  0.64185464  0.32108918  0.88951737  1
+  Bi  Bi3  1  0.35809834  0.67888684  0.61051460  1
+  Hg  Hg4  1  0.00001869  0.00000852  0.99999881  1
+  Hg  Hg5  1  0.00000366  0.00000066  0.50000458  1
+  Ba  Ba6  1  0.67915505  0.33953093  0.13441897  1
+  Ba  Ba7  1  0.32087211  0.66048136  0.36558048  1
+  Ba  Ba8  1  0.67912470  0.33952089  0.63441954  1
+  Ba  Ba9  1  0.32083321  0.66045824  0.86557061  1

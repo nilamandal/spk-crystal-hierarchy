@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Mn2BeP2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   7.02802619
+_cell_length_b   4.09037117
+_cell_length_c   4.31096777
+_cell_angle_alpha   90.93489834
+_cell_angle_beta   89.89795844
+_cell_angle_gamma   115.16513105
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Mn2BeP2
+_chemical_formula_sum   'Mn4 Be2 P4'
+_cell_volume   112.14911376
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  P  P0  1  0.30163676  0.20464577  0.72557972  1
+  P  P1  1  0.19836298  0.79533930  0.27443107  1
+  P  P2  1  0.80162436  0.20463589  0.72558066  1
+  P  P3  1  0.69838852  0.79543142  0.27446519  1
+  Be  Be4  1  0.00001751  0.00006503  0.00006261  1
+  Be  Be5  1  0.49995899  0.99984099  0.99982383  1
+  Mn  Mn6  1  0.35694920  0.42676332  0.24338733  1
+  Mn  Mn7  1  0.14306074  0.57323072  0.75662719  1
+  Mn  Mn8  1  0.85690537  0.42679521  0.24339855  1
+  Mn  Mn9  1  0.64309557  0.57325233  0.75664385  1

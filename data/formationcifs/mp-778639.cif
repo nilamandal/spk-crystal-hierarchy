@@ -1,0 +1,50 @@
+# generated using pymatgen
+data_NiTe(PO4)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.79698505
+_cell_length_b   9.87228485
+_cell_length_c   6.53943910
+_cell_angle_alpha   90.00724288
+_cell_angle_beta   89.98105778
+_cell_angle_gamma   96.09161407
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   NiTe(PO4)2
+_chemical_formula_sum   'Ni2 Te2 P4 O16'
+_cell_volume   307.94085947
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Ni  Ni0  1  0.07012800  0.73328800  0.74984700  1
+  Ni  Ni1  1  0.93041100  0.26654200  0.25026200  1
+  Te  Te2  1  0.42645000  0.20041300  0.75008000  1
+  Te  Te3  1  0.57355800  0.79962300  0.24995700  1
+  P  P4  1  0.34471200  0.09077900  0.24994300  1
+  P  P5  1  0.65541100  0.90921500  0.75006400  1
+  P  P6  1  0.89458200  0.40118400  0.74990200  1
+  P  P7  1  0.10524900  0.59883500  0.25005000  1
+  O  O8  1  0.76127500  0.06366300  0.75017600  1
+  O  O9  1  0.23866800  0.93637200  0.24986100  1
+  O  O10  1  0.66503300  0.10102200  0.24997000  1
+  O  O11  1  0.33504500  0.89895800  0.75005000  1
+  O  O12  1  0.20615000  0.37413100  0.75007500  1
+  O  O13  1  0.79372600  0.62587900  0.24996800  1
+  O  O14  1  0.13328200  0.44909300  0.24997800  1
+  O  O15  1  0.86652300  0.55093600  0.74997700  1
+  O  O16  1  0.22098700  0.16710500  0.06629100  1
+  O  O17  1  0.22065400  0.16711600  0.43344200  1
+  O  O18  1  0.77938700  0.83291500  0.56646500  1
+  O  O19  1  0.77914300  0.83290400  0.93372600  1
+  O  O20  1  0.72426800  0.32191100  0.93286200  1
+  O  O21  1  0.72459300  0.32189500  0.56694000  1
+  O  O22  1  0.27549500  0.67811000  0.06712500  1
+  O  O23  1  0.27527100  0.67811100  0.43299100  1

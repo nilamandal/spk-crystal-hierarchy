@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Ba3As2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.96762697
+_cell_length_b   8.49829845
+_cell_length_c   10.02124596
+_cell_angle_alpha   90.00002873
+_cell_angle_beta   104.33481887
+_cell_angle_gamma   89.99999702
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Ba3As2
+_chemical_formula_sum   'Ba6 As4'
+_cell_volume   409.88888922
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.93424028  0.53752965  0.86692457  1
+  As  As1  1  0.06575973  0.03752964  0.13307533  1
+  As  As2  1  0.68301942  0.52128979  0.36593297  1
+  As  As3  1  0.31698041  0.02129010  0.63406704  1
+  Ba  Ba4  1  0.70999853  0.12309421  0.41925517  1
+  Ba  Ba5  1  0.29000094  0.62309430  0.58074468  1
+  Ba  Ba6  1  0.55410502  0.77541408  0.10945438  1
+  Ba  Ba7  1  0.44589547  0.27541358  0.89054590  1
+  Ba  Ba8  1  0.90778732  0.90865268  0.81587060  1
+  Ba  Ba9  1  0.09221287  0.40865196  0.18412937  1

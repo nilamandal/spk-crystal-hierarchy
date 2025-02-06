@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Yb(ZnSb)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.50751448
+_cell_length_b   8.99163553
+_cell_length_c   7.35658005
+_cell_angle_alpha   89.90808340
+_cell_angle_beta   89.99551814
+_cell_angle_gamma   120.10460398
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Yb(ZnSb)2
+_chemical_formula_sum   'Yb2 Zn4 Sb4'
+_cell_volume   257.94249689
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Sb  Sb0  1  0.66664827  0.16673940  0.74536428  1
+  Sb  Sb1  1  0.33335159  0.33326044  0.25463553  1
+  Sb  Sb2  1  0.66664872  0.66673997  0.74536456  1
+  Sb  Sb3  1  0.33335117  0.83326014  0.25463458  1
+  Yb  Yb4  1  0.00000032  0.00000025  0.00000034  1
+  Yb  Yb5  1  0.99999977  0.49999969  0.99999997  1
+  Zn  Zn6  1  0.66665330  0.16649004  0.36372932  1
+  Zn  Zn7  1  0.33334703  0.33351010  0.63627176  1
+  Zn  Zn8  1  0.66665328  0.66649018  0.36372986  1
+  Zn  Zn9  1  0.33334654  0.83350979  0.63626981  1

@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Ba(MnP)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   3.90212426
+_cell_length_b   7.71842306
+_cell_length_c   6.73978415
+_cell_angle_alpha   106.45381323
+_cell_angle_beta   106.82472057
+_cell_angle_gamma   90.53020576
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Ba(MnP)2
+_chemical_formula_sum   'Ba2 Mn4 P4'
+_cell_volume   185.42183383
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  P  P0  1  0.34134194  0.17006387  0.68048959  1
+  P  P1  1  0.65865674  0.32993391  0.31950972  1
+  P  P2  1  0.34134221  0.67006469  0.68049064  1
+  P  P3  1  0.65865802  0.82993752  0.31950881  1
+  Mn  Mn4  1  0.24884649  0.37445649  0.49781434  1
+  Mn  Mn5  1  0.75115348  0.12554643  0.50218712  1
+  Mn  Mn6  1  0.24884727  0.87445339  0.49781332  1
+  Mn  Mn7  1  0.75115312  0.62554337  0.50218483  1
+  Ba  Ba8  1  0.00000092  0.00000158  0.00000173  1
+  Ba  Ba9  1  0.99999982  0.49999873  0.99999989  1

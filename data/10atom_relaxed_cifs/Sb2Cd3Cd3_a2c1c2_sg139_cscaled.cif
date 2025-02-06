@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Cd3Sb2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.95376291
+_cell_length_b   4.93548455
+_cell_length_c   13.49109536
+_cell_angle_alpha   109.06302623
+_cell_angle_beta   109.65911195
+_cell_angle_gamma   94.82677932
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Cd3Sb2
+_chemical_formula_sum   'Cd6 Sb4'
+_cell_volume   286.52564851
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Sb  Sb0  1  0.50023035  0.49919288  0.38840772  1
+  Sb  Sb1  1  0.49976968  0.50080716  0.11159236  1
+  Sb  Sb2  1  0.50022526  0.49918828  0.88840696  1
+  Sb  Sb3  1  0.49977476  0.50081176  0.61159311  1
+  Cd  Cd4  1  0.19180051  0.80707562  0.24917352  1
+  Cd  Cd5  1  0.80819945  0.19292435  0.25082654  1
+  Cd  Cd6  1  0.99999795  0.99999898  0.00000522  1
+  Cd  Cd7  1  0.19180094  0.80707445  0.74917335  1
+  Cd  Cd8  1  0.80819902  0.19292553  0.75082670  1
+  Cd  Cd9  1  0.00000209  0.00000099  0.49999453  1

@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Sr(MnP)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   7.68123374
+_cell_length_b   3.90868216
+_cell_length_c   6.25980809
+_cell_angle_alpha   108.15331816
+_cell_angle_beta   107.71323546
+_cell_angle_gamma   90.27309508
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Sr(MnP)2
+_chemical_formula_sum   'Sr2 Mn4 P4'
+_cell_volume   169.08806427
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  P  P0  1  0.17365955  0.34718596  0.69441672  1
+  P  P1  1  0.32634535  0.65281606  0.30558690  1
+  P  P2  1  0.67365421  0.34718419  0.69441360  1
+  P  P3  1  0.82634115  0.65281478  0.30558482  1
+  Mn  Mn4  1  0.12594382  0.75237257  0.50496173  1
+  Mn  Mn5  1  0.37405706  0.24762692  0.49503758  1
+  Mn  Mn6  1  0.62594291  0.75237237  0.50496062  1
+  Mn  Mn7  1  0.87405564  0.24762716  0.49503822  1
+  Sr  Sr8  1  0.00000042  0.00000002  0.00000015  1
+  Sr  Sr9  1  0.49999990  0.99999997  0.99999966  1

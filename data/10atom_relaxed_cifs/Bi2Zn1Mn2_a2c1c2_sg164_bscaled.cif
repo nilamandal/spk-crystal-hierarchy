@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Mn2ZnBi2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   3.33684602
+_cell_length_b   6.68420965
+_cell_length_c   9.92219624
+_cell_angle_alpha   99.38605645
+_cell_angle_beta   81.03330595
+_cell_angle_gamma   101.52704763
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Mn2ZnBi2
+_chemical_formula_sum   'Mn4 Zn2 Bi4'
+_cell_volume   212.19319419
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Bi  Bi0  1  0.67039498  0.16336862  0.73861346  1
+  Bi  Bi1  1  0.32955747  0.33662810  0.26137512  1
+  Bi  Bi2  1  0.67042494  0.66336682  0.73862201  1
+  Bi  Bi3  1  0.32962304  0.83663494  0.26138459  1
+  Zn  Zn4  1  0.99998830  0.00000431  0.00000036  1
+  Zn  Zn5  1  0.99998127  0.50001340  0.00000304  1
+  Mn  Mn6  1  0.68595796  0.16002467  0.45370924  1
+  Mn  Mn7  1  0.31402297  0.33998689  0.54629204  1
+  Mn  Mn8  1  0.68599309  0.66000321  0.45370925  1
+  Mn  Mn9  1  0.31405597  0.83996904  0.54629089  1

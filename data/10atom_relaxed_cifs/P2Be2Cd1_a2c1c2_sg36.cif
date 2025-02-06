@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Be2CdP2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   3.66563537
+_cell_length_b   5.76594366
+_cell_length_c   8.88875154
+_cell_angle_alpha   90.00000906
+_cell_angle_beta   114.40829372
+_cell_angle_gamma   89.99999316
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Be2CdP2
+_chemical_formula_sum   'Be4 Cd2 P4'
+_cell_volume   171.08008026
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  P  P0  1  0.09785593  0.45204384  0.84733301  1
+  P  P1  1  0.90214416  0.95204379  0.15266699  1
+  P  P2  1  0.66732821  0.55213959  0.41739026  1
+  P  P3  1  0.33267182  0.05213962  0.58260977  1
+  Be  Be4  1  0.84356867  0.25791562  0.59363445  1
+  Be  Be5  1  0.15643139  0.75791562  0.40636554  1
+  Be  Be6  1  0.47858270  0.79841779  0.22895649  1
+  Be  Be7  1  0.52141728  0.29841780  0.77104350  1
+  Cd  Cd8  1  0.59844363  0.80546321  0.84804519  1
+  Cd  Cd9  1  0.40155622  0.30546313  0.15195480  1

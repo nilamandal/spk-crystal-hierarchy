@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Cd(HgBi)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   3.85126353
+_cell_length_b   7.75713139
+_cell_length_c   9.68190315
+_cell_angle_alpha   89.63441022
+_cell_angle_beta   101.54222171
+_cell_angle_gamma   89.69171434
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Cd(HgBi)2
+_chemical_formula_sum   'Cd2 Hg4 Bi4'
+_cell_volume   283.38295455
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Bi  Bi0  1  0.91653682  0.47740688  0.79149879  1
+  Bi  Bi1  1  0.08125714  0.97439329  0.20890548  1
+  Bi  Bi2  1  0.63454181  0.61322133  0.34252698  1
+  Bi  Bi3  1  0.36904997  0.11981740  0.65738328  1
+  Hg  Hg4  1  0.70610928  0.21351983  0.39798278  1
+  Hg  Hg5  1  0.28791809  0.72174425  0.60006331  1
+  Hg  Hg6  1  0.52085115  0.66524224  0.01626798  1
+  Hg  Hg7  1  0.48138892  0.16633946  0.98426230  1
+  Cd  Cd8  1  0.93893395  0.89117369  0.85123732  1
+  Cd  Cd9  1  0.06341286  0.38910163  0.14987177  1

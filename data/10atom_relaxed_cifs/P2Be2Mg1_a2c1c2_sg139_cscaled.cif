@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Mg(BeP)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   3.61029856
+_cell_length_b   3.61029895
+_cell_length_c   11.72281563
+_cell_angle_alpha   99.28970927
+_cell_angle_beta   99.28974682
+_cell_angle_gamma   75.79094253
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Mg(BeP)2
+_chemical_formula_sum   'Mg2 Be4 P4'
+_cell_volume   144.99127795
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  P  P0  1  0.30438589  0.30438612  0.36205286  1
+  P  P1  1  0.69561408  0.69561382  0.13794706  1
+  P  P2  1  0.30438608  0.30438629  0.86205296  1
+  P  P3  1  0.69561395  0.69561378  0.63794712  1
+  Be  Be4  1  0.24475046  0.75524957  0.24999998  1
+  Be  Be5  1  0.75524955  0.24475042  0.25000001  1
+  Be  Be6  1  0.24475052  0.75524950  0.74999999  1
+  Be  Be7  1  0.75524948  0.24475051  0.75000003  1
+  Mg  Mg8  1  1.00000000  0.99999998  0.99999999  1
+  Mg  Mg9  1  1.00000000  0.00000001  0.50000001  1

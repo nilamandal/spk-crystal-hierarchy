@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Ba2MnSb2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   13.27044072
+_cell_length_b   6.73466301
+_cell_length_c   4.28522555
+_cell_angle_alpha   110.12308523
+_cell_angle_beta   107.37756118
+_cell_angle_gamma   99.89100009
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Ba2MnSb2
+_chemical_formula_sum   'Ba4 Mn2 Sb4'
+_cell_volume   326.68548312
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Sb  Sb0  1  0.10595864  0.21186897  0.71092091  1
+  Sb  Sb1  1  0.39403959  0.78812265  0.28894322  1
+  Sb  Sb2  1  0.60596075  0.21187971  0.71106261  1
+  Sb  Sb3  1  0.89404101  0.78812871  0.28907345  1
+  Ba  Ba4  1  0.15336659  0.69496396  0.51259810  1
+  Ba  Ba5  1  0.34662071  0.30504461  0.48713510  1
+  Ba  Ba6  1  0.65337935  0.69495710  0.51286949  1
+  Ba  Ba7  1  0.84663338  0.30503432  0.48739722  1
+  Mn  Mn8  1  0.99999969  0.99999856  0.99999522  1
+  Mn  Mn9  1  0.50000029  0.00000142  0.00000467  1

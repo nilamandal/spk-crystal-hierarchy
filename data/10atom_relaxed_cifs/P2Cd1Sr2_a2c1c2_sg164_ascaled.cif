@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Sr2CdP2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   9.86472806
+_cell_length_b   5.98597315
+_cell_length_c   6.43479572
+_cell_angle_alpha   90.03688138
+_cell_angle_beta   81.25620243
+_cell_angle_gamma   127.46496361
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Sr2CdP2
+_chemical_formula_sum   'Sr4 Cd2 P4'
+_cell_volume   296.04141717
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  P  P0  1  0.28827927  0.28863914  0.76401993  1
+  P  P1  1  0.21172073  0.71136086  0.23598007  1
+  P  P2  1  0.78827928  0.28863918  0.76401994  1
+  P  P3  1  0.71172072  0.71136082  0.23598006  1
+  Cd  Cd4  1  0.99999999  0.99999994  0.99999998  1
+  Cd  Cd5  1  0.50000001  0.00000006  0.00000002  1
+  Sr  Sr6  1  0.32179541  0.32165513  0.27746573  1
+  Sr  Sr7  1  0.17820459  0.67834487  0.72253427  1
+  Sr  Sr8  1  0.82179543  0.32165512  0.27746575  1
+  Sr  Sr9  1  0.67820457  0.67834488  0.72253425  1

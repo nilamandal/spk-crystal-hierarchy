@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Mn2CdAs2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   7.58519124
+_cell_length_b   2.99188431
+_cell_length_c   9.87400015
+_cell_angle_alpha   119.54496874
+_cell_angle_beta   101.29586290
+_cell_angle_gamma   89.92940116
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Mn2CdAs2
+_chemical_formula_sum   'Mn4 Cd2 As4'
+_cell_volume   189.96907823
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.17547039  0.56168055  0.70570135  1
+  As  As1  1  0.32453272  0.43831855  0.29429876  1
+  As  As2  1  0.67546864  0.56167309  0.70569738  1
+  As  As3  1  0.82452725  0.43832719  0.29430030  1
+  Mn  Mn4  1  0.12278316  0.70934414  0.48638615  1
+  Mn  Mn5  1  0.37722721  0.29065027  0.51361586  1
+  Mn  Mn6  1  0.62277227  0.70934526  0.48638307  1
+  Mn  Mn7  1  0.87721587  0.29065618  0.51361250  1
+  Cd  Cd8  1  0.99999945  0.00000538  0.00000384  1
+  Cd  Cd9  1  0.50000303  0.99999940  0.00000079  1

@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Be(ZnAs)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.23619907
+_cell_length_b   8.28750590
+_cell_length_c   5.57796158
+_cell_angle_alpha   91.14981650
+_cell_angle_beta   85.59798211
+_cell_angle_gamma   96.83114451
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Be(ZnAs)2
+_chemical_formula_sum   'Be2 Zn4 As4'
+_cell_volume   193.85282336
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.28667787  0.16076150  0.76181627  1
+  As  As1  1  0.71332295  0.33924475  0.23818726  1
+  As  As2  1  0.28669826  0.66077324  0.76179744  1
+  As  As3  1  0.71330099  0.83923312  0.23820507  1
+  Zn  Zn4  1  0.21515494  0.39665126  0.48875428  1
+  Zn  Zn5  1  0.78484009  0.10335266  0.51124681  1
+  Zn  Zn6  1  0.21515809  0.89665085  0.48875578  1
+  Zn  Zn7  1  0.78483576  0.60335313  0.51124462  1
+  Be  Be8  1  0.00001219  0.00000958  0.99999041  1
+  Be  Be9  1  0.99999887  0.49996993  0.00000206  1

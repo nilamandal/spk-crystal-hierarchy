@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Ca2MgBi2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.76886969
+_cell_length_b   7.54687522
+_cell_length_c   9.15612219
+_cell_angle_alpha   89.99999513
+_cell_angle_beta   105.02870250
+_cell_angle_gamma   89.99996604
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Ca2MgBi2
+_chemical_formula_sum   'Ca4 Mg2 Bi4'
+_cell_volume   318.25821976
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Bi  Bi0  1  0.93309194  0.54246446  0.86460231  1
+  Bi  Bi1  1  0.06690872  0.04246466  0.13539757  1
+  Bi  Bi2  1  0.67766868  0.53844743  0.35673260  1
+  Bi  Bi3  1  0.32232996  0.03844737  0.64326723  1
+  Ca  Ca4  1  0.69828402  0.09059281  0.39694887  1
+  Ca  Ca5  1  0.30171619  0.59059329  0.60305118  1
+  Ca  Ca6  1  0.52299672  0.76227829  0.04604573  1
+  Ca  Ca7  1  0.47700299  0.26227826  0.95395448  1
+  Mg  Mg8  1  0.90159108  0.93219681  0.80305221  1
+  Mg  Mg9  1  0.09840970  0.43219662  0.19694781  1

@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Sr(YbAs)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.64967855
+_cell_length_b   4.64967851
+_cell_length_c   15.39972601
+_cell_angle_alpha   107.59138320
+_cell_angle_beta   107.59138010
+_cell_angle_gamma   89.93464374
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Sr(YbAs)2
+_chemical_formula_sum   'Sr2 Yb4 As4'
+_cell_volume   301.02978208
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.37612035  0.37612039  0.37548848  1
+  As  As1  1  0.62387973  0.62387969  0.12451158  1
+  As  As2  1  0.37612036  0.37612031  0.87548844  1
+  As  As3  1  0.62387958  0.62387961  0.62451151  1
+  Yb  Yb4  1  0.25017039  0.74982967  0.24999997  1
+  Yb  Yb5  1  0.74982958  0.25017028  0.24999999  1
+  Yb  Yb6  1  0.25017051  0.74982947  0.75000003  1
+  Yb  Yb7  1  0.74982953  0.25017056  0.75000002  1
+  Sr  Sr8  1  0.00000004  0.99999994  0.99999999  1
+  Sr  Sr9  1  0.99999992  0.00000008  0.50000001  1

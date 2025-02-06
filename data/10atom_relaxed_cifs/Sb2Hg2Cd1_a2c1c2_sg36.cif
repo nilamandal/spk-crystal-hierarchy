@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Cd(HgSb)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.33619476
+_cell_length_b   7.52530069
+_cell_length_c   8.78274006
+_cell_angle_alpha   90.20712709
+_cell_angle_beta   101.38709653
+_cell_angle_gamma   89.97724876
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Cd(HgSb)2
+_chemical_formula_sum   'Cd2 Hg4 Sb4'
+_cell_volume   280.94787368
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Sb  Sb0  1  0.11026982  0.50719598  0.82160501  1
+  Sb  Sb1  1  0.88975614  0.00834862  0.17733487  1
+  Sb  Sb2  1  0.78262493  0.55362636  0.36246364  1
+  Sb  Sb3  1  0.21692607  0.05449227  0.63809666  1
+  Hg  Hg4  1  0.61469238  0.18811334  0.43630462  1
+  Hg  Hg5  1  0.38426762  0.68956753  0.56331264  1
+  Hg  Hg6  1  0.36380445  0.74803213  0.10252135  1
+  Hg  Hg7  1  0.63662957  0.24899855  0.89898439  1
+  Cd  Cd8  1  0.81494205  0.86683290  0.84010576  1
+  Cd  Cd9  1  0.18608697  0.36675233  0.15927104  1

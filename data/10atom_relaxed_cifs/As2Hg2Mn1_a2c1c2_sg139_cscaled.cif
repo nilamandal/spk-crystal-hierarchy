@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Mn(HgAs)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   5.28930739
+_cell_length_b   3.83651359
+_cell_length_c   14.32027228
+_cell_angle_alpha   105.15690407
+_cell_angle_beta   54.92803280
+_cell_angle_gamma   90.04916116
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Mn(HgAs)2
+_chemical_formula_sum   'Mn2 Hg4 As4'
+_cell_volume   225.41625249
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.29475072  0.48371607  0.48324218  1
+  As  As1  1  0.68187602  0.52988257  0.03168427  1
+  As  As2  1  0.31816468  0.47011376  0.96831131  1
+  As  As3  1  0.70520219  0.51627860  0.51676023  1
+  Hg  Hg4  1  0.19647364  0.77155870  0.27280166  1
+  Hg  Hg5  1  0.76910104  0.22792283  0.23083345  1
+  Hg  Hg6  1  0.23090639  0.77208193  0.76917097  1
+  Hg  Hg7  1  0.80353595  0.22843687  0.72719359  1
+  Mn  Mn8  1  0.00001122  0.00000142  0.00000155  1
+  Mn  Mn9  1  0.99997813  0.00000725  0.50000080  1

@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Be(ZnP)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.06710738
+_cell_length_b   8.17685159
+_cell_length_c   7.41919463
+_cell_angle_alpha   113.99148270
+_cell_angle_beta   89.64026754
+_cell_angle_gamma   119.93242907
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Be(ZnP)2
+_chemical_formula_sum   'Be2 Zn4 P4'
+_cell_volume   189.23119199
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  P  P0  1  0.72693200  0.23305596  0.73166133  1
+  P  P1  1  0.27307896  0.26694888  0.26834375  1
+  P  P2  1  0.72690968  0.73303718  0.73164480  1
+  P  P3  1  0.27308947  0.76696860  0.26835978  1
+  Be  Be4  1  0.00000847  0.00000886  0.00000894  1
+  Be  Be5  1  0.99998498  0.49998348  0.99997929  1
+  Zn  Zn6  1  0.63751037  0.13325017  0.34067985  1
+  Zn  Zn7  1  0.36249589  0.36674922  0.65932255  1
+  Zn  Zn8  1  0.63749687  0.63324701  0.34067680  1
+  Zn  Zn9  1  0.36249332  0.86675063  0.65932290  1

@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Sr2ZnAs2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.37316562
+_cell_length_b   7.65227471
+_cell_length_c   8.57814333
+_cell_angle_alpha   90.00003327
+_cell_angle_beta   104.75686339
+_cell_angle_gamma   90.00000165
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Sr2ZnAs2
+_chemical_formula_sum   'Sr4 Zn2 As4'
+_cell_volume   277.59598596
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.93725267  0.56794141  0.87421032  1
+  As  As1  1  0.06274703  0.06794216  0.12578949  1
+  As  As2  1  0.66644490  0.49974763  0.33348824  1
+  As  As3  1  0.33355514  0.99974827  0.66651070  1
+  Sr  Sr4  1  0.70598911  0.10650011  0.41268075  1
+  Sr  Sr5  1  0.29401178  0.60650032  0.58731963  1
+  Sr  Sr6  1  0.53296062  0.77192925  0.06553605  1
+  Sr  Sr7  1  0.46703891  0.27193086  0.93446386  1
+  Zn  Zn8  1  0.90776567  0.91986029  0.81508307  1
+  Zn  Zn9  1  0.09223417  0.41985970  0.18491789  1

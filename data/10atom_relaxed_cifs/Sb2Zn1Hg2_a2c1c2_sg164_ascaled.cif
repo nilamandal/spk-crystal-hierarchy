@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Zn(HgSb)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   8.85472343
+_cell_length_b   4.10689607
+_cell_length_c   8.26247750
+_cell_angle_alpha   90.09669510
+_cell_angle_beta   90.11986745
+_cell_angle_gamma   117.15574845
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Zn(HgSb)2
+_chemical_formula_sum   'Zn2 Hg4 Sb4'
+_cell_volume   267.34586848
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Sb  Sb0  1  0.29315479  0.28613905  0.84487024  1
+  Sb  Sb1  1  0.20684509  0.71386084  0.15512977  1
+  Sb  Sb2  1  0.79314640  0.28613011  0.84487612  1
+  Sb  Sb3  1  0.70685376  0.71387004  0.15512385  1
+  Zn  Zn4  1  0.99999177  0.99999227  0.00000325  1
+  Zn  Zn5  1  0.50000819  0.00000770  0.99999677  1
+  Hg  Hg6  1  0.34911092  0.34276329  0.39372391  1
+  Hg  Hg7  1  0.15088907  0.65723664  0.60627611  1
+  Hg  Hg8  1  0.84911127  0.34276364  0.39372312  1
+  Hg  Hg9  1  0.65088875  0.65723644  0.60627685  1

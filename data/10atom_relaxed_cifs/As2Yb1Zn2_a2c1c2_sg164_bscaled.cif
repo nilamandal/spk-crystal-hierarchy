@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Yb(ZnAs)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.18136881
+_cell_length_b   8.35008272
+_cell_length_c   6.94313131
+_cell_angle_alpha   89.97623725
+_cell_angle_beta   89.98798798
+_cell_angle_gamma   120.06057189
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Yb(ZnAs)2
+_chemical_formula_sum   'Yb2 Zn4 As4'
+_cell_volume   209.81173527
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.66668674  0.16673507  0.74582797  1
+  As  As1  1  0.33331340  0.33326499  0.25417185  1
+  As  As2  1  0.66668674  0.66673507  0.74582802  1
+  As  As3  1  0.33331337  0.83326495  0.25417184  1
+  Yb  Yb4  1  0.99999999  0.00000002  0.99999996  1
+  Yb  Yb5  1  0.99999997  0.50000001  0.99999996  1
+  Zn  Zn6  1  0.66673031  0.16670957  0.36623258  1
+  Zn  Zn7  1  0.33326959  0.33329037  0.63376758  1
+  Zn  Zn8  1  0.66673032  0.66670959  0.36623269  1
+  Zn  Zn9  1  0.33326958  0.83329036  0.63376755  1

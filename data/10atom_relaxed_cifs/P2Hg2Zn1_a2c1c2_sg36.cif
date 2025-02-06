@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Zn(HgP)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.28703426
+_cell_length_b   7.08739356
+_cell_length_c   10.04965458
+_cell_angle_alpha   90.00386368
+_cell_angle_beta   115.26225456
+_cell_angle_gamma   89.99673717
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Zn(HgP)2
+_chemical_formula_sum   'Zn2 Hg4 P4'
+_cell_volume   276.14542376
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  P  P0  1  0.11384997  0.62018255  0.99727625  1
+  P  P1  1  0.88616833  0.12016407  0.00273180  1
+  P  P2  1  0.81682090  0.37606196  0.31719664  1
+  P  P3  1  0.18319668  0.87606432  0.68281230  1
+  Hg  Hg4  1  0.01336557  0.12667806  0.50044688  1
+  Hg  Hg5  1  0.98659875  0.62666348  0.49953276  1
+  Hg  Hg6  1  0.56712919  0.86864770  0.06656149  1
+  Hg  Hg7  1  0.43285127  0.36864166  0.93344461  1
+  Zn  Zn8  1  0.81210165  0.87442822  0.81142847  1
+  Zn  Zn9  1  0.18791770  0.37442798  0.18856880  1

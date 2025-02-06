@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Sr(CaAs)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.83346820
+_cell_length_b   9.66568853
+_cell_length_c   7.66912164
+_cell_angle_alpha   90.00291466
+_cell_angle_beta   89.99920947
+_cell_angle_gamma   120.00844984
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Sr(CaAs)2
+_chemical_formula_sum   'Sr2 Ca4 As4'
+_cell_volume   310.26367645
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.66667263  0.16669563  0.75695353  1
+  As  As1  1  0.33332735  0.33330436  0.24304646  1
+  As  As2  1  0.66667265  0.66669565  0.75695355  1
+  As  As3  1  0.33332735  0.83330437  0.24304646  1
+  Sr  Sr4  1  0.00000000  0.00000000  0.99999999  1
+  Sr  Sr5  1  1.00000000  0.50000000  0.00000001  1
+  Ca  Ca6  1  0.66667487  0.16668356  0.35365254  1
+  Ca  Ca7  1  0.33332514  0.33331644  0.64634749  1
+  Ca  Ca8  1  0.66667488  0.66668357  0.35365250  1
+  Ca  Ca9  1  0.33332513  0.83331643  0.64634747  1

@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Be2ZnBi2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   7.48342475
+_cell_length_b   3.68569554
+_cell_length_c   8.36528848
+_cell_angle_alpha   106.86393738
+_cell_angle_beta   103.21104096
+_cell_angle_gamma   88.92232376
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Be2ZnBi2
+_chemical_formula_sum   'Be4 Zn2 Bi4'
+_cell_volume   214.68298145
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Bi  Bi0  1  0.18616634  0.39492718  0.73920933  1
+  Bi  Bi1  1  0.31383343  0.60507252  0.26079055  1
+  Bi  Bi2  1  0.68616657  0.39492750  0.73920945  1
+  Bi  Bi3  1  0.81383366  0.60507280  0.26079067  1
+  Be  Be4  1  0.12292210  0.73226751  0.49757136  1
+  Be  Be5  1  0.37707798  0.26773201  0.50242851  1
+  Be  Be6  1  0.62292202  0.73226801  0.49757150  1
+  Be  Be7  1  0.87707789  0.26773247  0.50242864  1
+  Zn  Zn8  1  0.00000000  0.00000001  0.99999999  1
+  Zn  Zn9  1  0.49999999  0.99999999  0.00000001  1

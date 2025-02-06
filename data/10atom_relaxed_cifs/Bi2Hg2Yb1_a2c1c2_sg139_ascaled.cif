@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Yb(HgBi)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   8.74883334
+_cell_length_b   4.38363010
+_cell_length_c   8.60474251
+_cell_angle_alpha   103.94924545
+_cell_angle_beta   106.72348225
+_cell_angle_gamma   88.84867255
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Yb(HgBi)2
+_chemical_formula_sum   'Yb2 Hg4 Bi4'
+_cell_volume   306.29665473
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Bi  Bi0  1  0.19720920  0.40852380  0.80915880  1
+  Bi  Bi1  1  0.30279084  0.59147616  0.19084133  1
+  Bi  Bi2  1  0.69720899  0.40852362  0.80915829  1
+  Bi  Bi3  1  0.80279097  0.59147641  0.19084157  1
+  Hg  Hg4  1  0.13043394  0.75731401  0.50757751  1
+  Hg  Hg5  1  0.36956601  0.24268591  0.49242253  1
+  Hg  Hg6  1  0.63043409  0.75731404  0.50757753  1
+  Hg  Hg7  1  0.86956597  0.24268605  0.49242243  1
+  Yb  Yb8  1  0.00000003  0.99999997  0.99999995  1
+  Yb  Yb9  1  0.49999997  0.00000004  0.00000005  1

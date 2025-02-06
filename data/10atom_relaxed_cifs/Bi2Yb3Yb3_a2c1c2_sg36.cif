@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Yb3Bi2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   5.13896967
+_cell_length_b   6.86368339
+_cell_length_c   9.46117614
+_cell_angle_alpha   90.00002121
+_cell_angle_beta   105.70031049
+_cell_angle_gamma   89.99999004
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Yb3Bi2
+_chemical_formula_sum   'Yb6 Bi4'
+_cell_volume   321.26618180
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Bi  Bi0  1  0.92703551  0.51408296  0.85241688  1
+  Bi  Bi1  1  0.07296454  0.01408335  0.14758236  1
+  Bi  Bi2  1  0.68482634  0.54935257  0.37094705  1
+  Bi  Bi3  1  0.31517244  0.04935204  0.62905355  1
+  Yb  Yb4  1  0.69441600  0.05023761  0.39022996  1
+  Yb  Yb5  1  0.30558458  0.55023700  0.60977005  1
+  Yb  Yb6  1  0.51274660  0.76602870  0.02583344  1
+  Yb  Yb7  1  0.48725418  0.26602837  0.97416664  1
+  Yb  Yb8  1  0.89812503  0.98627836  0.79553807  1
+  Yb  Yb9  1  0.10187479  0.48627904  0.20446198  1

@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Sr(ZnBi)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.63766759
+_cell_length_b   7.04194251
+_cell_length_c   9.54643246
+_cell_angle_alpha   89.99639202
+_cell_angle_beta   108.57456824
+_cell_angle_gamma   89.99861502
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Sr(ZnBi)2
+_chemical_formula_sum   'Sr2 Zn4 Bi4'
+_cell_volume   295.52909974
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Bi  Bi0  1  0.17917459  0.46565794  0.86704614  1
+  Bi  Bi1  1  0.82081499  0.96567820  0.13295150  1
+  Bi  Bi2  1  0.59026633  0.48614680  0.43620743  1
+  Bi  Bi3  1  0.40974637  0.98613630  0.56379848  1
+  Zn  Zn4  1  0.82840804  0.12057676  0.40980990  1
+  Zn  Zn5  1  0.17157909  0.62060112  0.59017943  1
+  Zn  Zn6  1  0.41161579  0.82796615  0.26972788  1
+  Zn  Zn7  1  0.58838545  0.32796461  0.73027693  1
+  Sr  Sr8  1  0.13106666  0.96560877  0.85229635  1
+  Sr  Sr9  1  0.86894269  0.46562335  0.14770595  1

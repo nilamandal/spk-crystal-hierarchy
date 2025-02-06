@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Mg(CdP)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.11539450
+_cell_length_b   6.75577929
+_cell_length_c   7.95362412
+_cell_angle_alpha   90.00029919
+_cell_angle_beta   100.85562310
+_cell_angle_gamma   90.00072457
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Mg(CdP)2
+_chemical_formula_sum   'Mg2 Cd4 P4'
+_cell_volume   217.17501312
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  P  P0  1  0.09593968  0.53805125  0.88444895  1
+  P  P1  1  0.90406577  0.03805040  0.11555116  1
+  P  P2  1  0.65790255  0.51580626  0.37357926  1
+  P  P3  1  0.34209936  0.01580614  0.62642130  1
+  Cd  Cd4  1  0.76125428  0.12558648  0.43120843  1
+  Cd  Cd5  1  0.23874725  0.62558708  0.56879038  1
+  Cd  Cd6  1  0.42930712  0.79334977  0.13704413  1
+  Cd  Cd7  1  0.57068741  0.29334850  0.86295578  1
+  Mg  Mg8  1  0.89774607  0.89318678  0.80975214  1
+  Mg  Mg9  1  0.10225050  0.39318736  0.19024848  1

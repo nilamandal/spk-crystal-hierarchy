@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Sr2MgAs2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.45147653
+_cell_length_b   5.86667179
+_cell_length_c   13.05563764
+_cell_angle_alpha   82.97524063
+_cell_angle_beta   87.89986354
+_cell_angle_gamma   115.52623222
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Sr2MgAs2
+_chemical_formula_sum   'Sr4 Mg2 As4'
+_cell_volume   303.83864783
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.61109720  0.25493013  0.39191559  1
+  As  As1  1  0.38890278  0.74506995  0.10808440  1
+  As  As2  1  0.61109715  0.25493001  0.89191559  1
+  As  As3  1  0.38890288  0.74506992  0.60808441  1
+  Mg  Mg4  1  0.99999997  0.99999999  0.99999999  1
+  Mg  Mg5  1  0.00000003  0.00000001  0.50000001  1
+  Sr  Sr6  1  0.66250108  0.34099776  0.14276988  1
+  Sr  Sr7  1  0.33749890  0.65900234  0.35723012  1
+  Sr  Sr8  1  0.66250116  0.34099770  0.64276988  1
+  Sr  Sr9  1  0.33749886  0.65900221  0.85723012  1

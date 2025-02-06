@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Mn(ZnSb)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.26928122
+_cell_length_b   7.17972909
+_cell_length_c   6.68420689
+_cell_angle_alpha   88.62609921
+_cell_angle_beta   108.66686453
+_cell_angle_gamma   89.77709783
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Mn(ZnSb)2
+_chemical_formula_sum   'Mn2 Zn4 Sb4'
+_cell_volume   194.03800068
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Sb  Sb0  1  0.96510510  0.52170972  0.92766844  1
+  Sb  Sb1  1  0.05504745  0.99445843  0.10759756  1
+  Sb  Sb2  1  0.73134220  0.50783595  0.46639901  1
+  Sb  Sb3  1  0.33453341  0.13287338  0.66974158  1
+  Zn  Zn4  1  0.70123221  0.07418850  0.40207362  1
+  Zn  Zn5  1  0.22608866  0.76322305  0.45788603  1
+  Zn  Zn6  1  0.44728844  0.76597862  0.89351835  1
+  Zn  Zn7  1  0.52894243  0.29079379  0.05400790  1
+  Mn  Mn8  1  0.86482148  0.85796685  0.73133079  1
+  Mn  Mn9  1  0.14559860  0.32293172  0.28977674  1

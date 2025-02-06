@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Be(HgP)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   3.69796427
+_cell_length_b   6.51740883
+_cell_length_c   10.06831274
+_cell_angle_alpha   75.12454262
+_cell_angle_beta   108.73167240
+_cell_angle_gamma   89.25583994
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Be(HgP)2
+_chemical_formula_sum   'Be2 Hg4 P4'
+_cell_volume   220.89285940
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  P  P0  1  0.88340822  0.57425138  0.92484247  1
+  P  P1  1  0.01679396  0.00326912  0.07603693  1
+  P  P2  1  0.65931701  0.34395318  0.23458690  1
+  P  P3  1  0.23022128  0.04632737  0.76141031  1
+  Hg  Hg4  1  0.94275728  0.17338213  0.49589682  1
+  Hg  Hg5  1  0.45209941  0.71890018  0.50789901  1
+  Hg  Hg6  1  0.62963858  0.73967693  0.19326575  1
+  Hg  Hg7  1  0.29434036  0.40092737  0.81263514  1
+  Be  Be8  1  0.82731214  0.92101289  0.86776022  1
+  Be  Be9  1  0.06411176  0.31025945  0.12566645  1

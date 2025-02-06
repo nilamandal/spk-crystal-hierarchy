@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Sr(CaBi)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   5.20832064
+_cell_length_b   7.14345209
+_cell_length_c   9.92710813
+_cell_angle_alpha   89.99987152
+_cell_angle_beta   105.19669108
+_cell_angle_gamma   89.99998014
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Sr(CaBi)2
+_chemical_formula_sum   'Sr2 Ca4 Bi4'
+_cell_volume   356.42663578
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Bi  Bi0  1  0.93184653  0.50692312  0.86184704  1
+  Bi  Bi1  1  0.06815222  0.00691857  0.13815093  1
+  Bi  Bi2  1  0.69620790  0.57672774  0.39383557  1
+  Bi  Bi3  1  0.30379287  0.07672997  0.60616357  1
+  Ca  Ca4  1  0.69204782  0.05754294  0.38437921  1
+  Ca  Ca5  1  0.30795163  0.55754496  0.61561976  1
+  Ca  Ca6  1  0.52242953  0.75718543  0.04576452  1
+  Ca  Ca7  1  0.47757100  0.25718127  0.95423602  1
+  Sr  Sr8  1  0.89041918  0.96760338  0.77999471  1
+  Sr  Sr9  1  0.10958132  0.46760262  0.22000865  1

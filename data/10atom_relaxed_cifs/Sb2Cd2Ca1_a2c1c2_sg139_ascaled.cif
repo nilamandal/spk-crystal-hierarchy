@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Ca(CdSb)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   8.80106286
+_cell_length_b   4.36580946
+_cell_length_c   8.08163467
+_cell_angle_alpha   106.45851647
+_cell_angle_beta   106.95604353
+_cell_angle_gamma   90.40433408
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Ca(CdSb)2
+_chemical_formula_sum   'Ca2 Cd4 Sb4'
+_cell_volume   283.49253338
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Sb  Sb0  1  0.19965719  0.39292114  0.78303010  1
+  Sb  Sb1  1  0.30034277  0.60707893  0.21696988  1
+  Sb  Sb2  1  0.69965718  0.39292100  0.78303007  1
+  Sb  Sb3  1  0.80034285  0.60707895  0.21696992  1
+  Cd  Cd4  1  0.12545618  0.74644614  0.49760061  1
+  Cd  Cd5  1  0.37454384  0.25355401  0.50239943  1
+  Cd  Cd6  1  0.62545614  0.74644588  0.49760048  1
+  Cd  Cd7  1  0.87454383  0.25355396  0.50239946  1
+  Ca  Ca8  1  0.99999994  0.00000001  0.99999995  1
+  Ca  Ca9  1  0.50000008  0.99999999  0.00000009  1

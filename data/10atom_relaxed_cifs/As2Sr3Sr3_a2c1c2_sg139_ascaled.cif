@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Sr3As2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   9.28076221
+_cell_length_b   6.01106701
+_cell_length_c   8.02329987
+_cell_angle_alpha   71.65607625
+_cell_angle_beta   106.79360949
+_cell_angle_gamma   89.95907632
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Sr3As2
+_chemical_formula_sum   'Sr6 As4'
+_cell_volume   404.66015545
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.17602551  0.16224269  0.70419897  1
+  As  As1  1  0.32397450  0.83775732  0.29580102  1
+  As  As2  1  0.67602550  0.16224269  0.70419897  1
+  As  As3  1  0.82397449  0.83775731  0.29580103  1
+  Sr  Sr4  1  0.14527110  0.71401069  0.58102541  1
+  Sr  Sr5  1  0.35472887  0.28598931  0.41897460  1
+  Sr  Sr6  1  1.00000000  0.00000000  0.00000001  1
+  Sr  Sr7  1  0.64527110  0.71401078  0.58102541  1
+  Sr  Sr8  1  0.85472892  0.28598923  0.41897458  1
+  Sr  Sr9  1  0.50000000  0.99999998  1.00000000  1

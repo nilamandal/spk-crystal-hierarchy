@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Sr(YbP)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.44068764
+_cell_length_b   7.50920507
+_cell_length_c   8.93577422
+_cell_angle_alpha   90.00023130
+_cell_angle_beta   104.24169743
+_cell_angle_gamma   89.99994247
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Sr(YbP)2
+_chemical_formula_sum   'Sr2 Yb4 P4'
+_cell_volume   288.81491095
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  P  P0  1  0.18335802  0.53326522  0.88566935  1
+  P  P1  1  0.81675902  0.03326045  0.11434592  1
+  P  P2  1  0.66432558  0.51927105  0.39018298  1
+  P  P3  1  0.33561844  0.01927680  0.60982464  1
+  Yb  Yb4  1  0.76181266  0.13524926  0.43423584  1
+  Yb  Yb5  1  0.23814931  0.63525494  0.56576106  1
+  Yb  Yb6  1  0.39120874  0.79405394  0.17140097  1
+  Yb  Yb7  1  0.60884308  0.29405008  0.82858487  1
+  Sr  Sr8  1  0.91168612  0.88411817  0.82157413  1
+  Sr  Sr9  1  0.08823904  0.38416010  0.17842024  1

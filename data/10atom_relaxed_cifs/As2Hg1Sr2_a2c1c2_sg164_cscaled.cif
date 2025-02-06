@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Sr2HgAs2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   5.06309854
+_cell_length_b   6.14769638
+_cell_length_c   13.23437776
+_cell_angle_alpha   90.01972937
+_cell_angle_beta   80.21809196
+_cell_angle_gamma   127.46658411
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Sr2HgAs2
+_chemical_formula_sum   'Sr4 Hg2 As4'
+_cell_volume   319.39932795
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.58955469  0.29520498  0.37727284  1
+  As  As1  1  0.41044516  0.70479495  0.12272720  1
+  As  As2  1  0.58961261  0.29523395  0.87726201  1
+  As  As3  1  0.41038723  0.70476597  0.62273802  1
+  Hg  Hg4  1  0.99997816  0.99998905  0.00000691  1
+  Hg  Hg5  1  0.00002214  0.00001110  0.49999303  1
+  Sr  Sr6  1  0.62766726  0.31383577  0.13411861  1
+  Sr  Sr7  1  0.37233275  0.68616424  0.36588139  1
+  Sr  Sr8  1  0.62764764  0.31382593  0.63411756  1
+  Sr  Sr9  1  0.37235236  0.68617407  0.86588244  1

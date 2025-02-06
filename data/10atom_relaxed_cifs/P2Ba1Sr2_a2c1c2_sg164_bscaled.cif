@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Ba(SrP)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   5.00092445
+_cell_length_b   10.00089033
+_cell_length_c   7.98705322
+_cell_angle_alpha   90.00219715
+_cell_angle_beta   89.99932340
+_cell_angle_gamma   120.00468229
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Ba(SrP)2
+_chemical_formula_sum   'Ba2 Sr4 P4'
+_cell_volume   345.92796775
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  P  P0  1  0.66665342  0.16668699  0.75448586  1
+  P  P1  1  0.33334658  0.33331301  0.24551414  1
+  P  P2  1  0.66665338  0.66668698  0.75448587  1
+  P  P3  1  0.33334662  0.83331302  0.24551412  1
+  Ba  Ba4  1  0.00000014  0.99999995  0.99999998  1
+  Ba  Ba5  1  0.99999986  0.50000005  0.00000002  1
+  Sr  Sr6  1  0.66669238  0.16668836  0.35262843  1
+  Sr  Sr7  1  0.33330764  0.33331165  0.64737157  1
+  Sr  Sr8  1  0.66669254  0.66668838  0.35262840  1
+  Sr  Sr9  1  0.33330745  0.83331161  0.64737161  1

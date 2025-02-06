@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Sr(MnBi)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   9.11363539
+_cell_length_b   4.60160888
+_cell_length_c   7.55641828
+_cell_angle_alpha   89.58520929
+_cell_angle_beta   90.95144727
+_cell_angle_gamma   120.67012848
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Sr(MnBi)2
+_chemical_formula_sum   'Sr2 Mn4 Bi4'
+_cell_volume   272.53056565
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Bi  Bi0  1  0.33265539  0.33373318  0.72594321  1
+  Bi  Bi1  1  0.16748076  0.66654350  0.27409143  1
+  Bi  Bi2  1  0.83265922  0.33373299  0.72594479  1
+  Bi  Bi3  1  0.66749153  0.66654986  0.27408980  1
+  Sr  Sr4  1  0.00003664  0.00006787  0.99999300  1
+  Sr  Sr5  1  0.50003554  0.00006546  0.99999959  1
+  Mn  Mn6  1  0.33251269  0.33243270  0.37226728  1
+  Mn  Mn7  1  0.16730914  0.66722973  0.62770056  1
+  Mn  Mn8  1  0.83251027  0.33242522  0.37227140  1
+  Mn  Mn9  1  0.66730882  0.66721948  0.62769895  1

@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Be(HgAs)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   3.94454472
+_cell_length_b   7.43328669
+_cell_length_c   8.66454073
+_cell_angle_alpha   88.30475432
+_cell_angle_beta   85.34728931
+_cell_angle_gamma   116.39305970
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Be(HgAs)2
+_chemical_formula_sum   'Be2 Hg4 As4'
+_cell_volume   226.20761773
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.79636769  0.20855608  0.88189835  1
+  As  As1  1  0.20365537  0.29144955  0.11809629  1
+  As  As2  1  0.79635542  0.70858521  0.88191200  1
+  As  As3  1  0.20366764  0.79142041  0.11808264  1
+  Be  Be4  1  0.00021310  0.00005248  0.99996542  1
+  Be  Be5  1  0.99972620  0.49993290  0.00004779  1
+  Hg  Hg6  1  0.67953819  0.17180993  0.37629157  1
+  Hg  Hg7  1  0.32046910  0.32819175  0.62370719  1
+  Hg  Hg8  1  0.67954221  0.67182744  0.37627779  1
+  Hg  Hg9  1  0.32046508  0.82817425  0.62372097  1

@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Mg2CdBi2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.81148219
+_cell_length_b   4.80241406
+_cell_length_c   15.08741351
+_cell_angle_alpha   93.74230507
+_cell_angle_beta   91.76736141
+_cell_angle_gamma   120.22668098
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Mg2CdBi2
+_chemical_formula_sum   'Mg4 Cd2 Bi4'
+_cell_volume   299.75872233
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Bi  Bi0  1  0.69911632  0.35804616  0.38655127  1
+  Bi  Bi1  1  0.30084115  0.64193835  0.11344889  1
+  Bi  Bi2  1  0.69915295  0.35803166  0.88654503  1
+  Bi  Bi3  1  0.30087924  0.64197548  0.61345140  1
+  Cd  Cd4  1  0.00001510  0.00001282  0.00000099  1
+  Cd  Cd5  1  0.99999371  0.99998720  0.49999873  1
+  Mg  Mg6  1  0.66530044  0.34250725  0.18438309  1
+  Mg  Mg7  1  0.33466549  0.65748817  0.31562497  1
+  Mg  Mg8  1  0.66531344  0.34249196  0.68437946  1
+  Mg  Mg9  1  0.33472216  0.65752097  0.81561616  1

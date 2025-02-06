@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Zn(CdAs)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.62768113
+_cell_length_b   9.11718581
+_cell_length_c   7.39505579
+_cell_angle_alpha   125.75844651
+_cell_angle_beta   92.95645654
+_cell_angle_gamma   81.75979788
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Zn(CdAs)2
+_chemical_formula_sum   'Zn2 Cd4 As4'
+_cell_volume   250.37551452
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.29829151  0.21665336  0.76454641  1
+  As  As1  1  0.70170918  0.28334623  0.23545205  1
+  As  As2  1  0.29829084  0.71665380  0.76454800  1
+  As  As3  1  0.70170845  0.78334663  0.23545358  1
+  Cd  Cd4  1  0.21597391  0.34734824  0.48459183  1
+  Cd  Cd5  1  0.78402607  0.15265147  0.51540678  1
+  Cd  Cd6  1  0.21597392  0.84734848  0.48459317  1
+  Cd  Cd7  1  0.78402608  0.65265178  0.51540822  1
+  Zn  Zn8  1  0.00000006  0.00000004  0.99999996  1
+  Zn  Zn9  1  0.99999998  0.49999997  1.00000000  1

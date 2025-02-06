@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Yb2ZnBi2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   10.24536587
+_cell_length_b   6.10434971
+_cell_length_c   6.55692623
+_cell_angle_alpha   90.08527275
+_cell_angle_beta   78.35551338
+_cell_angle_gamma   126.95662627
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Yb2ZnBi2
+_chemical_formula_sum   'Yb4 Zn2 Bi4'
+_cell_volume   317.15984435
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Bi  Bi0  1  0.31745943  0.31971407  0.73566694  1
+  Bi  Bi1  1  0.18254064  0.68028601  0.26433327  1
+  Bi  Bi2  1  0.81745942  0.31971394  0.73566667  1
+  Bi  Bi3  1  0.68254042  0.68028592  0.26433325  1
+  Zn  Zn4  1  0.00000071  0.00000058  0.99999941  1
+  Zn  Zn5  1  0.49999943  0.99999954  0.00000042  1
+  Yb  Yb6  1  0.29590727  0.29468744  0.24587935  1
+  Yb  Yb7  1  0.20409345  0.70531306  0.75412062  1
+  Yb  Yb8  1  0.79590653  0.29468698  0.24587945  1
+  Yb  Yb9  1  0.70409269  0.70531247  0.75412061  1

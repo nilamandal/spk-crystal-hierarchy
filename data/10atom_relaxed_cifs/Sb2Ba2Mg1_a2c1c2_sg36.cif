@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Ba2MgSb2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.93920219
+_cell_length_b   8.62777639
+_cell_length_c   9.55477374
+_cell_angle_alpha   90.00002977
+_cell_angle_beta   104.96968335
+_cell_angle_gamma   90.00000356
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Ba2MgSb2
+_chemical_formula_sum   'Ba4 Mg2 Sb4'
+_cell_volume   393.35201522
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Sb  Sb0  1  0.93883384  0.57101352  0.87767024  1
+  Sb  Sb1  1  0.06116604  0.07101366  0.12232964  1
+  Sb  Sb2  1  0.66706120  0.49578363  0.33437794  1
+  Sb  Sb3  1  0.33293872  0.99578352  0.66562196  1
+  Ba  Ba4  1  0.70553611  0.10589500  0.41145222  1
+  Ba  Ba5  1  0.29446426  0.60589458  0.58854787  1
+  Ba  Ba6  1  0.53515371  0.77351685  0.06999262  1
+  Ba  Ba7  1  0.46484626  0.27351675  0.93000760  1
+  Mg  Mg8  1  0.90878388  0.91977113  0.81733494  1
+  Mg  Mg9  1  0.09121597  0.41977136  0.18266497  1

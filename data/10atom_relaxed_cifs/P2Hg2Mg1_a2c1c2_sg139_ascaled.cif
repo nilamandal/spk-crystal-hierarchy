@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Mg(HgP)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   7.75922525
+_cell_length_b   5.09338477
+_cell_length_c   6.22882226
+_cell_angle_alpha   75.59256669
+_cell_angle_beta   105.42905128
+_cell_angle_gamma   89.69684608
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Mg(HgP)2
+_chemical_formula_sum   'Mg2 Hg4 P4'
+_cell_volume   229.15837104
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  P  P0  1  0.22237703  0.36856571  0.88709139  1
+  P  P1  1  0.27762297  0.63143429  0.11290859  1
+  P  P2  1  0.72237702  0.36856575  0.88709137  1
+  P  P3  1  0.77762298  0.63143425  0.11290864  1
+  Hg  Hg4  1  0.12853055  0.77562741  0.51877638  1
+  Hg  Hg5  1  0.37146946  0.22437259  0.48122361  1
+  Hg  Hg6  1  0.62853054  0.77562744  0.51877633  1
+  Hg  Hg7  1  0.87146946  0.22437256  0.48122368  1
+  Mg  Mg8  1  0.99999999  0.00000001  0.00000005  1
+  Mg  Mg9  1  0.50000001  0.99999999  0.99999995  1

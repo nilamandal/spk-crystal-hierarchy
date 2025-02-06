@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Mg2ZnSb2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.97928536
+_cell_length_b   9.44798825
+_cell_length_c   7.58558591
+_cell_angle_alpha   106.33688878
+_cell_angle_beta   90.02972157
+_cell_angle_gamma   121.85662919
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Mg2ZnSb2
+_chemical_formula_sum   'Mg4 Zn2 Sb4'
+_cell_volume   285.96701894
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Sb  Sb0  1  0.69266413  0.19269311  0.74600640  1
+  Sb  Sb1  1  0.30733639  0.30730712  0.25399387  1
+  Sb  Sb2  1  0.69266367  0.69269290  0.74600616  1
+  Sb  Sb3  1  0.30733588  0.80730687  0.25399352  1
+  Zn  Zn4  1  0.99999973  0.99999989  0.00000021  1
+  Zn  Zn5  1  0.00000012  0.50000006  0.99999985  1
+  Mg  Mg6  1  0.68641631  0.18642547  0.35198188  1
+  Mg  Mg7  1  0.31358423  0.31357479  0.64801850  1
+  Mg  Mg8  1  0.68641578  0.68642520  0.35198148  1
+  Mg  Mg9  1  0.31358377  0.81357457  0.64801814  1

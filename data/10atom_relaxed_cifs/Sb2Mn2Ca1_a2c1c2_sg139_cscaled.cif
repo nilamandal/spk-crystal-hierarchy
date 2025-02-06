@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Ca(MnSb)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.34723533
+_cell_length_b   4.34715318
+_cell_length_c   12.74444776
+_cell_angle_alpha   111.10768119
+_cell_angle_beta   111.11010927
+_cell_angle_gamma   86.52050212
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Ca(MnSb)2
+_chemical_formula_sum   'Ca2 Mn4 Sb4'
+_cell_volume   208.94761445
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Sb  Sb0  1  0.36558088  0.36558709  0.36468743  1
+  Sb  Sb1  1  0.63441875  0.63441300  0.13531248  1
+  Sb  Sb2  1  0.36551761  0.36552516  0.86467548  1
+  Sb  Sb3  1  0.63448334  0.63447425  0.63532454  1
+  Mn  Mn4  1  0.24819251  0.75181914  0.24999766  1
+  Mn  Mn5  1  0.75180681  0.24818134  0.25000234  1
+  Mn  Mn6  1  0.24825805  0.75175621  0.74999780  1
+  Mn  Mn7  1  0.75174330  0.24824309  0.75000241  1
+  Ca  Ca8  1  0.99989399  0.99989630  0.99998832  1
+  Ca  Ca9  1  0.00010476  0.00010443  0.50001153  1

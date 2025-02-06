@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Yb2MgAs2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.30528029
+_cell_length_b   7.22279175
+_cell_length_c   8.38087704
+_cell_angle_alpha   89.99999114
+_cell_angle_beta   104.85618556
+_cell_angle_gamma   90.00000033
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Yb2MgAs2
+_chemical_formula_sum   'Yb4 Mg2 As4'
+_cell_volume   251.90129246
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.93815558  0.55619351  0.87569025  1
+  As  As1  1  0.06184457  0.05619337  0.12430974  1
+  As  As2  1  0.67750859  0.51812736  0.35572742  1
+  As  As3  1  0.32249145  0.01812743  0.64427273  1
+  Yb  Yb4  1  0.70027715  0.10423960  0.40077115  1
+  Yb  Yb5  1  0.29972295  0.60423967  0.59922893  1
+  Yb  Yb6  1  0.53428757  0.76421763  0.06844215  1
+  Yb  Yb7  1  0.46571238  0.26421765  0.93155776  1
+  Mg  Mg8  1  0.90215172  0.92320190  0.80398422  1
+  Mg  Mg9  1  0.09784803  0.42320188  0.19601566  1

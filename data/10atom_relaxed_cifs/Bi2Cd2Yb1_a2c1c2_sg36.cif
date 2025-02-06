@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Yb(CdBi)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.77638904
+_cell_length_b   6.91216290
+_cell_length_c   9.61823665
+_cell_angle_alpha   89.99956176
+_cell_angle_beta   108.65692526
+_cell_angle_gamma   89.99761319
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Yb(CdBi)2
+_chemical_formula_sum   'Yb2 Cd4 Bi4'
+_cell_volume   300.86099982
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Bi  Bi0  1  0.18697307  0.49072052  0.90515281  1
+  Bi  Bi1  1  0.81303008  0.99072300  0.09484585  1
+  Bi  Bi2  1  0.50679781  0.45166052  0.41397797  1
+  Bi  Bi3  1  0.49320457  0.95165829  0.58601955  1
+  Cd  Cd4  1  0.92877374  0.12878481  0.40577877  1
+  Cd  Cd5  1  0.07122823  0.62878289  0.59422333  1
+  Cd  Cd6  1  0.40181589  0.81350807  0.23514841  1
+  Cd  Cd7  1  0.59818103  0.31350662  0.76485244  1
+  Yb  Yb8  1  0.15992040  0.98130513  0.85629221  1
+  Yb  Yb9  1  0.84007520  0.48131017  0.14370866  1

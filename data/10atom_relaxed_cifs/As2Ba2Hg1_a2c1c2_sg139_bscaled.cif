@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Ba2HgAs2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   6.26170247
+_cell_length_b   12.51635488
+_cell_length_c   5.15813089
+_cell_angle_alpha   114.26283493
+_cell_angle_beta   114.26714585
+_cell_angle_gamma   90.14045247
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Ba2HgAs2
+_chemical_formula_sum   'Ba4 Hg2 As4'
+_cell_volume   328.77046491
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.32372246  0.16186310  0.82088539  1
+  As  As1  1  0.67627785  0.33813691  0.17911472  1
+  As  As2  1  0.32372314  0.66186310  0.82088462  1
+  As  As3  1  0.67627688  0.83813703  0.17911552  1
+  Ba  Ba4  1  0.28215926  0.35887447  0.49993933  1
+  Ba  Ba5  1  0.71784089  0.14112548  0.50006066  1
+  Ba  Ba6  1  0.28215902  0.85887487  0.49993956  1
+  Ba  Ba7  1  0.71784086  0.64112518  0.50006044  1
+  Hg  Hg8  1  0.99999920  0.00000005  0.99999971  1
+  Hg  Hg9  1  0.00000044  0.49999981  0.00000004  1

@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Yb2CdP2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   9.34695060
+_cell_length_b   5.42968422
+_cell_length_c   5.98076420
+_cell_angle_alpha   89.94229652
+_cell_angle_beta   82.97003367
+_cell_angle_gamma   125.39095403
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Yb2CdP2
+_chemical_formula_sum   'Yb4 Cd2 P4'
+_cell_volume   244.61174363
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  P  P0  1  0.30533783  0.30497366  0.76499910  1
+  P  P1  1  0.19466217  0.69502634  0.23500089  1
+  P  P2  1  0.80533795  0.30497390  0.76499921  1
+  P  P3  1  0.69466204  0.69502610  0.23500079  1
+  Cd  Cd4  1  0.99999986  0.99999966  0.99999971  1
+  Cd  Cd5  1  0.50000014  0.00000034  0.00000029  1
+  Yb  Yb6  1  0.32318987  0.32328203  0.27619911  1
+  Yb  Yb7  1  0.17681013  0.67671797  0.72380089  1
+  Yb  Yb8  1  0.82319014  0.32328215  0.27619926  1
+  Yb  Yb9  1  0.67680986  0.67671785  0.72380074  1

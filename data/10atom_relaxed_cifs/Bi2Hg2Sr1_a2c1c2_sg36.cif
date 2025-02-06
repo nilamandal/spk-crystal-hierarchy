@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Sr(HgBi)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.73598102
+_cell_length_b   7.54206087
+_cell_length_c   9.06384198
+_cell_angle_alpha   90.00220047
+_cell_angle_beta   105.12924377
+_cell_angle_gamma   90.00004921
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Sr(HgBi)2
+_chemical_formula_sum   'Sr2 Hg4 Bi4'
+_cell_volume   312.53050095
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Bi  Bi0  1  0.91057972  0.40217075  0.81230813  1
+  Bi  Bi1  1  0.08942209  0.90218643  0.18769652  1
+  Bi  Bi2  1  0.69099016  0.73111366  0.38423435  1
+  Bi  Bi3  1  0.30900719  0.23108091  0.61576544  1
+  Hg  Hg4  1  0.68061066  0.15183784  0.36227234  1
+  Hg  Hg5  1  0.31938826  0.65179680  0.63772095  1
+  Hg  Hg6  1  0.50038835  0.66221586  0.00208772  1
+  Hg  Hg7  1  0.49960908  0.16221083  0.99790883  1
+  Sr  Sr8  1  0.88796591  0.91866318  0.77418280  1
+  Sr  Sr9  1  0.11203857  0.41868374  0.22582291  1

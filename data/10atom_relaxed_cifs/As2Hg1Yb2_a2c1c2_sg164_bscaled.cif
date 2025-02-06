@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Yb2HgAs2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   5.67420808
+_cell_length_b   9.68450278
+_cell_length_c   6.13107196
+_cell_angle_alpha   100.21090165
+_cell_angle_beta   89.98686799
+_cell_angle_gamma   125.94419192
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Yb2HgAs2
+_chemical_formula_sum   'Yb4 Hg2 As4'
+_cell_volume   266.15282296
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.68565230  0.18593823  0.74532963  1
+  As  As1  1  0.31434773  0.31406177  0.25467037  1
+  As  As2  1  0.68565227  0.68593823  0.74532963  1
+  As  As3  1  0.31434770  0.81406177  0.25467037  1
+  Hg  Hg4  1  1.00000000  1.00000000  1.00000000  1
+  Hg  Hg5  1  0.00000000  0.50000000  0.00000000  1
+  Yb  Yb6  1  0.69003302  0.18990456  0.25979539  1
+  Yb  Yb7  1  0.30996700  0.31009545  0.74020461  1
+  Yb  Yb8  1  0.69003300  0.68990455  0.25979539  1
+  Yb  Yb9  1  0.30996698  0.81009544  0.74020461  1

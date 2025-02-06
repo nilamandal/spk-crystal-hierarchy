@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Ba2MnAs2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.41132957
+_cell_length_b   8.35405962
+_cell_length_c   8.51061259
+_cell_angle_alpha   90.00036258
+_cell_angle_beta   104.67035680
+_cell_angle_gamma   89.99972349
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Ba2MnAs2
+_chemical_formula_sum   'Ba4 Mn2 As4'
+_cell_volume   303.41251507
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.94459241  0.58794861  0.89396286  1
+  As  As1  1  0.05541433  0.08796821  0.10605856  1
+  As  As2  1  0.62579618  0.46610726  0.30497613  1
+  As  As3  1  0.37418996  0.96609372  0.69500278  1
+  Ba  Ba4  1  0.73825593  0.10744664  0.41817596  1
+  Ba  Ba5  1  0.26175719  0.60742683  0.58182810  1
+  Ba  Ba6  1  0.54583232  0.78456823  0.09252781  1
+  Ba  Ba7  1  0.45416366  0.28454747  0.90747521  1
+  Mn  Mn8  1  0.91532314  0.91992213  0.82666269  1
+  Mn  Mn9  1  0.08467489  0.41993090  0.17332989  1

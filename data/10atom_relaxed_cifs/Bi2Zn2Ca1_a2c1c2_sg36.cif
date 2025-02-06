@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Ca(ZnBi)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.59781015
+_cell_length_b   6.90536662
+_cell_length_c   9.24480370
+_cell_angle_alpha   89.99900055
+_cell_angle_beta   109.72548312
+_cell_angle_gamma   89.99390851
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Ca(ZnBi)2
+_chemical_formula_sum   'Ca2 Zn4 Bi4'
+_cell_volume   276.29497978
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Bi  Bi0  1  0.18343034  0.47760007  0.88823548  1
+  Bi  Bi1  1  0.81652179  0.97754965  0.11176747  1
+  Bi  Bi2  1  0.59571299  0.49872336  0.44112046  1
+  Bi  Bi3  1  0.40435779  0.99874141  0.55890948  1
+  Zn  Zn4  1  0.80646902  0.12582336  0.39698814  1
+  Zn  Zn5  1  0.19351878  0.62588499  0.60300838  1
+  Zn  Zn6  1  0.39696461  0.79721176  0.22346979  1
+  Zn  Zn7  1  0.60299259  0.29729783  0.77649029  1
+  Ca  Ca8  1  0.12379209  0.96659732  0.83906871  1
+  Ca  Ca9  1  0.87624001  0.46653025  0.16094180  1

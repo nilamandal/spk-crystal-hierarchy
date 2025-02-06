@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Sr(BeBi)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   8.67206827
+_cell_length_b   4.43395667
+_cell_length_c   7.72598424
+_cell_angle_alpha   89.97592267
+_cell_angle_beta   94.64845512
+_cell_angle_gamma   120.75156144
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Sr(BeBi)2
+_chemical_formula_sum   'Sr2 Be4 Bi4'
+_cell_volume   254.17340410
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Bi  Bi0  1  0.29691445  0.29718153  0.70679165  1
+  Bi  Bi1  1  0.20308555  0.70281848  0.29320835  1
+  Bi  Bi2  1  0.79691446  0.29718154  0.70679164  1
+  Bi  Bi3  1  0.70308554  0.70281846  0.29320836  1
+  Sr  Sr4  1  1.00000000  0.00000000  0.00000000  1
+  Sr  Sr5  1  0.50000000  1.00000000  0.99999999  1
+  Be  Be6  1  0.37543482  0.37516261  0.37886509  1
+  Be  Be7  1  0.12456518  0.62483739  0.62113491  1
+  Be  Be8  1  0.87543483  0.37516261  0.37886508  1
+  Be  Be9  1  0.62456517  0.62483739  0.62113494  1

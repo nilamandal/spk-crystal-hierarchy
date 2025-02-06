@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Yb2MnBi2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   3.64449663
+_cell_length_b   12.32988718
+_cell_length_c   9.50734675
+_cell_angle_alpha   138.87161542
+_cell_angle_beta   111.39273626
+_cell_angle_gamma   74.06909249
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Yb2MnBi2
+_chemical_formula_sum   'Yb4 Mn2 Bi4'
+_cell_volume   261.64539316
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Bi  Bi0  1  0.49940989  0.24736563  0.74632803  1
+  Bi  Bi1  1  0.50057155  0.25263186  0.25359284  1
+  Bi  Bi2  1  0.49942874  0.74736972  0.74640865  1
+  Bi  Bi3  1  0.50058998  0.75263296  0.25367067  1
+  Yb  Yb4  1  0.22139956  0.50401588  0.72744294  1
+  Yb  Yb5  1  0.77880312  0.99599232  0.27260089  1
+  Yb  Yb6  1  0.22119688  0.00400774  0.72739909  1
+  Yb  Yb7  1  0.77860033  0.49598389  0.27255690  1
+  Mn  Mn8  1  0.99999966  0.99999884  0.99999882  1
+  Mn  Mn9  1  0.00000029  0.50000115  0.00000117  1

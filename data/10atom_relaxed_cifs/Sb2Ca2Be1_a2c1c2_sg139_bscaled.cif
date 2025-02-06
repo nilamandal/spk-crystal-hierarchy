@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Ca2BeSb2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   6.82956188
+_cell_length_b   12.82762270
+_cell_length_c   4.73352352
+_cell_angle_alpha   132.68354932
+_cell_angle_beta   96.85146886
+_cell_angle_gamma   89.98022266
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Ca2BeSb2
+_chemical_formula_sum   'Ca4 Be2 Sb4'
+_cell_volume   300.81746565
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Sb  Sb0  1  0.25735240  0.12371080  0.49352392  1
+  Sb  Sb1  1  0.74264727  0.37628990  0.50647551  1
+  Sb  Sb2  1  0.25735321  0.62371226  0.49353170  1
+  Sb  Sb3  1  0.74264645  0.87628843  0.50646767  1
+  Ca  Ca4  1  0.26894082  0.35519475  0.41927231  1
+  Ca  Ca5  1  0.73105920  0.14480608  0.58072771  1
+  Ca  Ca6  1  0.26894232  0.85519663  0.41927663  1
+  Ca  Ca7  1  0.73105770  0.64480419  0.58072342  1
+  Be  Be8  1  0.00000238  0.99999363  0.00000518  1
+  Be  Be9  1  0.99999826  0.50000333  0.99999596  1

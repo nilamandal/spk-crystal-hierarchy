@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_Ca(YbAs)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.47922686
+_cell_length_b   7.36708256
+_cell_length_c   8.81416760
+_cell_angle_alpha   90.00001951
+_cell_angle_beta   104.70760732
+_cell_angle_gamma   90.00001388
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Ca(YbAs)2
+_chemical_formula_sum   'Ca2 Yb4 As4'
+_cell_volume   281.32704101
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  As  As0  1  0.93686416  0.54138839  0.87298316  1
+  As  As1  1  0.06313621  0.04138854  0.12701683  1
+  As  As2  1  0.68605832  0.53527763  0.37245873  1
+  As  As3  1  0.31394425  0.03527783  0.62754135  1
+  Yb  Yb4  1  0.70012370  0.10268305  0.40012212  1
+  Yb  Yb5  1  0.29987585  0.60268258  0.59987798  1
+  Yb  Yb6  1  0.53981094  0.76412497  0.07986193  1
+  Yb  Yb7  1  0.46018955  0.26412495  0.92013812  1
+  Ca  Ca8  1  0.89896829  0.92250600  0.79781980  1
+  Ca  Ca9  1  0.10102873  0.42250605  0.20217998  1
