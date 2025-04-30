@@ -11,7 +11,7 @@ import os
 import sys
 from pymatgen.core.structure import Structure
 import json
-from spektral_essential_objects import GaussianDistance, MyDataset, SparseEdgepool
+from spektral_essential_objects import GaussianDistance, MyDataset, SparseEdgepool, AtomFeaDataset, CGCNNModel, TwoHeads, NotShrinking, TwoHeadsAndNotShrinking
 from sklearn import svm
 import pylab as pl
 from tensorflow.keras import backend as K
@@ -280,17 +280,39 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath)
     checkpoint_path = fullpath_of_model+"goodmodel.ckpt.index"
     #checkpoint_path= fullpath_of_model+'model.ckpt.index'
     checkpoint_dir = os.path.dirname(checkpoint_path)
-
+    #pretrained cgcnn params
+    #{"__trial_index__": 0,
+    #  "batch_size": 8,
+    #  "embedding_size": 32,
+    #  "hidden_fea_size": 16,
+    #  "lr": 0.0010072628611696127,
+    #  "num_nbrs": 5}
     data_dir = os.path.dirname(fullpath_of_data_file)
-    config= json.load(open(parampath+'/params.json'))
+    config= json.load(open(parampath+'params.json'))
 
     val_df = pd.read_csv(fullpath_of_data_file, header=0)
 
-    data= MyDataset(val_df, data_dir, 8, int(config['num_nbrs']), 'r')
+    data= AtomFeaDataset(val_df, data_dir, 8, 5, 'r')
     loader_va= DisjointLoader(data, shuffle=False, batch_size=len(val_df))
     cifs=data.get_cifs()
 
-    model= SparseEdgepool('r', 1, embedding_size=int(config['embedding_size']), cgcnn_num=int(config['cgcnn_num']), cgcnn_num2=int(config['cgcnn_num2']), softmax_beta=config['softmax_beta'], return_s=True)
+
+    ###
+    #pretrained=CGCNNModel(embedding_size=32, hidden_fea_size=16)
+    #latest = tf.train.latest_checkpoint(fullpath_of_model)
+    #pretrained.load_weights(latest)
+    #print(pretrained)
+    #temp_data= AtomFeaDataset(val_df.head(1), data_dir, 8, 5, 'r')
+    #load_temp= DisjointLoader(temp_data, batch_size=8, epochs=1)
+    #for b in load_temp:
+    #    p=pretrained(b[0],training=False)
+    ###
+
+
+    #model= SparseEdgepool('r', 1, embedding_size=int(config['embedding_size']), cgcnn_num=int(config['cgcnn_num']), cgcnn_num2=int(config['cgcnn_num2']), softmax_beta=config['softmax_beta'], return_s=True)
+    #model= TransferableModel('r', 1, pretrained, cgcnn_num2=config['cgcnn_num2'], softmax_beta=config['softmax_beta'], return_s=True)
+    model= TwoHeadsAndNotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], config['cgcnn_p'], softmax_beta=config['softmax_beta'])
+    #model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
     latest = tf.train.latest_checkpoint(checkpoint_dir)
     model.load_weights(latest)
     if not os.path.exists(write_output_path):
@@ -302,19 +324,20 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath)
 
 if __name__ == '__main__':
 
-    subpaths=['bohb_spk/train_model_290ac0f4']
+    subpaths=['../2headnoshrink/train_model_d89da721']
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
     #fullpath_of_data_file='../Main_fol_Zintl/Zintl_phases_trial_for_bonding_analysis.csv'
-    fullpath_of_data_file='../Main_fol_Zintl/test_by_family.csv'
+    fullpath_of_data_file='../Main_fol_Zintl/test_by_fam_resplit.csv'
+    #fullpath_of_data_file='./'
 
     for pathstring in subpaths:
         pathstring= str(pathstring)
         #fullpath of model is the path to the DIRECTORY where the saved model is located.
-        fullpath_of_model= '../'+pathstring+'/'
+        fullpath_of_model= './'+pathstring+'/'
         parampath_for_model= fullpath_of_model
 
         #write output path is the DIRECTORY where you want the output files to be saved.
         #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
-        write_output_path=fullpath_of_model+'test_by_fam/'
+        write_output_path=fullpath_of_model+'test/'
 
         result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath_for_model)

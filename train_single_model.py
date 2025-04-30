@@ -2,9 +2,10 @@ import tensorflow as tf
 import os
 import sys
 import argparse
-from spektral_essential_objects import MyDataset, SparseEdgepool
+from spektral_essential_objects import MyDataset, SparseEdgepool, CGCNNModel, AtomFeaDataset
 #from edgepool_w_error_objects import SparseEdgepool
 from spektral.data import DisjointLoader
+from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.losses import MeanSquaredError
 import numpy as np
@@ -15,6 +16,8 @@ from tensorflow.keras.callbacks import CallbackList, CSVLogger
 from tensorflow.keras import backend as K
 import json
 import random
+from pymatgen.core.structure import Structure
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 parser.add_argument('--datadir', dest='datadir',
@@ -272,11 +275,16 @@ def check_env_versions():
 
 def get_available(filename):
     try:
-        crystal= Structure.from_file('../Main_fol_Zintl/'+filename+'/CONTCAR')
-        return True
+        crystal= Structure.from_file('../Main_fol_Zintl/'+filename)
+        ana= SpacegroupAnalyzer(crystal)
+        #print(ana)
+        sym_crystal= ana.get_symmetrized_structure()
+        #print(len(sym_crystal.equivalent_indices))
+        return len(sym_crystal.equivalent_indices)
+
     except:
         print(filename)
-        return False
+        #return False
 
 def scale_by_pred_vol(structure, site_bias, dls_vol_predictor):
     #global count
@@ -309,17 +317,39 @@ def scale_dls_only(c):
     return newpath
 
 if __name__ == "__main__":
-    train_model({
-      "batch_size": 8,
-      "cgcnn_num": 2,
-      "cgcnn_num2": 3,
-      "embedding_size": 16,
-      "lr": 0.0008101234899904364,
-      "num_nbrs": 6,
-      "softmax_beta": 97.15880528060197
-    })
-      # NUM_MODELS = 10
-      # for n in range(NUM_MODELS):
-      #    beta= 10**random.uniform(0.0, 8.0)
-      #    lr= 10**random.uniform(-8.0, -1.0)
-      #    print(beta, lr)
+    df= pd.read_csv('./test_by_fam_resplit.csv')
+    print(df)
+    fams= df.family.unique()
+    print(len(fams))
+    w=[]
+    for i in df['id']:
+        j=get_available(i)
+        w.append(1/(2**(j-1)))
+    print(np.mean(w))
+    # train=[]
+    # val=[]
+    # test=[]
+    # for i in range (2,5):
+    #     df_current= df[df['num_elements']==i]
+    #     fams= df_current.family.unique()
+    #     random.shuffle(fams)
+    #
+    #     te_va= int(np.ceil(len(fams)*0.1))
+    #     te= fams[0:te_va]
+    #     va= fams[te_va:te_va*2]
+    #     tr= fams[te_va*2:]
+    #
+    #     df_tr= df_current[df['family'].isin(tr)]
+    #     df_va= df_current[df['family'].isin(va)]
+    #     df_te= df_current[df['family'].isin(te)]
+    #
+    #     train.append(df_tr)
+    #     val.append(df_va)
+    #     test.append(df_te)
+    # df_train= pd.concat(train)
+    # df_val= pd.concat(val)
+    # df_test= pd.concat(test)
+    #
+    # df_train.to_csv('./train_by_fam_resplit.csv')
+    # df_val.to_csv('./val_by_fam_resplit.csv')
+    # df_test.to_csv('./test_by_fam_resplit.csv')

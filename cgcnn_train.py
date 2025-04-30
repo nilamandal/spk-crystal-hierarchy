@@ -1,60 +1,33 @@
 import argparse
 import sys
-
-import tensorflow as tf
 import os
-from spektral_essential_objects import MyDataset, SparseEdgepool, AtomFeaDataset, TransferableModel, CGCNNModel, TwoHeads, NotShrinking, TwoHeadsAndNotShrinking
-from spektral.data import DisjointLoader
-from CorrectedRepeater import BOHBRepeater
+from spektral_essential_objects import MyDataset, CGCNNModel, AtomFeaDataset, gen_plots
+import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import MeanSquaredError
 import numpy as np
 from tensorflow.keras.metrics import sparse_categorical_accuracy #, mean_squared_error
+from tensorflow.keras.callbacks import CallbackList, CSVLogger
+from tensorflow.keras import backend as K
+from spektral.data import DisjointLoader
+import pandas as pd
+
 from ray import tune
 from ray.tune.search.bayesopt import BayesOptSearch
 from ray.tune.schedulers.hb_bohb import HyperBandForBOHB
 from ray.tune.search.bohb import TuneBOHB
-import pandas as pd
 import ConfigSpace
 from hpbandster.optimizers.config_generators.bohb import BOHB
-import matplotlib.pyplot as plt
-from tensorflow.keras.callbacks import CallbackList, CSVLogger
-from tensorflow.keras import backend as K
-import json
-import resource
+from CorrectedRepeater import BOHBRepeater
+
 
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='/home/nim18004/Main_fol_Zintl')
+        help='Directory where dataset is located', default='/Users/nilamandal/desktop/Main_fol_Zintl')
 
 parser.add_argument('--task', choices=['r', 'c'],
                     default='r', help='complete a regression or classification task (default: regression)')
 args = parser.parse_args(sys.argv[1:])
-
-def entropy_loss(s):
-    entr = tf.negative(
-        tf.reduce_sum(tf.multiply(s, tf.math.log(s + 10**-30)), axis=-1)
-    )
-    entr_loss = tf.reduce_mean(entr, axis=-1)
-    return entr_loss
-
-def row_e_and_column_p(s, i):
-    batch_size= s.shape[0]
-    column_prod_sum=0
-    row_entropy_sum=0
-
-    for g in range(batch_size):
-        count= np.count_nonzero(i==g)
-        s_g=s[g,:count]
-        #---
-        row= entropy_loss(s_g)
-        row_entropy_sum+=row
-
-        column_product= tf.math.reduce_prod(tf.divide(tf.reduce_sum(s_g, axis=0),s_g.shape[0]))
-        column_prod_sum+= column_product
-
-    return -1*column_prod_sum, row_entropy_sum
-
 
 def evaluate(loader, model, loss_fn, test=False):
     step = 0
@@ -63,9 +36,8 @@ def evaluate(loader, model, loss_fn, test=False):
         step += 1
         inputs, target = loader.__next__()
         x, a, e, i = inputs
-        pred, s = model(inputs, training=False)
+        pred = model(inputs, training=False)
 
-        c_p, r_e= row_e_and_column_p(s, i)
         if args.task=='c':
             outs = (
                 loss_fn(target, pred),
@@ -81,8 +53,6 @@ def evaluate(loader, model, loss_fn, test=False):
                 mse,
                 rmse,
                 mae,
-                c_p,
-                r_e,
                 len(target),  # Keep track of batch size
             )
         output.append(outs)
@@ -92,7 +62,7 @@ def evaluate(loader, model, loss_fn, test=False):
 
 def train_step(inputs, target, model, loss_fn, optimizer):
     with tf.GradientTape() as tape:
-        predictions, s = model(inputs, training=True)
+        predictions= model(inputs, training=True)
         loss = loss_fn(target, predictions)
 
     gradients = tape.gradient(loss, model.trainable_variables)
@@ -105,15 +75,9 @@ def train_step(inputs, target, model, loss_fn, optimizer):
         sca= tf.reduce_mean(sparse_categorical_accuracy(target, predictions))
         return loss, sca
 
+
 def train_model(config):
     print('BEGUN INDIVIDUAL TRAINING')
-    #pretrained cgcnn params
-    #{"__trial_index__": 0,
-    #  "batch_size": 8,
-    #  "embedding_size": 32,
-    #  "hidden_fea_size": 16,
-    #  "lr": 0.0010072628611696127,
-    #  "num_nbrs": 5}
 
     checkpoint_path='./goodmodel.ckpt'
 
@@ -121,25 +85,24 @@ def train_model(config):
     if epochs<1000:
         print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
 
-    # Load data and train model code here...
-    train_df = pd.read_csv(os.path.join(args.datadir,'train_by_fam_resplit.csv'))
-    #train_df = train_df.head(10)
-    train_data= AtomFeaDataset(train_df, args.datadir, 8, 12, args.task)
+    train_df = pd.read_csv(os.path.join(args.datadir,'train_no_metals.csv'))
+    #train_df = train_df.head(20)
+    train_data= AtomFeaDataset(train_df, args.datadir, 8, config['num_nbrs'], args.task)
     #print(train_data)
     load_tr= DisjointLoader(train_data, batch_size=config['batch_size'], epochs=epochs)
     load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
 
-    val_df = pd.read_csv(os.path.join(args.datadir,'val_by_fam_resplit.csv'))
-    #val_df = val_df.head(10)
-    val_data= AtomFeaDataset(val_df, args.datadir, 8, 12, args.task)
+    val_df = pd.read_csv(os.path.join(args.datadir,'val_no_metals.csv'))
+    #val_df = val_df.head(20)
+    val_data= AtomFeaDataset(val_df, args.datadir, 8, config['num_nbrs'], args.task)
     load_va= DisjointLoader(val_data, batch_size=len(val_data))
     print('loaded data')
     csv_log = CSVLogger("./callback_results.csv")
 
-    #model= TransferableModel('r', 1, pretrained, cgcnn_num2=config['cgcnn_num2'], softmax_beta=config['softmax_beta'], return_s=True)
-    #model= SparseEdgepool('r', 1)
-    #model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
-    model= TwoHeadsAndNotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], config['cgcnn_p'], softmax_beta=config['softmax_beta'])
+    model=CGCNNModel(embedding_size=config['embedding_size'], hidden_fea_size=config['hidden_fea_size'])
+
+    print(model)
+    print('ok')
 
     all_callbacks= CallbackList([csv_log], add_history=True, model=model)
     #
@@ -149,7 +112,7 @@ def train_model(config):
     train_metric=[]
     val_metric_list=[]
     early_stop_counter= 0
-    patience= 100
+    patience= 25
     epoch = step = 0
 
     best_val_loss = np.inf
@@ -178,8 +141,8 @@ def train_model(config):
                 step = 0
                 loss_str="Loss: {}".format(loss / load_tr.steps_per_epoch)
 
-                tr_loss, tr_mse, tr_rmse, tr_mae, tr_ce, tr_re= evaluate(load_tr_eval, model, loss_fn)
-                val_loss, val_mse, val_rmse, val_mae, val_ce, val_re = evaluate(load_va, model, loss_fn)
+                tr_loss, tr_mse, tr_rmse, tr_mae= evaluate(load_tr_eval, model, loss_fn)
+                val_loss, val_mse, val_rmse, val_mae = evaluate(load_va, model, loss_fn)
                 val_metric_list.append(val_loss)
                 train_metric.append(tr_loss)
                 total_val_loss= val_mse
@@ -199,8 +162,6 @@ def train_model(config):
                     all_callbacks.on_train_end(logs)
                     gen_plots(train_metric, val_metric_list)
                     return {"score": best_model_mse}
-                elif np.isnan(tr_loss):
-                    return {"score": np.inf}
                 else:
                     epoch+=1
     all_callbacks.on_train_end(logs)
@@ -209,36 +170,14 @@ def train_model(config):
     return {"score": best_model_mse}
 
 
-def gen_plots(train_metric, val_metric):
-    plt.switch_backend('Agg')
-
-    plt.figure()
-
-    epochs=list(range(len(train_metric)))
-    min_train= 'train min='+str(np.round(np.min(train_metric), decimals=3))+','
-    min_val= 'val min='+str(np.round(np.min(val_metric), decimals=3))
-    plt.plot(epochs, np.log(train_metric), label='training loss')
-    plt.plot(epochs, np.log(val_metric), label='val loss')
-
-    figtitle='./result.png'
-
-    plt.xlabel('epochs')
-    plt.legend()
-    plt.ylabel('log of mean square error ')
-    plt.savefig(figtitle)
-
-
 if __name__ == "__main__":
-      NUM_MODELS = 500
+      NUM_MODELS = 100
 
       trial_space = {
-            'embedding_size': tune.choice([4,8,16,32,64]),
-            'cgcnn_num': tune.choice([1,2,3]),
-            'cgcnn_num2': tune.choice([1,2,3]),
-            'cgcnn_p': tune.choice([1,2,3]),
-            #'num_nbrs': tune.choice([1,2,3,4,5,6,7,8,9,10,11,12]),
+            'embedding_size': tune.choice([4,8,16,32,64, 128]),
+            'hidden_fea_size': tune.choice([4,8,16,32,64, 128]),
+            'num_nbrs': tune.choice([1,2,3,4,5,6,7,8,9,10,11,12]),
             'batch_size': tune.choice([4,8,16,32,64]),
-            'softmax_beta': tune.loguniform(1, 1e8),
             'lr': tune.loguniform(1e-8, 1e-1)
         }
 
@@ -249,7 +188,7 @@ if __name__ == "__main__":
         stop_last_trials=False,
       )
 
-      bohb = BOHBRepeater(metric='score', mode='min', repeat=1, max_concurrent=50)
+      bohb = BOHBRepeater(metric='score', mode='min', repeat=1, max_concurrent=20)
       train_model_object = tune.with_resources(train_model, {"cpu": 1})
       tuner = tune.Tuner(train_model_object, tune_config=tune.TuneConfig(
         search_alg=bohb,
