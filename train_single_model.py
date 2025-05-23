@@ -316,19 +316,19 @@ def scale_dls_only(c):
     structure.to(filename=newpath)
     return newpath
 
+
+
 if __name__ == "__main__":
-    df= pd.read_csv('./test_by_fam_resplit.csv')
-    print(df)
-    fams= df.family.unique()
-    print(len(fams))
-    w=[]
-    for i in df['id']:
-        j=get_available(i)
-        w.append(1/(2**(j-1)))
-    print(np.mean(w))
-    # train=[]
-    # val=[]
-    # test=[]
+    check_env_versions()
+    #df_new=df.join(fam_df, on='family')
+    #print(df_new)
+    #s = df.groupby(pd.cut(df['family'], bins=[0,1,2,3,4]))
+    #print(s)
+    #fams= df2.family.unique()
+    #print(fams)
+    #print(len(fams))
+
+
     # for i in range (2,5):
     #     df_current= df[df['num_elements']==i]
     #     fams= df_current.family.unique()

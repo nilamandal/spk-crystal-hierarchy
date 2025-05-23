@@ -25,7 +25,7 @@ import resource
 
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='/home/nim18004/Main_fol_Zintl')
+        help='Directory where dataset is located', default='/Users/nilamandal/desktop/Main_fol_Zintl')#/home/nim18004/Main_fol_Zintl
 
 parser.add_argument('--task', choices=['r', 'c'],
                     default='r', help='complete a regression or classification task (default: regression)')
@@ -105,6 +105,9 @@ def train_step(inputs, target, model, loss_fn, optimizer):
         sca= tf.reduce_mean(sparse_categorical_accuracy(target, predictions))
         return loss, sca
 
+
+
+
 def train_model(config):
     print('BEGUN INDIVIDUAL TRAINING')
     #pretrained cgcnn params
@@ -122,92 +125,101 @@ def train_model(config):
         print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
 
     # Load data and train model code here...
-    train_df = pd.read_csv(os.path.join(args.datadir,'train_by_fam_resplit.csv'))
-    #train_df = train_df.head(10)
-    train_data= AtomFeaDataset(train_df, args.datadir, 8, 12, args.task)
-    #print(train_data)
-    load_tr= DisjointLoader(train_data, batch_size=config['batch_size'], epochs=epochs)
-    load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
+    all_data = pd.read_csv(os.path.join(args.datadir,'crossval.csv'))
 
-    val_df = pd.read_csv(os.path.join(args.datadir,'val_by_fam_resplit.csv'))
-    #val_df = val_df.head(10)
-    val_data= AtomFeaDataset(val_df, args.datadir, 8, 12, args.task)
-    load_va= DisjointLoader(val_data, batch_size=len(val_data))
-    print('loaded data')
-    csv_log = CSVLogger("./callback_results.csv")
+    cv_scores=[]
 
-    #model= TransferableModel('r', 1, pretrained, cgcnn_num2=config['cgcnn_num2'], softmax_beta=config['softmax_beta'], return_s=True)
-    #model= SparseEdgepool('r', 1)
-    #model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
-    model= TwoHeadsAndNotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], config['cgcnn_p'], softmax_beta=config['softmax_beta'])
+    for i in range(5):
+        checkpoint_path='./'+str(i)+'goodmodel.ckpt'
 
-    all_callbacks= CallbackList([csv_log], add_history=True, model=model)
-    #
-    optim=Adam(config['lr'])
-    loss_fn= MeanSquaredError()
+        train_df= all_data[all_data['bin']!=i]
+        val_df= all_data[all_data['bin']==i]
+        #train_df = train_df.head(10)
+        #val_df = val_df.head(10)
 
-    train_metric=[]
-    val_metric_list=[]
-    early_stop_counter= 0
-    patience= 100
-    epoch = step = 0
+        def train_one_loop():
+            train_data= AtomFeaDataset(train_df, args.datadir, 8, 12, args.task)
+            load_tr= DisjointLoader(train_data, batch_size=config['batch_size'], epochs=epochs)
+            load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
+            val_data= AtomFeaDataset(val_df, args.datadir, 8, 12, args.task)
+            load_va= DisjointLoader(val_data, batch_size=len(val_data))
+            #print('loaded data')
 
-    best_val_loss = np.inf
-    best_model_mse = np.inf
-    logs = {}
-    all_callbacks.on_train_begin(logs=logs)
+            csv_log = CSVLogger("./"+str(i)+"callback_results.csv")
 
-    for batch in load_tr:
-            #print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-            # peak memory usage (kilobytes on Linux, bytes on OS X)
-            if step==0:
-                all_callbacks.on_epoch_begin(epoch, logs=logs)
-            step += 1
+            #model= TransferableModel('r', 1, pretrained, cgcnn_num2=config['cgcnn_num2'], softmax_beta=config['softmax_beta'], return_s=True)
+            #model= SparseEdgepool('r', 1)
+            model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
 
-            all_callbacks.on_train_batch_begin(step)
-            loss, metric = train_step(*batch, model, loss_fn, optim)
-            all_callbacks.on_train_batch_end(step, logs)
+            all_callbacks= CallbackList([csv_log], add_history=True, model=model)
+        #
+            optim=Adam(config['lr'])
+            loss_fn= MeanSquaredError()
 
-            if tf.math.is_nan(loss):
-                all_callbacks.on_train_end(logs)
-                if epoch>1:
-                    gen_plots(train_metric, val_metric_list)
-                return {"score": np.inf}
+            train_metric=[]
+            val_metric_list=[]
+            early_stop_counter= 0
+            patience= 50
+            epoch = step = 0
 
-            if step == load_tr.steps_per_epoch:
-                step = 0
-                loss_str="Loss: {}".format(loss / load_tr.steps_per_epoch)
+            best_val_loss = np.inf
+            best_model_mse = np.inf
+            logs = {}
+            all_callbacks.on_train_begin(logs=logs)
 
-                tr_loss, tr_mse, tr_rmse, tr_mae, tr_ce, tr_re= evaluate(load_tr_eval, model, loss_fn)
-                val_loss, val_mse, val_rmse, val_mae, val_ce, val_re = evaluate(load_va, model, loss_fn)
-                val_metric_list.append(val_loss)
-                train_metric.append(tr_loss)
-                total_val_loss= val_mse
+            for batch in load_tr:
+                    #print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+                    # peak memory usage (kilobytes on Linux, bytes on OS X)
+                    if step==0:
+                        all_callbacks.on_epoch_begin(epoch, logs=logs)
+                    step += 1
 
-                if epoch>0:
-                    if total_val_loss<best_val_loss:
-                        early_stop_counter=0
-                        model.save_weights(checkpoint_path)
-                        best_val_loss= total_val_loss
-                        best_model_mse= val_mse
-                    else:
-                        early_stop_counter+=1
+                    all_callbacks.on_train_batch_begin(step)
+                    loss, metric = train_step(*batch, model, loss_fn, optim)
+                    all_callbacks.on_train_batch_end(step, logs)
 
-                all_callbacks.on_epoch_end(epoch, {'train_mse':tr_mse, 'train_rmse':tr_rmse, 'train_mae':tr_mae, 'val_mse':val_mse, 'val_rmse:':val_rmse, 'val_mae':val_mae, 'val_total':total_val_loss})
+                    if tf.math.is_nan(loss):
+                        all_callbacks.on_train_end(logs)
+                        if epoch>1:
+                            gen_plots(train_metric, val_metric_list)
+                        return np.inf
 
-                if early_stop_counter==patience:
-                    all_callbacks.on_train_end(logs)
-                    gen_plots(train_metric, val_metric_list)
-                    return {"score": best_model_mse}
-                elif np.isnan(tr_loss):
-                    return {"score": np.inf}
-                else:
-                    epoch+=1
-    all_callbacks.on_train_end(logs)
-    gen_plots(train_metric, val_metric_list)
+                    if step == load_tr.steps_per_epoch:
+                        step = 0
+                        loss_str="Loss: {}".format(loss / load_tr.steps_per_epoch)
 
-    return {"score": best_model_mse}
+                        tr_loss, tr_mse, tr_rmse, tr_mae, tr_ce, tr_re= evaluate(load_tr_eval, model, loss_fn)
+                        val_loss, val_mse, val_rmse, val_mae, val_ce, val_re = evaluate(load_va, model, loss_fn)
+                        val_metric_list.append(val_loss)
+                        train_metric.append(tr_loss)
+                        total_val_loss= val_mse
 
+                        if epoch>0:
+                            if total_val_loss<best_val_loss:
+                                early_stop_counter=0
+                                model.save_weights(checkpoint_path)
+                                best_val_loss= total_val_loss
+                                best_model_mse= val_mse
+                            else:
+                                early_stop_counter+=1
+
+                        all_callbacks.on_epoch_end(epoch, {'train_mse':tr_mse, 'train_rmse':tr_rmse, 'train_mae':tr_mae, 'val_mse':val_mse, 'val_rmse:':val_rmse, 'val_mae':val_mae, 'val_total':total_val_loss})
+
+                        if early_stop_counter==patience:
+                            all_callbacks.on_train_end(logs)
+                            gen_plots(train_metric, val_metric_list)
+                            return best_model_mse
+                        elif np.isnan(tr_loss):
+                            return np.inf
+                        else:
+                            epoch+=1
+            all_callbacks.on_train_end(logs)
+            gen_plots(train_metric, val_metric_list)
+
+            return best_model_mse
+
+        cv_scores.append(train_one_loop())
+    return {"score": np.mean(cv_scores)}
 
 def gen_plots(train_metric, val_metric):
     plt.switch_backend('Agg')
@@ -235,8 +247,7 @@ if __name__ == "__main__":
             'embedding_size': tune.choice([4,8,16,32,64]),
             'cgcnn_num': tune.choice([1,2,3]),
             'cgcnn_num2': tune.choice([1,2,3]),
-            'cgcnn_p': tune.choice([1,2,3]),
-            #'num_nbrs': tune.choice([1,2,3,4,5,6,7,8,9,10,11,12]),
+            #'cgcnn_p': tune.choice([1,2,3]),
             'batch_size': tune.choice([4,8,16,32,64]),
             'softmax_beta': tune.loguniform(1, 1e8),
             'lr': tune.loguniform(1e-8, 1e-1)
@@ -249,7 +260,7 @@ if __name__ == "__main__":
         stop_last_trials=False,
       )
 
-      bohb = BOHBRepeater(metric='score', mode='min', repeat=1, max_concurrent=50)
+      bohb = BOHBRepeater(metric='score', mode='min', repeat=1, max_concurrent=20)
       train_model_object = tune.with_resources(train_model, {"cpu": 1})
       tuner = tune.Tuner(train_model_object, tune_config=tune.TuneConfig(
         search_alg=bohb,

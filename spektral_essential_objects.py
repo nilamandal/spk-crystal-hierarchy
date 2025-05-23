@@ -234,16 +234,20 @@ class AtomFeaDataset(MyDataset):
         self.ari = AtomCustomJSONInitializer(datadir+'/atom_init.json')
         self.gdf = GaussianDistance(dmin=0, dmax=8, step=0.2)
         super().__init__(df, datadir, r_a, num_nbrs, task)
-        print('making dataset')
+        #print('making dataset')
 
     def read(self):
         df = self.dataframe.sample(frac=1).reset_index(drop=True)
         allgraphs=[]
+        #print(df)
         cifs=list(df['id'])
         self.cifs=cifs
         all_atomic_numbers=[]
         for c in cifs:
             c=str(c)
+            df_c=df[df['id']==c]
+            #print(df_c)
+
             try:
                 crystal= Structure.from_file(os.path.join(self.datadir,c))
             except:
@@ -252,7 +256,25 @@ class AtomFeaDataset(MyDataset):
 
             atom_fea = np.vstack([self.ari.get_atom_fea(crystal[i].specie.number)
                                   for i in range(len(crystal))])
+            atom_fea_new=[]
             atomic_numbers=[crystal[i].specie.number for i in range(len(crystal))]
+
+
+            #heuristic pooling feats:
+            # print(atom_fea.shape)
+            # for i in range(len(atom_fea)):
+            #
+            #     if crystal[i].specie in df_c['P1']:
+            #         atom_fea_new.append(np.append(atom_fea[i], [0.0]))
+            #
+            #     else:
+            #         atom_fea_new.append(np.append(atom_fea[i], [1.0]))
+            #
+            # atom_fea= np.vstack(atom_fea_new)
+            # print(atom_fea.shape)
+            # print('--')
+
+
 
             all_nbrs = crystal.get_all_neighbors(self.radius_angstroms, include_index=True)
             all_nbrs = [sorted(nbrs, key=lambda x: x[1]) for nbrs in all_nbrs]

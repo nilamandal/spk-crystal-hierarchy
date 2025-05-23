@@ -311,8 +311,8 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath)
 
     #model= SparseEdgepool('r', 1, embedding_size=int(config['embedding_size']), cgcnn_num=int(config['cgcnn_num']), cgcnn_num2=int(config['cgcnn_num2']), softmax_beta=config['softmax_beta'], return_s=True)
     #model= TransferableModel('r', 1, pretrained, cgcnn_num2=config['cgcnn_num2'], softmax_beta=config['softmax_beta'], return_s=True)
-    model= TwoHeadsAndNotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], config['cgcnn_p'], softmax_beta=config['softmax_beta'])
-    #model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
+    #model= TwoHeads('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], config['cgcnn_p'], softmax_beta=config['softmax_beta'])
+    model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
     latest = tf.train.latest_checkpoint(checkpoint_dir)
     model.load_weights(latest)
     if not os.path.exists(write_output_path):
@@ -324,7 +324,7 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath)
 
 if __name__ == '__main__':
 
-    subpaths=['../2headnoshrink/train_model_d89da721']
+    subpaths=['../noshrink/train_model_830747d3']
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
     #fullpath_of_data_file='../Main_fol_Zintl/Zintl_phases_trial_for_bonding_analysis.csv'
     fullpath_of_data_file='../Main_fol_Zintl/test_by_fam_resplit.csv'
