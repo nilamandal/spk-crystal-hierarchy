@@ -278,7 +278,7 @@ def evaluate_pool(binary_feats, binary_targets):
 def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath):
 
     checkpoint_path = fullpath_of_model+"goodmodel.ckpt.index"
-    #checkpoint_path= fullpath_of_model+'model.ckpt.index'
+
     checkpoint_dir = os.path.dirname(checkpoint_path)
     #pretrained cgcnn params
     #{"__trial_index__": 0,
@@ -324,11 +324,10 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath)
 
 if __name__ == '__main__':
 
-    subpaths=['../noshrink/train_model_830747d3']
+    subpaths=['../noshrink/train_model_830747d3', '../noshrink/train_model_6a79ec64', '../noshrink/train_model_c35f7778']
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
     #fullpath_of_data_file='../Main_fol_Zintl/Zintl_phases_trial_for_bonding_analysis.csv'
-    fullpath_of_data_file='../Main_fol_Zintl/test_by_fam_resplit.csv'
-    #fullpath_of_data_file='./'
+    fullpath_of_data_file='../Main_fol_Zintl/Zintl_bonding_analysis_new_heuristic.csv'
 
     for pathstring in subpaths:
         pathstring= str(pathstring)
@@ -338,6 +337,6 @@ if __name__ == '__main__':
 
         #write output path is the DIRECTORY where you want the output files to be saved.
         #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
-        write_output_path=fullpath_of_model+'test/'
+        write_output_path=fullpath_of_model+'bond_analysis_new_heuristic/'
 
         result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath_for_model)

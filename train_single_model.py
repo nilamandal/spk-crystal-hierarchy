@@ -317,39 +317,5 @@ def scale_dls_only(c):
     return newpath
 
 
-
 if __name__ == "__main__":
     check_env_versions()
-    #df_new=df.join(fam_df, on='family')
-    #print(df_new)
-    #s = df.groupby(pd.cut(df['family'], bins=[0,1,2,3,4]))
-    #print(s)
-    #fams= df2.family.unique()
-    #print(fams)
-    #print(len(fams))
-
-
-    # for i in range (2,5):
-    #     df_current= df[df['num_elements']==i]
-    #     fams= df_current.family.unique()
-    #     random.shuffle(fams)
-    #
-    #     te_va= int(np.ceil(len(fams)*0.1))
-    #     te= fams[0:te_va]
-    #     va= fams[te_va:te_va*2]
-    #     tr= fams[te_va*2:]
-    #
-    #     df_tr= df_current[df['family'].isin(tr)]
-    #     df_va= df_current[df['family'].isin(va)]
-    #     df_te= df_current[df['family'].isin(te)]
-    #
-    #     train.append(df_tr)
-    #     val.append(df_va)
-    #     test.append(df_te)
-    # df_train= pd.concat(train)
-    # df_val= pd.concat(val)
-    # df_test= pd.concat(test)
-    #
-    # df_train.to_csv('./train_by_fam_resplit.csv')
-    # df_val.to_csv('./val_by_fam_resplit.csv')
-    # df_test.to_csv('./test_by_fam_resplit.csv')

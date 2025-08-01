@@ -314,7 +314,10 @@ class AtomFeaDataset(MyDataset):
             edge_idx, edges= reorder(edge_index=np.array(edgeidxtemp), edge_features=np.array(edgefeat))
 
             if self.task=='c':
-                MG=Graph(x=atom_fea, a=adj, e=edges, y=int(df_MG['target'].values[0]))
+                target_encoding= np.zeros(8)
+                target_encoding[df_MG['target'].values[0]]= 1
+                #print(target_encoding)
+                MG=Graph(x=atom_fea, a=adj, e=edges, y=target_encoding)
                 MG._atomlist=set(atomic_numbers)
                 MG._cif=c
             elif self.task=='r':
@@ -542,7 +545,7 @@ class MPCgcnn(CrystalConv):
        z = K.concatenate(to_concat, axis=-1)
        z= self.dense_fc(z)
        z= self.bn1(z)
-       #print(z.shape)
+
        nbr_filter, nbr_core= tf.split(z, 2, axis=1)
        nbr_filter= tf.sigmoid(nbr_filter)
        nbr_core= tf.keras.activations.softplus(nbr_core)
@@ -734,7 +737,7 @@ class SparseEdgepool(Model):
     def call(self, inputs):
         x, a, e, i = inputs
         x= self.embedding(x)
-        #print(e)
+
         for cgcnn in self.conv_list:
             x= cgcnn([x, a, e])
             x= tf.nn.softplus(x)
@@ -748,11 +751,7 @@ class SparseEdgepool(Model):
         e_pool= self.edgepool(e, batch_A, s, i)
 
         disjoint_a, edges= self.batch2disjoint(a_pool, e_pool, len(i_pool))
-        print(x_pool.shape)
-        print(disjoint_a.shape)
-        print(disjoint_a)
-        print(edges.shape)
-        print(edges)
+
         for cgcnn2 in self.conv_list2:
             x_pool= cgcnn2([x_pool, disjoint_a, edges])
             x_pool= tf.nn.softplus(x_pool)
@@ -760,6 +759,7 @@ class SparseEdgepool(Model):
         x_pool= tf.reshape(x_pool, [int(x_pool.shape[0]/self.k), int(x_pool.shape[1]*self.k)])
 
         x=self.out_layer(x_pool)
+
 
         if self.return_s:
             return x, s
@@ -827,7 +827,7 @@ class SparseEdgepool(Model):
         #adj
 
         temp_a= tf.unstack(batch_adj)
-        #print(temp_a)
+
         disjoint_adj= np.zeros((total_nodes, total_nodes))
         begin=0
         step=len(temp_a[0])
@@ -837,8 +837,7 @@ class SparseEdgepool(Model):
             disjoint_adj[begin:end, begin:end]= j#np.ones((self.k,self.k))
             begin= begin+step
             end= begin+step
-        #print(disjoint_adj)
-        #print('----')
+
         disjoint_adj= tf.sparse.from_dense(disjoint_adj)
 
         #edge
@@ -874,12 +873,9 @@ class CGCNNModel(Model):
 
     def call(self, inputs):
         x, a, e, i = inputs
-        #print(x.shape)
-        #print(a.shape)
-        #print(e.shape)
-        #print(i.shape)
+
         x= self.embedding(x)
-        #print(e)
+
         for cgcnn in self.conv_list:
             x= cgcnn([x, a, e])
             x= tf.nn.softplus(x)
@@ -907,9 +903,7 @@ class TransferableModel(Model):
 
         self.pretrained= pretrained
         #self.pretrained.embedding.trainable)
-        print(self.pretrained.conv_list[0].trainable)
-        print(self.pretrained.conv_list[1].trainable)
-        print(self.pretrained.conv_list[2].trainable)
+
 
         self.pool= RegularizedDiffPool(k=2, beta= softmax_beta, kernel_initializer=he_initializer, return_selection=True, path=path)
 
@@ -935,7 +929,7 @@ class TransferableModel(Model):
         for cgcnn in self.pretrained.conv_list:
             x= cgcnn([x, a, e])
             x= tf.nn.softplus(x)
-        print('this far')
+
         batch_X = ops.disjoint_signal_to_batch(x, i)
         batch_A= self.disjoint_adjacency_to_batch(a, i)
 
@@ -1021,7 +1015,7 @@ class TransferableModel(Model):
         #adj
 
         temp_a= tf.unstack(batch_adj)
-        #print(temp_a)
+
         disjoint_adj= np.zeros((total_nodes, total_nodes))
         begin=0
         step=len(temp_a[0])
@@ -1031,8 +1025,7 @@ class TransferableModel(Model):
             disjoint_adj[begin:end, begin:end]= j#np.ones((self.k,self.k))
             begin= begin+step
             end= begin+step
-        #print(disjoint_adj)
-        #print('----')
+
         disjoint_adj= tf.sparse.from_dense(disjoint_adj)
 
         #edge
@@ -1069,7 +1062,7 @@ class TwoHeads(SparseEdgepool):
         # _p means the representation we are using to learn pooling
         x_r= self.embedding(x)
         x_p= self.p_embedding(x)
-        #print(e)
+
         for cgcnn in self.conv_list:
             x_r= cgcnn([x_r, a, e])
             x_r= tf.nn.softplus(x_r)
@@ -1085,12 +1078,9 @@ class TwoHeads(SparseEdgepool):
         x_pool, a_pool, i_pool, s= self.pool([batch_X_p, batch_A, i])
 
         x_pool= ops.modal_dot(s, batch_X_r, transpose_a=True)
-        #print(x_pool.shape)
         x_pool= tf.reshape(x_pool, [x_pool.shape[0]*x_pool.shape[1], x_pool.shape[2]]) #reshape to disjoint form
-        #print(x_pool.shape)
         e_pool= self.edgepool(e, batch_A, s, i)
-        #print(e_pool.shape)
-        #print('---')
+
 
         disjoint_a, edges= self.batch2disjoint(a_pool, e_pool, len(i_pool))
 
@@ -1123,7 +1113,7 @@ class NotShrinking(SparseEdgepool):
     def call(self, inputs):
         x, a, e, i = inputs
         x= self.embedding(x)
-        #print(e)
+
         for cgcnn in self.conv_list:
             x= cgcnn([x, a, e])
             x= tf.nn.softplus(x)
@@ -1176,7 +1166,7 @@ class TwoHeadsAndNotShrinking(SparseEdgepool):
         # _p means the representation we are using to learn pooling
         x_r= self.embedding(x)
         x_p= self.p_embedding(x)
-        #print(e)
+
         for cgcnn in self.conv_list:
             x_r= cgcnn([x_r, a, e])
             x_r= tf.nn.softplus(x_r)
@@ -1203,7 +1193,10 @@ class TwoHeadsAndNotShrinking(SparseEdgepool):
         x_pool= tf.math.segment_mean(x_pool, i)
 
         x=self.out_layer(x_pool)
-
+        #if self.task=='c':
+        #    print(x)
+        #    print(tf.argmax(x))
+        #    print('----')
         if self.return_s:
             return x, s
         else:

@@ -7,9 +7,9 @@ from spektral_essential_objects import MyDataset, SparseEdgepool, AtomFeaDataset
 from spektral.data import DisjointLoader
 from CorrectedRepeater import BOHBRepeater
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.losses import MeanSquaredError
+from tensorflow.keras.losses import MeanSquaredError, CategoricalCrossentropy
 import numpy as np
-from tensorflow.keras.metrics import sparse_categorical_accuracy #, mean_squared_error
+from tensorflow.keras.metrics import categorical_accuracy #, mean_squared_error
 from ray import tune
 from ray.tune.search.bayesopt import BayesOptSearch
 from ray.tune.schedulers.hb_bohb import HyperBandForBOHB
@@ -28,7 +28,7 @@ parser.add_argument('--datadir', dest='datadir',
         help='Directory where dataset is located', default='/Users/nilamandal/desktop/Main_fol_Zintl')#/home/nim18004/Main_fol_Zintl
 
 parser.add_argument('--task', choices=['r', 'c'],
-                    default='r', help='complete a regression or classification task (default: regression)')
+                    default='c', help='complete a regression or classification task (default: regression)')
 args = parser.parse_args(sys.argv[1:])
 
 def entropy_loss(s):
@@ -69,7 +69,7 @@ def evaluate(loader, model, loss_fn, test=False):
         if args.task=='c':
             outs = (
                 loss_fn(target, pred),
-                tf.reduce_mean(sparse_categorical_accuracy(target, pred)),
+                tf.reduce_mean(categorical_accuracy(target, pred)),
                 len(target),  # Keep track of batch size
             )
         elif args.task=='r':
@@ -91,10 +91,14 @@ def evaluate(loader, model, loss_fn, test=False):
             return np.average(output[:, :-1], 0, weights=output[:, -1])
 
 def train_step(inputs, target, model, loss_fn, optimizer):
+    print(target)
     with tf.GradientTape() as tape:
         predictions, s = model(inputs, training=True)
         loss = loss_fn(target, predictions)
-
+        #print(loss)
+    print(predictions)
+    #print(target)
+    print('---')
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     if args.task=='r':
@@ -102,7 +106,7 @@ def train_step(inputs, target, model, loss_fn, optimizer):
 
         return loss, mse
     if args.task=='c':
-        sca= tf.reduce_mean(sparse_categorical_accuracy(target, predictions))
+        sca= tf.reduce_mean(categorical_accuracy(target, predictions))
         return loss, sca
 
 
@@ -125,8 +129,8 @@ def train_model(config):
         print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
 
     # Load data and train model code here...
-    all_data = pd.read_csv(os.path.join(args.datadir,'crossval.csv'))
-
+    all_data = pd.read_csv(os.path.join(args.datadir,'classification_by_fam_for_cgcnn.csv'))
+    all_data['bin'] = np.random.randint(0, 5, len(all_data))
     cv_scores=[]
 
     for i in range(5):
@@ -149,13 +153,15 @@ def train_model(config):
 
             #model= TransferableModel('r', 1, pretrained, cgcnn_num2=config['cgcnn_num2'], softmax_beta=config['softmax_beta'], return_s=True)
             #model= SparseEdgepool('r', 1)
-            model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
+            model= NotShrinking(args.task, 8, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
 
             all_callbacks= CallbackList([csv_log], add_history=True, model=model)
         #
             optim=Adam(config['lr'])
-            loss_fn= MeanSquaredError()
-
+            if args.task=='r':
+                loss_fn= MeanSquaredError()
+            else:
+                loss_fn= CategoricalCrossentropy()
             train_metric=[]
             val_metric_list=[]
             early_stop_counter= 0
@@ -187,24 +193,29 @@ def train_model(config):
                     if step == load_tr.steps_per_epoch:
                         step = 0
                         loss_str="Loss: {}".format(loss / load_tr.steps_per_epoch)
-
-                        tr_loss, tr_mse, tr_rmse, tr_mae, tr_ce, tr_re= evaluate(load_tr_eval, model, loss_fn)
-                        val_loss, val_mse, val_rmse, val_mae, val_ce, val_re = evaluate(load_va, model, loss_fn)
+                        tr_loss, tr_ca= evaluate(load_tr_eval, model, loss_fn)
+                        val_loss, va_ca= evaluate(load_va, model, loss_fn)
+                        #tr_loss, tr_mse, tr_rmse, tr_mae, tr_ce, tr_re= evaluate(load_tr_eval, model, loss_fn)
+                        #val_loss, val_mse, val_rmse, val_mae, val_ce, val_re = evaluate(load_va, model, loss_fn)
                         val_metric_list.append(val_loss)
                         train_metric.append(tr_loss)
-                        total_val_loss= val_mse
+                        total_val_loss= val_loss
 
                         if epoch>0:
                             if total_val_loss<best_val_loss:
                                 early_stop_counter=0
                                 model.save_weights(checkpoint_path)
                                 best_val_loss= total_val_loss
-                                best_model_mse= val_mse
+                                if args.task=='r':
+                                    best_model_mse= val_mse
+                                else:
+                                    best_model_mse= val_loss
                             else:
                                 early_stop_counter+=1
-
-                        all_callbacks.on_epoch_end(epoch, {'train_mse':tr_mse, 'train_rmse':tr_rmse, 'train_mae':tr_mae, 'val_mse':val_mse, 'val_rmse:':val_rmse, 'val_mae':val_mae, 'val_total':total_val_loss})
-
+                        if args.task=='r':
+                            all_callbacks.on_epoch_end(epoch, {'train_mse':tr_mse, 'train_rmse':tr_rmse, 'train_mae':tr_mae, 'val_mse':val_mse, 'val_rmse:':val_rmse, 'val_mae':val_mae, 'val_total':total_val_loss})
+                        else:
+                            all_callbacks.on_epoch_end(epoch, {'train_loss':tr_loss, 'val_loss:':total_val_loss})
                         if early_stop_counter==patience:
                             all_callbacks.on_train_end(logs)
                             gen_plots(train_metric, val_metric_list)
@@ -241,7 +252,7 @@ def gen_plots(train_metric, val_metric):
 
 
 if __name__ == "__main__":
-      NUM_MODELS = 500
+      NUM_MODELS = 2
 
       trial_space = {
             'embedding_size': tune.choice([4,8,16,32,64]),
@@ -260,7 +271,7 @@ if __name__ == "__main__":
         stop_last_trials=False,
       )
 
-      bohb = BOHBRepeater(metric='score', mode='min', repeat=1, max_concurrent=20)
+      bohb = BOHBRepeater(metric='score', mode='min', repeat=1, max_concurrent=1)
       train_model_object = tune.with_resources(train_model, {"cpu": 1})
       tuner = tune.Tuner(train_model_object, tune_config=tune.TuneConfig(
         search_alg=bohb,
