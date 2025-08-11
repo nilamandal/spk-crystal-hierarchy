@@ -2,14 +2,14 @@ import tensorflow as tf
 import os
 import sys
 import argparse
-from spektral_essential_objects import MyDataset, SparseEdgepool, CGCNNModel, AtomFeaDataset
+from spektral_essential_objects import MyDataset, SparseEdgepool, CGCNNModel, AtomFeaDataset, NotShrinking
 #from edgepool_w_error_objects import SparseEdgepool
 from spektral.data import DisjointLoader
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.losses import MeanSquaredError
 import numpy as np
-from tensorflow.keras.metrics import sparse_categorical_accuracy #, mean_squared_error
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from tensorflow.keras.callbacks import CallbackList, CSVLogger
@@ -18,10 +18,11 @@ import json
 import random
 from pymatgen.core.structure import Structure
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+from utils import train_step, evaluate
 
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='/Users/nilamandal/desktop/Main_fol_Zintl')
+        help='Directory where dataset is located', default='./ExampleContcars/')
 parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
                     help='num neighbors per atom', default=12)
 parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
@@ -30,81 +31,6 @@ parser.add_argument('--task', choices=['r', 'c'],
                     default='r', help='complete a regression or classification task (default: regression)')
 args = parser.parse_args(sys.argv[1:])
 
-def entropy_loss(s):
-    entr = tf.negative(
-        tf.reduce_sum(tf.multiply(s, tf.math.log(s + 10**-30)), axis=-1)
-    )
-    entr_loss = tf.reduce_mean(entr, axis=-1)
-    return entr_loss
-
-def row_e_and_column_p(s, i):
-    batch_size= s.shape[0]
-    column_prod_sum=0
-    row_entropy_sum=0
-
-    for g in range(batch_size):
-        count= np.count_nonzero(i==g)
-        s_g=s[g,:count]
-        #---
-        row= entropy_loss(s_g)
-        row_entropy_sum+=row
-
-        column_product= tf.math.reduce_prod(tf.divide(tf.reduce_sum(s_g, axis=0),s_g.shape[0]))
-        column_prod_sum+= column_product
-
-    return -1*column_prod_sum, row_entropy_sum
-
-
-def evaluate(loader, model, loss_fn, test=False):
-    step = 0
-    output=[]
-    while step < loader.steps_per_epoch:
-        step += 1
-        inputs, target = loader.__next__()
-        x, a, e, i = inputs
-        pred, s = model(inputs, training=False)
-
-        c_p, r_e= row_e_and_column_p(s, i)
-        if args.task=='c':
-            outs = (
-                loss_fn(target, pred),
-                tf.reduce_mean(sparse_categorical_accuracy(target, pred)),
-                len(target),  # Keep track of batch size
-            )
-        elif args.task=='r':
-            mse = tf.reduce_mean((target-pred)**2)
-            rmse= np.sqrt(mse)
-            mae= tf.reduce_mean(np.abs(target-pred))
-            outs = (
-                loss_fn(target, pred),
-                mse,
-                rmse,
-                mae,
-                c_p,
-                r_e,
-                len(target),  # Keep track of batch size
-            )
-        output.append(outs)
-        if step == loader.steps_per_epoch:
-            output = np.array(output)
-            return np.average(output[:, :-1], 0, weights=output[:, -1])
-
-def train_step(inputs, target, model, loss_fn, optimizer):
-    with tf.GradientTape() as tape:
-        predictions, s = model(inputs, training=True)
-        #print(target)
-        #print(predictions)
-        loss = loss_fn(target, predictions)
-
-    gradients = tape.gradient(loss, model.trainable_variables)
-    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-    if args.task=='r':
-        mse = tf.reduce_mean((target-predictions)**2)
-
-        return loss, mse
-    if args.task=='c':
-        sca= tf.reduce_mean(sparse_categorical_accuracy(target, predictions))
-        return loss, sca
 
 def train_model(config):
     print('BEGUN INDIVIDUAL TRAINING')
@@ -123,21 +49,21 @@ def train_model(config):
 
 
     # Load data and train model code here...
-    train_df = pd.read_csv(os.path.join(args.datadir,'train_by_fam.csv'))
+    train_df = pd.read_csv(os.path.join(args.datadir,'example_data.csv'))
     #train_df = train_df.head(1000)
     train_data= MyDataset(train_df, args.datadir, 8, int(config['num_nbrs']), args.task)
     load_tr= DisjointLoader(train_data, batch_size=int(config['batch_size']), epochs=epochs)
     load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
 
-    val_df = pd.read_csv(os.path.join(args.datadir,'val_by_fam.csv'))
+    val_df = pd.read_csv(os.path.join(args.datadir,'example_data.csv'))
 
     val_data= MyDataset(val_df, args.datadir, 8, int(config['num_nbrs']), args.task)
     load_va= DisjointLoader(val_data, batch_size=len(val_data))
     print('loaded data')
     csv_log = CSVLogger("./callback_results.csv")
 
-    model= SparseEdgepool('r', 1, embedding_size=int(config['embedding_size']), cgcnn_num=int(config['cgcnn_num']), cgcnn_num2=int(config['cgcnn_num2']), softmax_beta=config['softmax_beta'], return_s=True)
-
+    #model= SparseEdgepool('r', 1, embedding_size=int(config['embedding_size']), cgcnn_num=int(config['cgcnn_num']), cgcnn_num2=int(config['cgcnn_num2']), softmax_beta=config['softmax_beta'], return_s=True)
+    model= NotShrinking('r', 1)
     all_callbacks= CallbackList([csv_log], add_history=True, model=model)
     #
     optim=Adam(config['lr'])
@@ -256,21 +182,6 @@ def callback_plots():
             plt.ylabel('sum of validation components')
             plt.savefig(fullpath+'/sum_losscomponents.png')
 
-def get_len(path):
-        df= pd.read_csv('./train_model_2023-10-27_15-40-05/'+path+'/callback_results.csv')
-        return len(df)
-
-def check_env_versions():
-    import tensorflow as tf
-    print(tf.__version__)
-    import spektral
-    print(spektral.__version__)
-    import numpy
-    print(numpy.__version__)
-    import ray
-    print(ray.__version__)
-    import ConfigSpace
-    print(ConfigSpace.__version__)
 
 
 def get_available(filename):
@@ -318,4 +229,8 @@ def scale_dls_only(c):
 
 
 if __name__ == "__main__":
-    check_env_versions()
+    config={'batch_size': 256,
+            'lr': 1e-4,
+            'num_nbrs': 8
+    }
+    train_model(config)

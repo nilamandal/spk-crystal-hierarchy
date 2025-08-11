@@ -1,21 +1,25 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.layers import BatchNormalization, Dropout, Input
-from tensorflow.keras.losses import SparseCategoricalCrossentropy
+from tensorflow.keras.losses import BinaryCrossentropy
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import CallbackList, CSVLogger
 
 
 from spektral.data import Graph, Dataset, DisjointLoader
+from spektral.utils import reorder, sp_matrix_to_sp_tensor
 
 import json
 import pandas as pd
 from scipy.spatial import distance
+import scipy.sparse as sp
 import argparse
 import sys
 from sklearn.model_selection import train_test_split
 from spektral_essential_objects import NotShrinking
-from train_single_model import gen_plots, train_step
+from train_single_model import gen_plots
+from utils import train_step, evaluate
 
 
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
@@ -30,8 +34,11 @@ parser.add_argument('--task', choices=['r', 'c'],
 args = parser.parse_args(sys.argv[1:])
 
 class Dataset_from_json(Dataset):
-    def __init__(self, df, task='c'):
-        self.df= df
+    def __init__(self, df, task='c', target='NR-AR'):
+        #print(df)
+        self.df= df.dropna(subset=[target])
+
+        self.target_name= target
         ref= pd.read_csv('PeriodicTableCSV.csv')[['symbol', 'period', 'group']]
         self.element_ref = {}
         for i, row in ref.iterrows():
@@ -41,14 +48,15 @@ class Dataset_from_json(Dataset):
 
     def read(self):
         pre_graph= self.df['structure'].tolist()
+        targets= self.df[self.target_name].tolist()
         graphs=[]
-        for g in pre_graph:
-            g2= self.make_dataset(g)
+        for i in range(len(pre_graph)):
+            g2= self.make_dataset(pre_graph[i], targets[i])
             graphs.append(g2)
 
         return graphs
 
-    def make_dataset(self, g):
+    def make_dataset(self, g, target):
         json_graph= json.loads(g.replace("'", "\""))
         atoms= json_graph['atoms']
         bonds= json_graph['bonds']
@@ -63,12 +71,12 @@ class Dataset_from_json(Dataset):
             row_encoding[encoding[0]-1]=1
             atom_hot=np.concatenate((group_encoding, row_encoding))
             x.append(atom_hot)
-        x= np.vstack(x)
+        atom_fea= np.vstack(x)
         #print(x)
 
         #adjacency matrix and edge feature(s)
         adj = np.zeros((len(atoms), len(atoms)))
-        e= np.zeros((len(atoms), len(atoms)))
+        e= np.zeros((len(atoms), len(atoms), 1))
         for i in range(len(bonds)):
             b= bonds[i]
             idx_u= b['aid1']-1
@@ -78,22 +86,27 @@ class Dataset_from_json(Dataset):
             u= atoms[idx_u]
             v= atoms[idx_v]
             dist=distance.euclidean([u['x'],u['y']], [v['x'],v['y']])
-            e[idx_u, idx_v]= dist
-            e[idx_v, idx_u]= dist
+            e[idx_u, idx_v, 0]= dist
+            e[idx_v, idx_u, 0]= dist
         #print(e)
-
-        MG=Graph(x=x, a=adj, e=e)
+        adj=sp.csr_matrix(adj)
+        if target==0:
+            onehot_target= [1,0]
+        else:
+            onehot_target= [0,1]
+        MG=Graph(x=atom_fea, a=adj, e=e, y=onehot_target)
         return MG
 
 def main_workflow(config):
-
+    print(args.task)
     checkpoint_path='./goodmodel.ckpt'
 
-    epochs = 1000
+    epochs = 2
     if epochs<1000:
         print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
 
     df= pd.read_csv('./tox_train_set.csv')
+    df= df.head(200)
     cv_scores=[]
     for i in range(5):
         train= df[df['fold']!=i]
@@ -107,19 +120,28 @@ def main_workflow(config):
         load_val= DisjointLoader(val, batch_size=len(val))
 
         csv_log = CSVLogger("./callback_results"+str(i)+".csv")
-        model= SparseEdgepool('r', 1, embedding_size=int(config['embedding_size']), cgcnn_num=int(config['cgcnn_num']), cgcnn_num2=int(config['cgcnn_num2']), softmax_beta=config['softmax_beta'], return_s=True)
+        model= NotShrinking(args.task, 2)
         all_callbacks= CallbackList([csv_log], add_history=True, model=model)
         #
         optim=Adam(config['lr'])
-        loss_fn= SparseCategoricalCrossentropy()
+        loss_fn= BinaryCrossentropy()
+        early_stop_counter= 0
+        patience= 100
+        epoch = step = 0
+        logs = {}
+        all_callbacks.on_train_begin(logs=logs)
+        train_metric=[]
+        val_metric=[]
+        best_val_loss= np.inf
 
-        for batch in load_tr:
+        for batch in load_train:
+            #print(batch)
             if step==0:
                 all_callbacks.on_epoch_begin(epoch, logs=logs)
             step += 1
 
             all_callbacks.on_train_batch_begin(step)
-            loss, metric = train_step(*batch, model, loss_fn, optim)
+            loss, metric = train_step(*batch, model, loss_fn, optim, args.task)
             all_callbacks.on_train_batch_end(step, logs)
 
             if tf.math.is_nan(loss):
@@ -128,51 +150,42 @@ def main_workflow(config):
                     gen_plots(train_metric, val_metric_list)
                 return {"score": np.inf}
 
-            if step == load_tr.steps_per_epoch:
+            if step == load_train.steps_per_epoch:
                 step = 0
-                loss_str="Loss: {}".format(loss / load_tr.steps_per_epoch)
+                loss_str="Loss: {}".format(loss / load_train.steps_per_epoch)
 
-                tr_loss, tr_mse, tr_rmse, tr_mae, tr_ce, tr_re= evaluate(load_tr_eval, model, loss_fn)
-                val_loss, val_mse, val_rmse, val_mae, val_ce, val_re = evaluate(load_va, model, loss_fn)
-                val_metric_list.append(val_loss)
+                tr_loss= evaluate(load_train_eval, model, loss_fn, task='c')#binary BinaryCrossentropy
+                val_loss = evaluate(load_val, model, loss_fn, task='c')
+                val_metric.append(val_loss)
                 train_metric.append(tr_loss)
-                total_val_loss= val_mse
+
 
                 if epoch>0:
-                    if total_val_loss<best_val_loss:
+                    if val_loss<best_val_loss:
                         early_stop_counter=0
                         model.save_weights(checkpoint_path)
-                        best_val_loss= total_val_loss
-                        best_model_mse= val_mse
+                        best_val_loss= val_loss
+
                     else:
                         early_stop_counter+=1
 
-                all_callbacks.on_epoch_end(epoch, {'train_mse':tr_mse, 'train_rmse':tr_rmse, 'train_mae':tr_mae, 'val_mse':val_mse, 'val_rmse:':val_rmse, 'val_mae':val_mae, 'train_row_penalty':tr_re, 'train_column_penalty':tr_ce, 'val_row_penalty':val_re, 'val_column_penalty':val_ce, 'val_total':total_val_loss})
+                all_callbacks.on_epoch_end(epoch, {'train_loss':tr_loss,  'val_loss':val_loss})
 
                 if early_stop_counter==patience:
                     all_callbacks.on_train_end(logs)
-                    gen_plots(train_metric, val_metric_list)
-                    return {"score": best_model_mse}
+                    gen_plots(train_metric, val_metric)
+                    cv_scores.append(best_val_loss)
+
                 else:
                     epoch+=1
     all_callbacks.on_train_end(logs)
     gen_plots(train_metric, val_metric_list)
-
+    #
     return {"score": best_model_mse}
 
 
 if __name__ == "__main__":
-    df= pd.read_csv('./tox_train_set.csv')
-    df0= df[df['tox_y_n']==0]
-
-    df1= df[df['tox_y_n']!=0]
-    df0['target']= 0
-    df1['target']=1
-    #print(df0)
-    #print(df1)
-    df_new= pd.concat([df0,df1])
-    df_new.to_csv('./tox_train_set_2.csv')
-    #config={'batch_size': 256,
-    #        'lr': 1e-4
-    #}
-    #main_workflow(config)
+    config={'batch_size': 256,
+            'lr': 1e-4
+    }
+    main_workflow(config)

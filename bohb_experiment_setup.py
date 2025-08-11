@@ -23,6 +23,7 @@ from tensorflow.keras import backend as K
 import json
 import resource
 
+from utils import train_step
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 parser.add_argument('--datadir', dest='datadir',
         help='Directory where dataset is located', default='/Users/nilamandal/desktop/Main_fol_Zintl')#/home/nim18004/Main_fol_Zintl
@@ -30,85 +31,6 @@ parser.add_argument('--datadir', dest='datadir',
 parser.add_argument('--task', choices=['r', 'c'],
                     default='c', help='complete a regression or classification task (default: regression)')
 args = parser.parse_args(sys.argv[1:])
-
-def entropy_loss(s):
-    entr = tf.negative(
-        tf.reduce_sum(tf.multiply(s, tf.math.log(s + 10**-30)), axis=-1)
-    )
-    entr_loss = tf.reduce_mean(entr, axis=-1)
-    return entr_loss
-
-def row_e_and_column_p(s, i):
-    batch_size= s.shape[0]
-    column_prod_sum=0
-    row_entropy_sum=0
-
-    for g in range(batch_size):
-        count= np.count_nonzero(i==g)
-        s_g=s[g,:count]
-        #---
-        row= entropy_loss(s_g)
-        row_entropy_sum+=row
-
-        column_product= tf.math.reduce_prod(tf.divide(tf.reduce_sum(s_g, axis=0),s_g.shape[0]))
-        column_prod_sum+= column_product
-
-    return -1*column_prod_sum, row_entropy_sum
-
-
-def evaluate(loader, model, loss_fn, test=False):
-    step = 0
-    output=[]
-    while step < loader.steps_per_epoch:
-        step += 1
-        inputs, target = loader.__next__()
-        x, a, e, i = inputs
-        pred, s = model(inputs, training=False)
-
-        c_p, r_e= row_e_and_column_p(s, i)
-        if args.task=='c':
-            outs = (
-                loss_fn(target, pred),
-                tf.reduce_mean(categorical_accuracy(target, pred)),
-                len(target),  # Keep track of batch size
-            )
-        elif args.task=='r':
-            mse = tf.reduce_mean((target-pred)**2)
-            rmse= np.sqrt(mse)
-            mae= tf.reduce_mean(np.abs(target-pred))
-            outs = (
-                loss_fn(target, pred),
-                mse,
-                rmse,
-                mae,
-                c_p,
-                r_e,
-                len(target),  # Keep track of batch size
-            )
-        output.append(outs)
-        if step == loader.steps_per_epoch:
-            output = np.array(output)
-            return np.average(output[:, :-1], 0, weights=output[:, -1])
-
-def train_step(inputs, target, model, loss_fn, optimizer):
-    print(target)
-    with tf.GradientTape() as tape:
-        predictions, s = model(inputs, training=True)
-        loss = loss_fn(target, predictions)
-        #print(loss)
-    print(predictions)
-    #print(target)
-    print('---')
-    gradients = tape.gradient(loss, model.trainable_variables)
-    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-    if args.task=='r':
-        mse = tf.reduce_mean((target-predictions)**2)
-
-        return loss, mse
-    if args.task=='c':
-        sca= tf.reduce_mean(categorical_accuracy(target, predictions))
-        return loss, sca
-
 
 
 
