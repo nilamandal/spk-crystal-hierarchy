@@ -200,7 +200,7 @@ def train_single_model(config, train_data, val_data, epochs=1000, save_path= './
     load_val= DisjointLoader(val_data, batch_size=len(val_data))
     csv_log = CSVLogger(save_path+"_callback_results.csv")
 
-    model= NotShrinking(config['task'], 2)
+    model= NotShrinking(config['task'], 2, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
     all_callbacks= CallbackList([csv_log], add_history=True, model=model)
     #
     optim=Adam(config['lr'])
