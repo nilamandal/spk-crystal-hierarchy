@@ -1,14 +1,15 @@
-import numpy as np
 import tensorflow as tf
 from tensorflow.keras.layers import BatchNormalization, Dropout, Input
-from tensorflow.keras.losses import BinaryCrossentropy
 from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import CallbackList, CSVLogger
-
-
-from spektral.data import Graph, Dataset, DisjointLoader
+from spektral.data import Graph, Dataset
 from spektral.utils import reorder, sp_matrix_to_sp_tensor
+
+import ConfigSpace
+from hpbandster.optimizers.config_generators.bohb import BOHB
+from ray.tune.search.bayesopt import BayesOptSearch
+from ray.tune.schedulers.hb_bohb import HyperBandForBOHB
+from ray.tune.search.bohb import TuneBOHB
+from ray import tune
 
 import json
 import pandas as pd
@@ -16,15 +17,14 @@ from scipy.spatial import distance
 import scipy.sparse as sp
 import argparse
 import sys
-from sklearn.model_selection import train_test_split
-from spektral_essential_objects import NotShrinking
-from train_single_model import gen_plots
-from utils import train_step, evaluate
+import numpy as np
 
+from utils import train_single_model
+from CorrectedRepeater import BOHBRepeater
 
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='/Users/nilamandal/desktop/Main_fol_Zintl')
+        help='Directory where dataset is located', default='/Users/nilamandal/desktop/spk-crystal-hierarchy/')
 #parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
 #                    help='num neighbors per atom', default=12)
 #parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
@@ -39,7 +39,7 @@ class Dataset_from_json(Dataset):
         self.df= df.dropna(subset=[target])
 
         self.target_name= target
-        ref= pd.read_csv('PeriodicTableCSV.csv')[['symbol', 'period', 'group']]
+        ref= pd.read_csv(args.datadir+'PeriodicTableCSV.csv')[['symbol', 'period', 'group']]
         self.element_ref = {}
         for i, row in ref.iterrows():
             self.element_ref[row.symbol] = [row.period, row.group]
@@ -98,94 +98,52 @@ class Dataset_from_json(Dataset):
         return MG
 
 def main_workflow(config):
-    print(args.task)
-    checkpoint_path='./goodmodel.ckpt'
-
-    epochs = 2
-    if epochs<1000:
-        print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
-
-    df= pd.read_csv('./tox_train_set.csv')
-    df= df.head(200)
+    df= pd.read_csv(args.datadir+'tox_train_set.csv')
+    #df= df.head(200)
     cv_scores=[]
+    config['task']= 'c'
     for i in range(5):
         train= df[df['fold']!=i]
         train= Dataset_from_json(train)
 
         val= df[df['fold']==i]
         val= Dataset_from_json(val)
-
-        load_train= DisjointLoader(train, batch_size=int(config['batch_size']), epochs=epochs)
-        load_train_eval= DisjointLoader(train, batch_size=len(train))
-        load_val= DisjointLoader(val, batch_size=len(val))
-
-        csv_log = CSVLogger("./callback_results"+str(i)+".csv")
-        model= NotShrinking(args.task, 2)
-        all_callbacks= CallbackList([csv_log], add_history=True, model=model)
-        #
-        optim=Adam(config['lr'])
-        loss_fn= BinaryCrossentropy()
-        early_stop_counter= 0
-        patience= 100
-        epoch = step = 0
-        logs = {}
-        all_callbacks.on_train_begin(logs=logs)
-        train_metric=[]
-        val_metric=[]
-        best_val_loss= np.inf
-
-        for batch in load_train:
-            #print(batch)
-            if step==0:
-                all_callbacks.on_epoch_begin(epoch, logs=logs)
-            step += 1
-
-            all_callbacks.on_train_batch_begin(step)
-            loss, metric = train_step(*batch, model, loss_fn, optim, args.task)
-            all_callbacks.on_train_batch_end(step, logs)
-
-            if tf.math.is_nan(loss):
-                all_callbacks.on_train_end(logs)
-                if epoch>1:
-                    gen_plots(train_metric, val_metric_list)
-                return {"score": np.inf}
-
-            if step == load_train.steps_per_epoch:
-                step = 0
-                loss_str="Loss: {}".format(loss / load_train.steps_per_epoch)
-
-                tr_loss= evaluate(load_train_eval, model, loss_fn, task='c')#binary BinaryCrossentropy
-                val_loss = evaluate(load_val, model, loss_fn, task='c')
-                val_metric.append(val_loss)
-                train_metric.append(tr_loss)
+        save_path= './'+str(i)
+        score= train_single_model(config, train, val, epochs=2, save_path=save_path)
+        cv_scores.append(score)
 
 
-                if epoch>0:
-                    if val_loss<best_val_loss:
-                        early_stop_counter=0
-                        model.save_weights(checkpoint_path)
-                        best_val_loss= val_loss
-
-                    else:
-                        early_stop_counter+=1
-
-                all_callbacks.on_epoch_end(epoch, {'train_loss':tr_loss,  'val_loss':val_loss})
-
-                if early_stop_counter==patience:
-                    all_callbacks.on_train_end(logs)
-                    gen_plots(train_metric, val_metric)
-                    cv_scores.append(best_val_loss)
-
-                else:
-                    epoch+=1
-    all_callbacks.on_train_end(logs)
-    gen_plots(train_metric, val_metric_list)
-    #
-    return {"score": best_model_mse}
+    return {"score": np.mean(cv_scores)}
 
 
 if __name__ == "__main__":
-    config={'batch_size': 256,
-            'lr': 1e-4
-    }
-    main_workflow(config)
+     NUM_MODELS = 2
+
+     trial_space = {
+           'embedding_size': tune.choice([4,8,16,32,64]),
+           'cgcnn_num': tune.choice([1,2,3]),
+           'cgcnn_num2': tune.choice([1,2,3]),
+           #'cgcnn_p': tune.choice([1,2,3]),
+           'batch_size': tune.choice([4,8,16,32,64]),
+           'softmax_beta': tune.loguniform(1, 1e8),
+           'lr': tune.loguniform(1e-8, 1e-1)
+       }
+
+     bohb_hyperband = HyperBandForBOHB(
+       time_attr="training_iteration",
+       max_t=81,
+       reduction_factor=3,
+       stop_last_trials=False,
+     )
+
+     bohb = BOHBRepeater(metric='score', mode='min', repeat=1, max_concurrent=1)
+     train_model_object = tune.with_resources(main_workflow, {"cpu": 50})
+     tuner = tune.Tuner(train_model_object, tune_config=tune.TuneConfig(
+       search_alg=bohb,
+       scheduler=bohb_hyperband,
+       metric='score',
+       mode='min',
+       num_samples=NUM_MODELS), param_space=trial_space)
+     print('CREATED all TUNING OBJECTS')
+     results = tuner.fit()
+     print(results)

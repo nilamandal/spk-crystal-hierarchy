@@ -3,6 +3,12 @@ import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.metrics import sparse_categorical_accuracy, categorical_accuracy
 import numpy as np
+from spektral.data import Graph, Dataset, DisjointLoader
+from tensorflow.keras.callbacks import CallbackList, CSVLogger
+from spektral_essential_objects import NotShrinking
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.losses import BinaryCrossentropy
+import matplotlib.pyplot as plt
 
 def pcp_query_by_smile(formula):
     try:
@@ -25,9 +31,23 @@ def get_bonds_by_pid(pid):
         print(pid, 'retry')
         return 'retry'
 
-def get_len(path):
-        df= pd.read_csv('./train_model_2023-10-27_15-40-05/'+path+'/callback_results.csv')
-        return len(df)
+def gen_plots(train_metric, val_metric, idx):
+    plt.switch_backend('Agg')
+
+    plt.figure()
+
+    epochs=list(range(len(train_metric)))
+    min_train= 'train min='+str(np.round(np.min(train_metric), decimals=3))+','
+    min_val= 'val min='+str(np.round(np.min(val_metric), decimals=3))
+    plt.plot(epochs, np.log(train_metric), label='training loss')
+    plt.plot(epochs, np.log(val_metric), label='val loss')
+
+    figtitle=idx+'_result.png'
+
+    plt.xlabel('epochs')
+    plt.legend()
+    plt.ylabel('log of mean square error ')
+    plt.savefig(figtitle)
 
 def check_env_versions():
     import tensorflow as tf
@@ -66,11 +86,57 @@ def row_e_and_column_p(s, i):
 
     return -1*column_prod_sum, row_entropy_sum
 
+
+
+def get_available(filename):
+    try:
+        crystal= Structure.from_file('../Main_fol_Zintl/'+filename)
+        ana= SpacegroupAnalyzer(crystal)
+        #print(ana)
+        sym_crystal= ana.get_symmetrized_structure()
+        #print(len(sym_crystal.equivalent_indices))
+        return len(sym_crystal.equivalent_indices)
+
+    except:
+        print(filename)
+        #return False
+
+def scale_by_pred_vol(structure, site_bias, dls_vol_predictor):
+    #global count
+    # first predict the volume using the average volume per element (from ICSD)
+    site_counts = pd.Series(Counter(
+        str(site.specie) for site in structure.sites)).fillna(0)
+    curr_site_bias = site_bias[site_bias.index.isin(site_counts.index)]
+
+    try:
+        linear_pred = site_counts @ curr_site_bias
+        structure.scale_lattice(linear_pred)
+    except:
+        pass
+        #count+=1
+    # then apply Pymatgen's DLS predictor
+    pred_volume = dls_vol_predictor.predict(structure)
+    structure.scale_lattice(pred_volume)
+    #
+    return structure
+
+def scale_dls_only(c):
+    c=str(c)
+    try:
+        from pymatgen.core.structure import Structure
+    except:
+        crystal= Structure.from_file(os.path.join(data_path,c))
+    structure= dls_vol_predictor.get_predicted_structure(crystal)
+    newpath='./sc24_scaled/'+c.split('/')[-1][:-7]+'.cif'
+    structure.to(filename=newpath)
+    return newpath
+
+
 def train_step(inputs, target, model, loss_fn, optimizer, task='r'):
     with tf.GradientTape() as tape:
         predictions, s = model(inputs, training=True)
-        print(target)
-        print(predictions)
+        #print(target)
+        #print(predictions)
         loss = loss_fn(target, predictions)
 
     gradients = tape.gradient(loss, model.trainable_variables)
@@ -115,7 +181,85 @@ def evaluate(loader, model, loss_fn, test=False, task='r'):
             output = np.array(output)
             return np.average(output[:, :-1], 0, weights=output[:, -1])
 
+def train_single_model(config, train_data, val_data, epochs=1000, save_path= './'):
+    print('BEGUN INDIVIDUAL TRAINING')
 
+    checkpoint_path=save_path+'goodmodel.ckpt'
+
+    if epochs<1000:
+        print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
+    #
+    # embedding_size= config['embedding_size']
+    # batch_size= config['batch_size']
+    # entropy_lambda= config['entropy_lambda']
+    # softmax_beta= config['softmax_beta']
+    # lr= config['lr']
+
+    load_train= DisjointLoader(train_data, batch_size=int(config['batch_size']), epochs=epochs)
+    load_train_eval= DisjointLoader(train_data, batch_size=len(train_data))
+    load_val= DisjointLoader(val_data, batch_size=len(val_data))
+    csv_log = CSVLogger(save_path+"_callback_results.csv")
+
+    model= NotShrinking(config['task'], 2)
+    all_callbacks= CallbackList([csv_log], add_history=True, model=model)
+    #
+    optim=Adam(config['lr'])
+    loss_fn= BinaryCrossentropy()
+    early_stop_counter= 0
+    patience= 100
+    epoch = step = 0
+    logs = {}
+    all_callbacks.on_train_begin(logs=logs)
+    train_metric=[]
+    val_metric=[]
+    best_val_loss= np.inf
+
+    for batch in load_train:
+        #print(batch)
+        if step==0:
+            all_callbacks.on_epoch_begin(epoch, logs=logs)
+        step += 1
+
+        all_callbacks.on_train_batch_begin(step)
+        loss, metric = train_step(*batch, model, loss_fn, optim, config['task'])
+        all_callbacks.on_train_batch_end(step, logs)
+
+        if tf.math.is_nan(loss):
+            all_callbacks.on_train_end(logs)
+            if epoch>1:
+                gen_plots(train_metric, val_metric, save_path)
+            return {"score": np.inf}
+
+        if step == load_train.steps_per_epoch:
+            step = 0
+            loss_str="Loss: {}".format(loss / load_train.steps_per_epoch)
+
+            tr_loss= evaluate(load_train_eval, model, loss_fn, task=config['task'])#binary BinaryCrossentropy
+            val_loss = evaluate(load_val, model, loss_fn, task=config['task'])
+            val_metric.append(val_loss)
+            train_metric.append(tr_loss)
+
+            if epoch>0:
+                if val_loss<best_val_loss:
+                    early_stop_counter=0
+                    model.save_weights(checkpoint_path)
+                    best_val_loss= val_loss
+
+                else:
+                    early_stop_counter+=1
+
+            all_callbacks.on_epoch_end(epoch, {'train_loss':tr_loss, 'val_loss':val_loss})
+
+            if early_stop_counter==patience:
+                all_callbacks.on_train_end(logs)
+                gen_plots(train_metric, val_metric, save_path)
+                return {"score": best_val_loss}
+            else:
+                epoch+=1
+    all_callbacks.on_train_end(logs)
+    gen_plots(train_metric, val_metric, save_path)
+
+    return best_val_loss
 
 
 if __name__ == "__main__":
