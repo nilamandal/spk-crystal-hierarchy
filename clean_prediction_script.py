@@ -11,7 +11,7 @@ import os
 import sys
 from pymatgen.core.structure import Structure
 import json
-from spektral_essential_objects import GaussianDistance, MyDataset, SparseEdgepool, AtomFeaDataset, CGCNNModel, TwoHeads, NotShrinking, TwoHeadsAndNotShrinking
+from spektral_essential_objects import GaussianDistance, MyDataset, SparseEdgepool, AtomFeaDataset, CGCNNModel, NotShrinking
 from sklearn import svm
 import pylab as pl
 from tensorflow.keras import backend as K
@@ -65,6 +65,7 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
                 tempcifname= cifs[i].split('/')[-1]
 
                 savepath=os.path.join(write_output_path,os.path.dirname(cifs[i]))
+
                 assign=assign[:len(crystal)]
                 try:
                     outfile= open(savepath+'/'+tempcifname+'pool.csv', 'w+')
@@ -73,7 +74,7 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
                         os.makedirs(os.path.dirname(savepath+'/'+tempcifname+'pool.csv'))
                     outfile= open(savepath+'/'+tempcifname+'pool.csv', 'w+')
                 outfile.write('num,species,a,b,c,P1,P2,ground_truth_P1,SVM_pred_P1\n')
-
+###
                 binary_feats=[]
                 binary_targets=[]
                 for k in range(len(crystal)):
@@ -275,18 +276,65 @@ def evaluate_pool(binary_feats, binary_targets):
         best_pred= preds[best_C]
         return best_C, best_score, best_margin, best_pred
 
+
+def eval_for_3_pools(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, write_output_path):
+    output = []
+    step = 0
+    all_s=[]
+    all_pre_feats=[]
+    cif_idx=0
+    while step < loader.steps_per_epoch:
+        step += 1
+        inputs, target = loader.__next__()
+
+        pred, s_tensor = model(inputs, training=False)
+        mse = tf.reduce_mean((target-pred)**2)
+        rmse= np.sqrt(mse)
+        mae= tf.reduce_mean(np.abs(target-pred))
+        print('MSE:')
+        print(mse)
+        print('RMSE:')
+        print(rmse)
+        print('MAE')
+        print(mae)
+        scores=[]
+        Cs=[]
+        class_accuracies_for_plot=[]
+        crystal_size=[]
+
+        for j in range(len(s_tensor)):
+            assign= s_tensor[j]
+            individual_error= np.abs(target[j]-pred[j])
+            crystal= Structure.from_file(os.path.join(fullpath_of_data_file,cifs[j]))
+            crystal_size.append(len(crystal))
+
+            ground_truth_P1= df[df['id']==cifs[j]].P1_new.values[0]
+            ground_truth_P2= df[df['id']==cifs[j]].P2_new.values[0]
+            tempcifname= cifs[j].split('/')[-1]
+            savepath=os.path.join(write_output_path,os.path.dirname(cifs[j]))
+            assign=assign[:len(crystal)]
+
+            try:
+                outfile= open(savepath+'/'+tempcifname+'_pool.csv', 'w+')
+            except:
+                if not os.path.exists(os.path.dirname(savepath+'/'+tempcifname+'_pool.csv')):
+                    os.makedirs(os.path.dirname(savepath+'/'+tempcifname+'_pool.csv'))
+                outfile= open(savepath+'/'+tempcifname+'_pool.csv', 'w+')
+            outfile.write('num,species,a,b,c,P1,P2,P3\n')
+
+            for k in range(len(crystal)):
+                line="{},{},{},{},{},{},{},{} \n".format(k, crystal[k].specie, crystal[k].a, crystal[k].b, crystal[k].c, assign[k,0], assign[k,1], assign[k,2])
+                outfile.write(line)
+            outfile.close()
+
+
+
 def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath):
 
     checkpoint_path = fullpath_of_model+"goodmodel.ckpt.index"
 
     checkpoint_dir = os.path.dirname(checkpoint_path)
-    #pretrained cgcnn params
-    #{"__trial_index__": 0,
-    #  "batch_size": 8,
-    #  "embedding_size": 32,
-    #  "hidden_fea_size": 16,
-    #  "lr": 0.0010072628611696127,
-    #  "num_nbrs": 5}
+
     data_dir = os.path.dirname(fullpath_of_data_file)
     config= json.load(open(parampath+'params.json'))
 
@@ -296,38 +344,22 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath)
     loader_va= DisjointLoader(data, shuffle=False, batch_size=len(val_df))
     cifs=data.get_cifs()
 
-
-    ###
-    #pretrained=CGCNNModel(embedding_size=32, hidden_fea_size=16)
-    #latest = tf.train.latest_checkpoint(fullpath_of_model)
-    #pretrained.load_weights(latest)
-    #print(pretrained)
-    #temp_data= AtomFeaDataset(val_df.head(1), data_dir, 8, 5, 'r')
-    #load_temp= DisjointLoader(temp_data, batch_size=8, epochs=1)
-    #for b in load_temp:
-    #    p=pretrained(b[0],training=False)
-    ###
-
-
-    #model= SparseEdgepool('r', 1, embedding_size=int(config['embedding_size']), cgcnn_num=int(config['cgcnn_num']), cgcnn_num2=int(config['cgcnn_num2']), softmax_beta=config['softmax_beta'], return_s=True)
-    #model= TransferableModel('r', 1, pretrained, cgcnn_num2=config['cgcnn_num2'], softmax_beta=config['softmax_beta'], return_s=True)
-    #model= TwoHeads('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], config['cgcnn_p'], softmax_beta=config['softmax_beta'])
-    model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
+    model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'], k=3)
     latest = tf.train.latest_checkpoint(checkpoint_dir)
     model.load_weights(latest)
     if not os.path.exists(write_output_path):
         os.makedirs(write_output_path)
-    result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
+    result_dict=eval_for_3_pools(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
 
     return result_dict
 
 
 if __name__ == '__main__':
 
-    subpaths=['../noshrink/train_model_830747d3', '../noshrink/train_model_6a79ec64', '../noshrink/train_model_c35f7778']
+    subpaths=['../noshrink/3pools/train_model_2025/train_model_9e890b85_98/']
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
-    #fullpath_of_data_file='../Main_fol_Zintl/Zintl_phases_trial_for_bonding_analysis.csv'
-    fullpath_of_data_file='../Main_fol_Zintl/Zintl_bonding_analysis_new_heuristic.csv'
+    fullpath_of_data_file='../Main_fol_Zintl/test_by_fam_heuristics.csv'
+    #fullpath_of_data_file='../Main_fol_Zintl/Zintl_bonding_analysis_new_heuristic.csv'
 
     for pathstring in subpaths:
         pathstring= str(pathstring)
@@ -337,6 +369,6 @@ if __name__ == '__main__':
 
         #write output path is the DIRECTORY where you want the output files to be saved.
         #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
-        write_output_path=fullpath_of_model+'bond_analysis_new_heuristic/'
+        write_output_path=fullpath_of_model+'test_set/'
 
         result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath_for_model)
