@@ -155,7 +155,7 @@ def evaluate(loader, model, loss_fn, test=False, task='r'):
     while step < loader.steps_per_epoch:
         step += 1
         inputs, target = loader.__next__()
-        x, a, e, i = inputs
+        #x, a, e, i = inputs
         pred, s = model(inputs, training=False)
 
         #c_p, r_e= row_e_and_column_p(s, i)
@@ -166,11 +166,10 @@ def evaluate(loader, model, loss_fn, test=False, task='r'):
                 len(target),  # Keep track of batch size
             )
         elif task=='r':
-            mse = tf.reduce_mean((target-pred)**2)
+            mse = loss_fn(target, pred) #ASSUMES REGRESSION LOSS IS MSE
             rmse= np.sqrt(mse)
             mae= tf.reduce_mean(np.abs(target-pred))
             outs = (
-                loss_fn(target, pred),
                 mse,
                 rmse,
                 mae,

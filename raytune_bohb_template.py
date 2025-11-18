@@ -166,7 +166,7 @@ if __name__ == "__main__":
 
       trial_space = {
             'embedding_size': tune.choice([4,8,16,32,64]),
-            'cgcnn_num': tune.choice([1,2,3]),
+            'cgcnn_num': tune.choice([4,5,6,7,8]),
             'cgcnn_num2': tune.choice([1,2,3]),
             #'cgcnn_p': tune.choice([1,2,3]),
             'batch_size': tune.choice([4,8,16,32,64]),
