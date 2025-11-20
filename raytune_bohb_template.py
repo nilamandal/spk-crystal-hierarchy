@@ -3,8 +3,9 @@ import sys
 
 import tensorflow as tf
 import os
-from spektral_essential_objects import MyDataset, SparseEdgepool, AtomFeaDataset, TransferableModel, CGCNNModel, TwoHeads, NotShrinking, TwoHeadsAndNotShrinking
-from spektral.data import DisjointLoader
+from spektral_essential_objects import MyDataset, SparseEdgepool, AtomFeaDataset, NoShrink_GAT
+
+from spektral.data import DisjointLoader, BatchLoader
 from CorrectedRepeater import BOHBRepeater
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import MeanSquaredError, CategoricalCrossentropy
@@ -23,13 +24,14 @@ from tensorflow.keras import backend as K
 import json
 import resource
 
-from utils import train_step
+from utils import train_step, evaluate
+
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 parser.add_argument('--datadir', dest='datadir',
         help='Directory where dataset is located', default='/Users/nilamandal/desktop/Main_fol_Zintl')#/home/nim18004/Main_fol_Zintl
 
 parser.add_argument('--task', choices=['r', 'c'],
-                    default='c', help='complete a regression or classification task (default: regression)')
+                    default='r', help='complete a regression or classification task (default: regression)')
 args = parser.parse_args(sys.argv[1:])
 
 
@@ -37,110 +39,107 @@ args = parser.parse_args(sys.argv[1:])
 def train_model(config):
     print('BEGUN INDIVIDUAL TRAINING')
 
-    checkpoint_path='./goodmodel.ckpt'
 
-    epochs = 1000
+    epochs = 10
     if epochs<1000:
         print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
 
     # Load data and train model code here...
-    all_data = pd.read_csv(os.path.join(args.datadir,'classification_by_fam_for_cgcnn.csv'))
-    all_data['bin'] = np.random.randint(0, 5, len(all_data))
+
+    all_data = pd.read_csv(os.path.join(args.datadir,'crossval.csv'))
+    #print(all_data)
     cv_scores=[]
 
     for i in range(5):
-        checkpoint_path='./'+str(i)+'goodmodel.ckpt'
-
         train_df= all_data[all_data['bin']!=i]
+        train_df= train_df.head(5)
         val_df= all_data[all_data['bin']==i]
+        val_df= val_df.head(5)
+        train_data= AtomFeaDataset(train_df, args.datadir, 8, 12, args.task)
+        val_data= AtomFeaDataset(val_df, args.datadir, 8, 12, args.task)
+        load_tr= BatchLoader(train_data, batch_size=config['batch_size'], epochs=epochs)
+        load_tr_eval= BatchLoader(train_data, batch_size=len(train_data))
+        load_va= BatchLoader(val_data, batch_size=len(val_data))
 
-        def train_one_loop():
-            train_data= AtomFeaDataset(train_df, args.datadir, 8, 12, args.task)
-            load_tr= DisjointLoader(train_data, batch_size=config['batch_size'], epochs=epochs)
-            load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
-            val_data= AtomFeaDataset(val_df, args.datadir, 8, 12, args.task)
-            load_va= DisjointLoader(val_data, batch_size=len(val_data))
-            #print('loaded data')
+        model= NoShrink_GAT(args.task, 8, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
+        optim=Adam(config['lr'])
 
-            csv_log = CSVLogger("./"+str(i)+"callback_results.csv")
+        trial_score= train_one_loop(model, load_tr, load_tr_eval, load_va, optim, i)
 
+        cv_scores.append(trial_score)
 
-            model= NotShrinking(args.task, 8, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
-
-            all_callbacks= CallbackList([csv_log], add_history=True, model=model)
-        #
-            optim=Adam(config['lr'])
-            if args.task=='r':
-                loss_fn= MeanSquaredError()
-            else:
-                loss_fn= CategoricalCrossentropy()
-            train_metric=[]
-            val_metric_list=[]
-            early_stop_counter= 0
-            patience= 50
-            epoch = step = 0
-
-            best_val_loss = np.inf
-            best_model_mse = np.inf
-            logs = {}
-            all_callbacks.on_train_begin(logs=logs)
-
-            for batch in load_tr:
-                    #print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-                    # peak memory usage (kilobytes on Linux, bytes on OS X)
-                    if step==0:
-                        all_callbacks.on_epoch_begin(epoch, logs=logs)
-                    step += 1
-
-                    all_callbacks.on_train_batch_begin(step)
-                    loss, metric = train_step(*batch, model, loss_fn, optim)
-                    all_callbacks.on_train_batch_end(step, logs)
-
-                    if tf.math.is_nan(loss):
-                        all_callbacks.on_train_end(logs)
-                        if epoch>1:
-                            gen_plots(train_metric, val_metric_list)
-                        return np.inf
-
-                    if step == load_tr.steps_per_epoch:
-                        step = 0
-                        loss_str="Loss: {}".format(loss / load_tr.steps_per_epoch)
-                        tr_loss, tr_ca= evaluate(load_tr_eval, model, loss_fn)
-                        val_loss, va_ca= evaluate(load_va, model, loss_fn)
-                        val_metric_list.append(val_loss)
-                        train_metric.append(tr_loss)
-                        total_val_loss= val_loss
-
-                        if epoch>0:
-                            if total_val_loss<best_val_loss:
-                                early_stop_counter=0
-                                model.save_weights(checkpoint_path)
-                                best_val_loss= total_val_loss
-                                if args.task=='r':
-                                    best_model_mse= val_mse
-                                else:
-                                    best_model_mse= val_loss
-                            else:
-                                early_stop_counter+=1
-                        if args.task=='r':
-                            all_callbacks.on_epoch_end(epoch, {'train_mse':tr_mse, 'train_rmse':tr_rmse, 'train_mae':tr_mae, 'val_mse':val_mse, 'val_rmse:':val_rmse, 'val_mae':val_mae, 'val_total':total_val_loss})
-                        else:
-                            all_callbacks.on_epoch_end(epoch, {'train_loss':tr_loss, 'val_loss:':total_val_loss})
-                        if early_stop_counter==patience:
-                            all_callbacks.on_train_end(logs)
-                            gen_plots(train_metric, val_metric_list)
-                            return best_model_mse
-                        elif np.isnan(tr_loss):
-                            return np.inf
-                        else:
-                            epoch+=1
-            all_callbacks.on_train_end(logs)
-            gen_plots(train_metric, val_metric_list)
-
-            return best_model_mse
-
-        cv_scores.append(train_one_loop())
+    #
     return {"score": np.mean(cv_scores)}
+
+def train_one_loop(model, load_tr, load_tr_eval, load_va, optim, i):
+    checkpoint_path='./'+str(i)+'goodmodel.ckpt'
+    csv_log = CSVLogger("./"+str(i)+"callback_results.csv")
+
+    all_callbacks= CallbackList([csv_log], add_history=True, model=model)
+
+    if args.task=='r':
+        loss_fn= MeanSquaredError()
+    else:
+        loss_fn= CategoricalCrossentropy()
+    train_metric=[]
+    val_metric_list=[]
+    early_stop_counter= 0
+    patience= 50
+    epoch = step = 0
+
+    best_val_loss = np.inf
+    logs = {}
+    all_callbacks.on_train_begin(logs=logs)
+
+    for batch in load_tr:
+        if step==0:
+            all_callbacks.on_epoch_begin(epoch, logs=logs)
+        step += 1
+
+        all_callbacks.on_train_batch_begin(step)
+        loss, metric = train_step(*batch, model, loss_fn, optim)
+        all_callbacks.on_train_batch_end(step, logs)
+
+        if tf.math.is_nan(loss):
+            all_callbacks.on_train_end(logs)
+            if epoch>1:
+                gen_plots(train_metric, val_metric_list)
+            return np.inf
+
+        if step == load_tr.steps_per_epoch:
+            step = 0
+            loss_str="Loss: {}".format(loss / load_tr.steps_per_epoch)
+            tr_loss, tr_rmse, tr_mae= evaluate(load_tr_eval, model, loss_fn)
+            val_loss, val_rmse, val_mae= evaluate(load_va, model, loss_fn)
+            val_metric_list.append(val_loss)
+            train_metric.append(tr_loss)
+            #total_val_loss= val_loss
+
+            if epoch>0:
+                if val_loss<best_val_loss:
+                    early_stop_counter=0
+                    model.save_weights(checkpoint_path)
+                    best_val_loss= val_loss
+
+                else:
+                    early_stop_counter+=1
+            if args.task=='r':
+                all_callbacks.on_epoch_end(epoch, {'train_mse':tr_loss, 'train_rmse':tr_rmse, 'train_mae':tr_mae, 'val_mse':val_loss, 'val_rmse:':val_rmse, 'val_mae':val_mae})
+            else:
+                all_callbacks.on_epoch_end(epoch, {'train_loss':tr_loss, 'val_loss:':val_loss})
+            if early_stop_counter==patience:
+                all_callbacks.on_train_end(logs)
+                gen_plots(train_metric, val_metric_list)
+                return best_model_mse
+            elif np.isnan(tr_loss):
+                return np.inf
+            else:
+                epoch+=1
+
+    all_callbacks.on_train_end(logs)
+    gen_plots(train_metric, val_metric_list)
+
+    return best_val_loss
 
 def gen_plots(train_metric, val_metric):
     plt.switch_backend('Agg')

@@ -56,7 +56,7 @@ def train_model(config):
     load_va= DisjointLoader(val_data, batch_size=len(val_data))
 
     csv_log = CSVLogger("./callback_results.csv")
-    model= NoShrink_GraphSage(args.task, config['embedding_size'], config['hidden_size'], config['cgcnn_num'])
+    model= NoShrink_GAT(args.task, config['embedding_size'], config['hidden_size'], config['cgcnn_num'])
     all_callbacks= CallbackList([csv_log], add_history=True, model=model)
         #
     optim=Adam(config['lr'])

@@ -1,7 +1,7 @@
 from spektral.data import Graph, Dataset, DisjointLoader
 from spektral.data.utils import to_batch
 from spektral.utils import reorder, sp_matrix_to_sp_tensor
-from spektral.layers import CrystalConv, DiffPool, ops, GlobalSumPool, GlobalAvgPool, Disjoint2Batch, GraphSageConv
+from spektral.layers import CrystalConv, DiffPool, ops, GlobalSumPool, GlobalAvgPool, Disjoint2Batch, GraphSageConv, GATConv
 import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import SGD, Adam
@@ -603,52 +603,6 @@ class MPCgcnn(CrystalConv):
 #
 
 
-class GraphSageCustom(GraphSageConv):
-    def __init__(
-        self,
-        channels,
-        aggregate="mean",
-        activation=None,
-        use_bias=True,
-        kernel_initializer="glorot_uniform",
-        bias_initializer="zeros",
-        kernel_regularizer=None,
-        bias_regularizer=None,
-        activity_regularizer=None,
-        kernel_constraint=None,
-        bias_constraint=None,
-        **kwargs,
-    ):
-        super().__init__(
-            aggregate=aggregate,
-            activation=activation,
-            use_bias=use_bias,
-            kernel_initializer=kernel_initializer,
-            bias_initializer=bias_initializer,
-            kernel_regularizer=kernel_regularizer,
-            bias_regularizer=bias_regularizer,
-            activity_regularizer=activity_regularizer,
-            kernel_constraint=kernel_constraint,
-            bias_constraint=bias_constraint,
-            **kwargs,
-        )
-        self.channels = channels
-
-    def call(self, inputs):
-        x, a, _ = self.get_inputs(inputs)
-        a = ops.add_self_loops(a)
-
-        aggregated = self.propagate(x, a)
-        output = K.concatenate([x, aggregated])
-        output = K.dot(output, self.kernel)
-
-        if self.use_bias:
-            output = K.bias_add(output, self.bias)
-        output = K.l2_normalize(output, axis=-1)
-        if self.activation is not None:
-            output = self.activation(output)
-
-        return output
 
 
 
@@ -881,7 +835,7 @@ class NotShrinking(SparseEdgepool):
             return x
 
 
-class NoShrink_GraphSage(Model):
+class NoShrink_GAT(Model):
     def __init__(self, task, embedding_size=32, hidden_size=32, num_layers=2, random_seed=100, **kwargs):
         super().__init__()
         self.task= task
@@ -892,7 +846,7 @@ class NoShrink_GraphSage(Model):
 
         self.conv_list=[]
         for i in range(num_layers):
-            conv= GraphSageConv(hidden_size)
+            conv= GATConv(hidden_size)
             self.conv_list.append(conv)
 
         self.pool= GlobalAvgPool()
@@ -904,13 +858,13 @@ class NoShrink_GraphSage(Model):
 
 
     def call(self, inputs):
-        x, a, i = inputs
+        x, a, e = inputs
         x= self.embedding(x)
 
-        for sage in self.conv_list:
-            x= sage([x, a])
+        for gat in self.conv_list:
+            x= gat([x, a])
 
-        x_pool= self.pool([x, i])
+        x_pool= self.pool(x)
 
         x= self.out_layer(x_pool)
 
