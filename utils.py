@@ -8,14 +8,19 @@ from tensorflow.keras.callbacks import CallbackList, CSVLogger
 from spektral_essential_objects import NotShrinking
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import BinaryCrossentropy
+from tensorflow.keras.losses import MeanSquaredError
 import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
 
 def pcp_query_by_smile(formula):
     try:
         d= pcp.get_compounds(formula, namespace='smiles', record_type='2d')
         #temp= d[0].to_dict(properties=['atoms', 'bonds'])
         print(d)
-        return d
+        if d:
+            return d[0].cid
+        else:
+            return 'retry'
     except:
         return 'retry'
     return 'retry'
@@ -25,13 +30,14 @@ def get_bonds_by_pid(pid):
     try:
         d= pcp.Compound.from_cid(pid)
         g= d.to_dict(properties=['atoms', 'bonds'])
-        print(pid)
+        print('doing it', g)
         return g
     except:
         print(pid, 'retry')
         return 'retry'
 
 def gen_plots(train_metric, val_metric, idx):
+    print("got in here")
     plt.switch_backend('Agg')
 
     plt.figure()
@@ -195,15 +201,15 @@ def train_single_model(config, train_data, val_data, epochs=1000, save_path= './
     # lr= config['lr']
 
     load_train= DisjointLoader(train_data, batch_size=int(config['batch_size']), epochs=epochs)
-    load_train_eval= DisjointLoader(train_data, batch_size=len(train_data))
+    load_train_eval= DisjointLoader(train_data, batch_size=int(config['batch_size']))
     load_val= DisjointLoader(val_data, batch_size=len(val_data))
     csv_log = CSVLogger(save_path+"_callback_results.csv")
 
-    model= NotShrinking(config['task'], 2, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
+    model= NotShrinking(config['task'], 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'], k=3)
     all_callbacks= CallbackList([csv_log], add_history=True, model=model)
     #
     optim=Adam(config['lr'])
-    loss_fn= BinaryCrossentropy()
+    loss_fn= MeanSquaredError()
     early_stop_counter= 0
     patience= 100
     epoch = step = 0
@@ -233,10 +239,11 @@ def train_single_model(config, train_data, val_data, epochs=1000, save_path= './
             step = 0
             loss_str="Loss: {}".format(loss / load_train.steps_per_epoch)
 
-            tr_loss= evaluate(load_train_eval, model, loss_fn, task=config['task'])#binary BinaryCrossentropy
-            val_loss = evaluate(load_val, model, loss_fn, task=config['task'])
+            tr_loss, tmse, trmse, tmae = evaluate(load_train_eval, model, loss_fn, task=config['task'])#binary BinaryCrossentropy
+            val_loss, vmse, vrmse, vmae = evaluate(load_val, model, loss_fn, task=config['task'])
             val_metric.append(val_loss)
             train_metric.append(tr_loss)
+            
 
             if epoch>0:
                 if val_loss<best_val_loss:
@@ -257,14 +264,23 @@ def train_single_model(config, train_data, val_data, epochs=1000, save_path= './
                 epoch+=1
     all_callbacks.on_train_end(logs)
     gen_plots(train_metric, val_metric, save_path)
-
+    print("here")
     return best_val_loss
 
 
 if __name__ == "__main__":
-    df= pd.read_csv('tox21_updated.csv')
-    df= df[df['pid']>0]
-    #mol_list= df['smiles'].tolist()
+    df = pd.read_csv('aqsol_train.csv')
+    
+    #train_val_df, test_df = train_test_split(df, test_size=0.1, random_state=42, shuffle=True)
 
-    df['structure']= df['pid'].apply(get_bonds_by_pid)
-    df.to_csv('tox21_updated_2.csv')
+    #train_df, val_df = train_test_split(train_val_df, test_size=1/9, random_state=42, shuffle=True)
+    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+    df.to_csv('aqsol_train2.csv')
+    #print(len(train_df), type(train_df))
+    #print(len(test_df), type(test_df))
+    #print(len(val_df), type(val_df))
+    #train_df.to_csv("aqsol_train.csv", index=False)
+    #val_df.to_csv("aqsol_val.csv", index=False)
+    #test_df.to_csv("aqsol_test.csv", index=False)
+
+    

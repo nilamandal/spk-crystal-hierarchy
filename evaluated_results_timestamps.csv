@@ -1,0 +1,2 @@
+,__trial_index__,batch_size,embedding_size,hidden_fea_size,lr,num_nbrs,score,timestamp,path
+0,0,8,32,16,0.0010072628611696127,5,0.0025562788359820843,1740100672,./tf_cgcnn_model

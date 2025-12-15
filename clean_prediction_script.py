@@ -9,12 +9,13 @@ import numpy as np
 import pandas as pd
 import os
 import sys
-from pymatgen.core.structure import Structure
+from pymatgen.core.structure import Structure, Lattice
 import json
 from spektral_essential_objects import GaussianDistance, MyDataset, SparseEdgepool, AtomFeaDataset, CGCNNModel, NotShrinking
 from sklearn import svm
 import pylab as pl
 from tensorflow.keras import backend as K
+from aqsol_experiments import Dataset_from_json
 #from util_functions import entropy_loss, row_e_and_column_p
 
 #This function handles all evaluation of the data. It computes the model's prediction for each crystal,
@@ -26,7 +27,93 @@ from tensorflow.keras import backend as K
 #   the SVM's class assignments.
 #2. A plot of the P1 and P2 assignment values, colored by "ground truth" assignment of each atom
 #3. A plot of the P1 and P2 assignment values, colored by element of each atom
-def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, write_output_path):
+def json_to_structure(data: dict, padding: float = 5.0) -> Structure:
+    atoms = data["atoms"]
+    species = [a["element"] for a in atoms]
+
+    xs = [a["x"] for a in atoms]
+    ys = [a["y"] for a in atoms]
+
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+
+    span_x = max_x - min_x
+    span_y = max_y - min_y
+
+    # Build a box that comfortably contains the 2D molecule
+    a = span_x + 2 * padding
+    b = span_y + 2 * padding
+    c = 2 * padding  # thin dimension in z
+
+    lattice = Lattice.orthorhombic(a, b, c)
+
+    # Shift coords so they lie fully inside the box
+    coords_cart = [
+        [
+            atom["x"] - min_x + padding,
+            atom["y"] - min_y + padding,
+            atom.get("z", 0.0) + 0.5 * c,  # center in z-plane
+        ]
+        for atom in atoms
+    ]
+
+    struct = Structure(lattice, species, coords_cart, coords_are_cartesian=True)
+    return struct
+
+
+def evaluate(loader,
+             model,
+             cifs,
+             df,
+             fullpath_of_model,
+             fullpath_of_data_file,
+             write_output_path):
+    """
+    Simplified evaluation:
+    - Computes MSE, RMSE, MAE over one epoch of the loader.
+    - Ignores all pooling / P1 / SVM logic for now.
+    - Keeps the same signature so it can be slotted in place of the old version.
+    """
+
+    step = 0
+    batch_mses = []   # MSE per batch
+    all_abs_errors = []  # per-sample |y - y_hat| for MAE
+    output = []
+    while step < loader.steps_per_epoch:
+        step += 1
+
+        # Get a batch
+        inputs, target = loader.__next__()   # or: next(loader)
+        
+        # Forward pass
+        pred, s_tensor = model(inputs, training=False)
+        maes_for_plot = []
+        for j in range(len(s_tensor)):
+            individual_error = np.abs(target[j] - pred[j])
+            maes_for_plot.append(individual_error)
+        # --- MSE per batch ---
+        # mean_squared_error returns per-sample MSE; reduce_mean -> scalar batch MSE
+        batch_mse = tf.reduce_mean(mean_squared_error(target, pred))
+        # Convert to Python float (handles tf.Tensor)
+        batch_mses.append(float(batch_mse.numpy()))
+
+        # --- MAE per sample ---
+        pred_np = np.array(pred).reshape(-1)
+        target_np = np.array(target).reshape(-1)
+        #abs_errors = np.abs(target_np - pred_np)
+        #all_abs_errors.extend(abs_errors.tolist())
+        outs = tf.reduce_mean(mean_squared_error(target, pred))
+
+        output.append(outs)
+        if step == loader.steps_per_epoch:
+            output = np.array(output)
+
+            return_dict={'MSE':np.average(output), 'RMSE':np.sqrt(np.average(output)), 'MAE':np.average(maes_for_plot)}
+            print("came out here")
+            return return_dict
+    
+
+def evaluate1(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, write_output_path):
     output = []
     step = 0
     all_s=[]
@@ -57,12 +144,13 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
                 assign= s_tensor[j]
                 individual_error= np.abs(target[j]-pred[j])
                 maes_for_plot.append(individual_error)
-                crystal= Structure.from_file(os.path.join(fullpath_of_data_file,cifs[i]))
+                #crystal= Structure.from_file(os.path.join(fullpath_of_data_file,cifs[i]))
+                crystal = json_to_structure(cifs[i])
                 crystal_size.append(len(crystal))
 
-                ground_truth_P1= df[df['id']==cifs[i]].P1.values[0]
+                #ground_truth_P1= df[df['ID']==cifs[i]].P1.values[0]
 
-                tempcifname= cifs[i].split('/')[-1]
+                #tempcifname= cifs[i].split('/')[-1]
 
                 savepath=os.path.join(write_output_path,os.path.dirname(cifs[i]))
 
@@ -331,34 +419,35 @@ def eval_for_3_pools(loader, model, cifs, df, fullpath_of_model, fullpath_of_dat
 
 def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath):
 
-    checkpoint_path = fullpath_of_model+"goodmodel.ckpt.index"
+    checkpoint_path = fullpath_of_model+"4goodmodel.ckpt.index"
 
     checkpoint_dir = os.path.dirname(checkpoint_path)
 
     data_dir = os.path.dirname(fullpath_of_data_file)
     config= json.load(open(parampath+'params.json'))
-
+    print(config)
     val_df = pd.read_csv(fullpath_of_data_file, header=0)
 
-    data= AtomFeaDataset(val_df, data_dir, 8, 5, 'r')
+    data= Dataset_from_json(val_df)
     loader_va= DisjointLoader(data, shuffle=False, batch_size=len(val_df))
     cifs=data.get_cifs()
-
-    model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'], k=3)
+    
+    model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'], k=2)
     latest = tf.train.latest_checkpoint(checkpoint_dir)
     model.load_weights(latest)
     if not os.path.exists(write_output_path):
         os.makedirs(write_output_path)
-    result_dict=eval_for_3_pools(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
+    result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
 
     return result_dict
 
 
 if __name__ == '__main__':
 
-    subpaths=['../noshrink/3pools/train_model_2025/train_model_9e890b85_98/']
+    #subpaths=['../noshrink/3pools/train_model_2025/train_model_9e890b85_98/']
+    subpaths=['../ray_results/main_workflow_2025-11-16_20-14-29/main_workflow_7212fb87_388_trial_index=0,batch_size=64,cgcnn_num=1,cgcnn_num2=2,embedding_size=8,lr=0.0808,softmax_beta=160336.339_2025-11-19_07-58-01']
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
-    fullpath_of_data_file='../Main_fol_Zintl/test_by_fam_heuristics.csv'
+    fullpath_of_data_file='./aqsol_test.csv'
     #fullpath_of_data_file='../Main_fol_Zintl/Zintl_bonding_analysis_new_heuristic.csv'
 
     for pathstring in subpaths:
@@ -372,3 +461,4 @@ if __name__ == '__main__':
         write_output_path=fullpath_of_model+'test_set/'
 
         result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath_for_model)
+        print(result_dict)
