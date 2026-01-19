@@ -112,7 +112,7 @@ class Dataset_from_json(Dataset):
         return cifs
 
 def main_workflow(config):
-    df= pd.read_csv(args.datadir+'aqsol_train.csv')
+    df= pd.read_csv(args.datadir+'aqsol_val.csv')
     #df= df.head(200)
     cv_scores=[]
     config['task']= 'r'

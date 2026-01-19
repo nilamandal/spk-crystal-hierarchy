@@ -1,4 +1,5 @@
 import pubchempy as pcp
+import pickle
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.metrics import sparse_categorical_accuracy, categorical_accuracy
@@ -205,7 +206,7 @@ def train_single_model(config, train_data, val_data, epochs=1000, save_path= './
     load_val= DisjointLoader(val_data, batch_size=len(val_data))
     csv_log = CSVLogger(save_path+"_callback_results.csv")
 
-    model= NotShrinking(config['task'], 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'], k=3)
+    model= NotShrinking(config['task'], 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'], k=2)
     all_callbacks= CallbackList([csv_log], add_history=True, model=model)
     #
     optim=Adam(config['lr'])
@@ -269,18 +270,25 @@ def train_single_model(config, train_data, val_data, epochs=1000, save_path= './
 
 
 if __name__ == "__main__":
-    df = pd.read_csv('aqsol_train.csv')
     
-    #train_val_df, test_df = train_test_split(df, test_size=0.1, random_state=42, shuffle=True)
+    
+    
 
+
+    #Code used to split the dataset
+    #df = pd.read_csv('aqsol_updated.csv')
+    #train_val_df, test_df = train_test_split(df, test_size=0.1, random_state=42, shuffle=True)
     #train_df, val_df = train_test_split(train_val_df, test_size=1/9, random_state=42, shuffle=True)
-    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-    df.to_csv('aqsol_train2.csv')
+    #test_df.to_csv("aqsol_test.csv", index=False)
+    #val_df.to_csv("aqsol_val.csv", index=False)
+    #train_df.to_csv("aqsol_train.csv", index=False)
+    
+
+    #df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+    #df.to_csv('aqsol_train2.csv')
     #print(len(train_df), type(train_df))
     #print(len(test_df), type(test_df))
     #print(len(val_df), type(val_df))
     #train_df.to_csv("aqsol_train.csv", index=False)
     #val_df.to_csv("aqsol_val.csv", index=False)
     #test_df.to_csv("aqsol_test.csv", index=False)
-
-    
