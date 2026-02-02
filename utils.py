@@ -1,4 +1,4 @@
-import pubchempy as pcp
+#import pubchempy as pcp
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.metrics import sparse_categorical_accuracy, categorical_accuracy
@@ -10,26 +10,26 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import BinaryCrossentropy
 import matplotlib.pyplot as plt
 
-def pcp_query_by_smile(formula):
-    try:
-        d= pcp.get_compounds(formula, namespace='smiles', record_type='2d')
-        #temp= d[0].to_dict(properties=['atoms', 'bonds'])
-        print(d)
-        return d
-    except:
-        return 'retry'
-    return 'retry'
-
-def get_bonds_by_pid(pid):
-    #print(pid)
-    try:
-        d= pcp.Compound.from_cid(pid)
-        g= d.to_dict(properties=['atoms', 'bonds'])
-        print(pid)
-        return g
-    except:
-        print(pid, 'retry')
-        return 'retry'
+# def pcp_query_by_smile(formula):
+#     try:
+#         d= pcp.get_compounds(formula, namespace='smiles', record_type='2d')
+#         #temp= d[0].to_dict(properties=['atoms', 'bonds'])
+#         print(d)
+#         return d
+#     except:
+#         return 'retry'
+#     return 'retry'
+#
+# def get_bonds_by_pid(pid):
+#     #print(pid)
+#     try:
+#         d= pcp.Compound.from_cid(pid)
+#         g= d.to_dict(properties=['atoms', 'bonds'])
+#         print(pid)
+#         return g
+#     except:
+#         print(pid, 'retry')
+#         return 'retry'
 
 def gen_plots(train_metric, val_metric, idx):
     plt.switch_backend('Agg')
@@ -56,10 +56,12 @@ def check_env_versions():
     print(spektral.__version__)
     import numpy
     print(numpy.__version__)
-    import ray
-    print(ray.__version__)
-    import ConfigSpace
-    print(ConfigSpace.__version__)
+    #import ray
+    #print(ray.__version__)
+    #import ConfigSpace
+    #print(ConfigSpace.__version__)
+    import optuna
+    print(optuna.__version__)
 
 
 def entropy_loss(s):
@@ -134,7 +136,7 @@ def scale_dls_only(c):
 
 def train_step(inputs, target, model, loss_fn, optimizer, task='r'):
     with tf.GradientTape() as tape:
-        predictions, s = model(inputs, training=True)
+        predictions = model(inputs, training=True)
         #print(target)
         #print(predictions)
         loss = loss_fn(target, predictions)
@@ -156,7 +158,8 @@ def evaluate(loader, model, loss_fn, test=False, task='r'):
         step += 1
         inputs, target = loader.__next__()
         #x, a, e, i = inputs
-        pred, s = model(inputs, training=False)
+        #pred, s = model(inputs, training=False)
+        pred = model(inputs, training=False)
 
         #c_p, r_e= row_e_and_column_p(s, i)
         if task=='c':
@@ -262,9 +265,10 @@ def train_single_model(config, train_data, val_data, epochs=1000, save_path= './
 
 
 if __name__ == "__main__":
-    df= pd.read_csv('tox21_updated.csv')
-    df= df[df['pid']>0]
+    check_env_versions()
+    #df= pd.read_csv('tox21_updated.csv')
+    #df= df[df['pid']>0]
     #mol_list= df['smiles'].tolist()
 
-    df['structure']= df['pid'].apply(get_bonds_by_pid)
-    df.to_csv('tox21_updated_2.csv')
+    #df['structure']= df['pid'].apply(get_bonds_by_pid)
+    #df.to_csv('tox21_updated_2.csv')

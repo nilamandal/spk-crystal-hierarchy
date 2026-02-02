@@ -1,32 +1,35 @@
-from spektral.data import Graph, Dataset, DisjointLoader
-from spektral.data.utils import to_batch
-from spektral.utils import reorder, sp_matrix_to_sp_tensor
-from spektral.layers import CrystalConv, DiffPool, ops, GlobalSumPool, GlobalAvgPool, Disjoint2Batch, GraphSageConv, GATConv
+import json
+import argparse
+import time
+import os
+import sys
+import copy
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import scipy.sparse as sp
+from pymatgen.core.structure import Structure
+from collections.abc import Sequence
+
 import tensorflow as tf
 from tensorflow.keras import Model
+from tensorflow.keras import backend as K
+from tensorflow.keras import activations
 from tensorflow.keras.optimizers import SGD, Adam
-from tensorflow.keras.layers import Dense, BatchNormalization, Dropout, Multiply, Masking, LayerNormalization
+from tensorflow.keras.callbacks import Callback
+from tensorflow.keras.layers import Dense, BatchNormalization, Dropout, Multiply, Masking, LayerNormalization, Embedding
 from tensorflow.keras.losses import MeanSquaredError, SparseCategoricalCrossentropy
 from tensorflow.keras.metrics import sparse_categorical_accuracy
 from tensorflow.keras.regularizers import L2
 from tensorflow.keras.models import clone_model
-import numpy as np
-import pandas as pd
-import os
-import sys
-from pymatgen.core.structure import Structure
-import json
-import argparse
-import time
-import scipy.sparse as sp
-from tensorflow.keras import backend as K
-from tensorflow.keras import activations
-from keras import initializers
-from spektral.layers.ops.scatter import deserialize_scatter
-from tensorflow.keras.callbacks import Callback
 from tensorflow.python.ops.linalg.sparse import sparse_csr_matrix_ops
-import matplotlib.pyplot as plt
-import copy
+from keras import initializers
+
+from spektral.data import Graph, Dataset, DisjointLoader
+from spektral.data.utils import to_batch
+from spektral.utils import reorder, sp_matrix_to_sp_tensor
+from spektral.layers import CrystalConv, DiffPool, ops, GlobalSumPool, GlobalAvgPool, Disjoint2Batch, GraphMasking, GATConv
+from spektral.layers.ops.scatter import deserialize_scatter
 #from torch_compatible_objects import AtomInitializer, AtomCustomJSONInitializer, GaussianDistance
 
 class AtomInitializer(object):
@@ -113,7 +116,7 @@ class GaussianDistance(object):
 
 
 
-class MyDataset(Dataset):
+class MyDataset(Dataset, Sequence):
     def __init__(self, df, datadir, r_a, num_nbrs, task):
         self.dataframe=df
         self.datadir= datadir
@@ -218,20 +221,18 @@ class AtomFeaDataset(MyDataset):
         self.ari = AtomCustomJSONInitializer(datadir+'/atom_init.json')
         self.gdf = GaussianDistance(dmin=0, dmax=8, step=0.2)
         super().__init__(df, datadir, r_a, num_nbrs, task)
-        #print('making dataset')
+
 
     def read(self):
         df = self.dataframe.sample(frac=1).reset_index(drop=True)
         allgraphs=[]
-        #print(df)
+
         cifs=list(df['id'])
         self.cifs=cifs
         all_atomic_numbers=[]
         for c in cifs:
             c=str(c)
             df_c=df[df['id']==c]
-            #print(df_c)
-
             try:
                 crystal= Structure.from_file(os.path.join(self.datadir,c))
             except:
@@ -277,14 +278,14 @@ class AtomFeaDataset(MyDataset):
                         edgeidxtemp.append((i,k))
                         edgefeat.append(nbr_fea[i][j])
 
-            adj=sp.csr_matrix(adj)
+            #adj=sp.csr_matrix(adj)
 
             edge_idx, edges= reorder(edge_index=np.array(edgeidxtemp), edge_features=np.array(edgefeat))
 
             if self.task=='c':
                 target_encoding= np.zeros(8)
                 target_encoding[df_MG['target'].values[0]]= 1
-                #print(target_encoding)
+
                 MG=Graph(x=atom_fea, a=adj, e=edges, y=target_encoding)
                 MG._atomlist=set(atomic_numbers)
                 MG._cif=c
@@ -301,88 +302,6 @@ class AtomFeaDataset(MyDataset):
         return allgraphs
 
 
-class Graphsage_dataset(MyDataset):
-    def __init__(self, df, datadir, r_a, num_nbrs, task):
-        self.ari = AtomCustomJSONInitializer(datadir+'/atom_init.json')
-        self.gdf = GaussianDistance(dmin=0, dmax=8, step=0.2)
-        super().__init__(df, datadir, r_a, num_nbrs, task)
-        #print('making dataset')
-
-    def read(self):
-        df = self.dataframe.sample(frac=1).reset_index(drop=True)
-        allgraphs=[]
-        #print(df)
-        cifs=list(df['id'])
-        self.cifs=cifs
-        all_atomic_numbers=[]
-        for c in cifs:
-            c=str(c)
-            df_c=df[df['id']==c]
-            #print(df_c)
-
-            try:
-                crystal= Structure.from_file(os.path.join(self.datadir,c))
-            except:
-                crystal= Structure.from_file(os.path.join(self.datadir,c+'.cif'))
-            num_atoms=len(crystal)
-
-            atom_fea = np.vstack([self.ari.get_atom_fea(crystal[i].specie.number)
-                                  for i in range(len(crystal))])
-            atom_fea_new=[]
-            atomic_numbers=[crystal[i].specie.number for i in range(len(crystal))]
-
-
-            all_nbrs = crystal.get_all_neighbors(self.radius_angstroms, include_index=True)
-            all_nbrs = [sorted(nbrs, key=lambda x: x[1]) for nbrs in all_nbrs]
-            nbr_fea_idx, nbr_fea = [], []
-            for nbr in all_nbrs:
-                if len(nbr) < self.num_nbrs:
-                    warnings.warn('{} not find enough neighbors to build graph. '
-                                  'If it happens frequently, consider increase '
-                                  'radius.'.format(cif_id))
-                    nbr_fea_idx.append(list(map(lambda x: x[2], nbr)) +
-                                       [0] * (self.num_nbrs - len(nbr)))
-                    nbr_fea.append(list(map(lambda x: x[1], nbr)) +
-                                   [self.radius_angstroms + 1.] * (self.num_nbrs -
-                                                         len(nbr)))
-                else:
-                    nbr_fea_idx.append(list(map(lambda x: x[2],
-                                                nbr[:self.num_nbrs])))
-                    nbr_fea.append(list(map(lambda x: x[1],
-                                            nbr[:self.num_nbrs])))
-            df_MG=df[df['id'].astype(str)==c]
-            gdf = GaussianDistance(dmin=0, dmax=8, step=0.2)
-            nbr_fea = gdf.expand(np.array(nbr_fea))
-            adj = np.zeros((num_atoms, num_atoms))
-
-            for i in range(len(nbr_fea_idx)):
-                for j in range(len(nbr_fea_idx[i])):
-                    k=nbr_fea_idx[i][j]
-                    adj[i,k]=1
-
-            adj=sp.csr_matrix(adj)
-
-            if self.task=='c':
-                target_encoding= np.zeros(8)
-                target_encoding[df_MG['target'].values[0]]= 1
-                #print(target_encoding)
-                MG=Graph(x=atom_fea, a=adj, y=target_encoding)
-                MG._atomlist=set(atomic_numbers)
-                MG._cif=c
-            elif self.task=='r':
-                MG=Graph(x=atom_fea, a=adj, y=float(df_MG['target'].values[0]))
-                MG._atomlist=set(atomic_numbers)
-                MG._cif=c
-            else:
-                print(self.task, ' is not c or r.')
-            allgraphs.append(MG)
-        self.all_atomic_numbers= set(all_atomic_numbers)
-
-
-        return allgraphs
-
-
-
 
 
 class RegularizedDiffPool(DiffPool):
@@ -397,6 +316,7 @@ class RegularizedDiffPool(DiffPool):
                 **kwargs)
         self.saveindex=1
         self.savepath= path
+
         self.assignment_fc= Dense(self.k, use_bias=False)
         self.masker= Masking(mask_value=np.zeros(self.k))
 
@@ -407,7 +327,9 @@ class RegularizedDiffPool(DiffPool):
         super(DiffPool, self).build(input_shape)
 
     def call(self, inputs, mask=None):
+
         x, a, i = self.get_inputs(inputs)
+
 
         # Graph filter for GNNs
         if K.is_sparse(a):
@@ -424,8 +346,11 @@ class RegularizedDiffPool(DiffPool):
         return output
 
     def select(self, x, a, i, fltr=None, mask=None):
+        #print('inside select')
         x = ops.modal_dot(fltr, x)
         s = self.assignment_fc(x)
+        #print(x)
+        #print(s)
 
         masked_s = self.masker(s)
 
@@ -445,8 +370,8 @@ class RegularizedDiffPool(DiffPool):
         s= normalized_crystal.to_tensor(default_value=0.)
 
         if mask is not None:
-            s *= mask[0]
-
+            s *= mask
+        #print('select over')
         return s
 
     def reduce(self, x, s, fltr=None):
@@ -464,6 +389,93 @@ class NoShrinkDiffPool(RegularizedDiffPool):
         super().__init__(k, beta=beta, channels=channels, return_selection=return_selection, activation=activation,
                 kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer, kernel_constraint=kernel_constraint,
                 **kwargs)
+        #self.n_nodes=None
+
+    def call(self, inputs, mask=None):
+        x, a, i = self.get_inputs(inputs)
+
+
+        # Graph filter for GNNs
+        if K.is_sparse(a):
+            #i_n = tf.sparse.eye(self.n_nodes, dtype=a.dtype)
+            i_sub=tf.one_hot(list(range(self.n_nodes)),depth=self.n_nodes)
+            i_n= tf.sparse.from_dense(tf.stack([i_sub]*x.shape[0]))
+            a_ = tf.sparse.add(a, i_n)
+        else:
+            i_n = tf.eye(self.n_nodes, dtype=a.dtype)
+            a_ = a + i_n
+        fltr = ops.normalize_A(a_)
+
+        output = self.pool(x, a, i, fltr=fltr, mask=mask)
+        return output
+
+    def get_inputs(self, inputs):
+        if len(inputs) == 3:
+            x, a, i = inputs
+            if K.ndim(i) == 2:
+                i = i[:, 0]
+            assert K.ndim(i) == 1, "i must have rank 1"
+        elif len(inputs) == 2:
+            x, a = inputs
+            i = None
+        else:
+            raise ValueError(
+                "Expected 2 or 3 inputs tensors (x, a, i), got {}.".format(len(inputs))
+            )
+
+        self._n_nodes=tf.shape(x)[-2]
+        self.n_nodes= tf.shape(x)[-2]
+
+        return x, a, i
+
+    def select(self, x, a, i, fltr=None, mask=None):
+        x = ops.modal_dot(fltr, x)
+        s = self.assignment_fc(x)
+
+        if mask==None:
+            masked_s = self.masker(s)
+            masked_tensor= tf.ragged.boolean_mask(masked_s, masked_s._keras_mask)
+            means= tf.reduce_mean(masked_tensor, axis=1)
+            stdev= tf.math.add(tf.math.reduce_std(masked_tensor, axis=1), K.epsilon()) #+epsilon in case of std=0 (when column is all the same value)
+            mean_stack=tf.stack([means]*s.shape[1], axis=1)
+            stdev_stack= tf.stack([stdev]*s.shape[1], axis=1)
+
+            ###### version with beta
+            s_interim= tf.math.divide(tf.subtract(s, mean_stack), stdev_stack)
+            s_interim= s_interim*self.beta
+
+            normalized_crystal= tf.ragged.boolean_mask(s_interim, masked_s._keras_mask)
+            normalized_crystal = activations.softmax(normalized_crystal, axis=-1)
+
+            s= normalized_crystal.to_tensor(default_value=0.)
+
+        if mask is not None:
+
+            mask_concat= tf.concat([mask, mask], -1)
+            #print(mask_concat)
+            mask_bool= np.ma.make_mask(mask_concat)
+            #print(mask_bool)
+            masked_s= s * mask_concat
+
+            masked_tensor= tf.ragged.boolean_mask(masked_s, mask_bool)
+            means= tf.reduce_mean(masked_tensor, axis=1)
+            stdev= tf.math.add(tf.math.reduce_std(masked_tensor, axis=1), K.epsilon()) #+epsilon in case of std=0 (when column is all the same value)
+            mean_stack=tf.stack([means]*s.shape[1], axis=1)
+            stdev_stack= tf.stack([stdev]*s.shape[1], axis=1)
+
+            ###### version with beta
+            s_interim= tf.math.divide(tf.subtract(s, mean_stack), stdev_stack)
+            s_interim= s_interim*self.beta
+
+            normalized_crystal= tf.ragged.boolean_mask(s_interim, mask_bool)
+            normalized_crystal = activations.softmax(normalized_crystal, axis=-1)
+
+            s= normalized_crystal.to_tensor(default_value=0.)
+
+            s *= mask
+
+        return s
+
 
     def reduce(self, x, s, fltr=None):
         x = ops.modal_dot(fltr, x)
@@ -476,78 +488,10 @@ class NoShrinkDiffPool(RegularizedDiffPool):
         return a
 
 
-class ModifiedCrystalConv(CrystalConv):
-     def __init__(self, activation= None, kernel_initializer= None, **kwargs):
-         super().__init__(self, activation=activation, kernel_initializer=kernel_initializer, **kwargs)
-         self.agg = deserialize_scatter('sum')
-         self.bn1= BatchNormalization()
-         self.bn2= BatchNormalization()
 
 
-     def message(self, x, e=None):
-        x_i = self.get_targets(x)
-        x_j = self.get_sources(x)
-
-        to_concat = [x_i, x_j]
-        if e is not None:
-            to_concat += [e]
-        z = K.concatenate(to_concat, axis=-1)
-        z= self.bn1(z)
-        self.nbr_sumed = self.dense_s(z) * self.dense_f(z)
-        output= self.bn2(self.nbr_sumed)
-        return output
 
 
-class SuperCgcnn(CrystalConv):
-    def __init__(self, activation= None, kernel_initializer= None, **kwargs):
-        super().__init__(self, activation=activation, kernel_initializer=kernel_initializer, **kwargs)
-        self.transfer_weights=kwargs['transfers']
-        self.transfer_idx=kwargs['transfer_idx']
-
-
-    def build(self, input_shape):
-        assert len(input_shape) >= 2
-        layer_kwargs = dict(
-            kernel_initializer=self.kernel_initializer,
-            bias_initializer=self.bias_initializer,
-            kernel_regularizer=self.kernel_regularizer,
-            bias_regularizer=self.bias_regularizer,
-            kernel_constraint=self.kernel_constraint,
-            bias_constraint=self.bias_constraint,
-            dtype=self.dtype,
-        )
-        channels = input_shape[0][-1] * 2
-
-        self.dense_fc = Dense(channels, **layer_kwargs)
-        #self.dense_s = Dense(channels, activation=self.activation, **layer_kwargs)
-
-        bn1_w= 'bn1_w_'+self.transfer_idx
-        bn1_b= 'bn1_b_'+self.transfer_idx
-        bn2_w= 'bn2_w_'+self.transfer_idx
-        bn2_b= 'bn2_b_'+self.transfer_idx
-        #initializers.constant(self.transfer_weights[bn1_w])
-        self.agg = deserialize_scatter('sum')
-        self.bn1= BatchNormalization(beta_initializer=initializers.constant(self.transfer_weights[bn1_w]) ,gamma_initializer=initializers.constant(self.transfer_weights[bn1_b]))
-        self.bn2= BatchNormalization(beta_initializer=initializers.constant(self.transfer_weights[bn2_w]) ,gamma_initializer=initializers.constant(self.transfer_weights[bn2_b]))
-        self.built = True
-
-    def message(self, x, e=None):
-       x_i = self.get_targets(x)
-       x_j = self.get_sources(x)
-
-       to_concat = [x_i, x_j]
-       if e is not None:
-           to_concat += [e]
-       z = K.concatenate(to_concat, axis=-1)
-       z= self.dense_fc(z)
-       z= self.bn1(z)
-       #print(z.shape)
-       nbr_filter, nbr_core= tf.split(z, 2, axis=1)
-       nbr_filter= tf.sigmoid(nbr_filter)
-       nbr_core= tf.keras.activations.softplus(nbr_core)
-       nbr_sumed=nbr_filter * nbr_core
-       output= tf.keras.activations.softplus(tf.math.add(x_i, self.bn2(nbr_sumed)))
-       return output
 #
 
 class MPCgcnn(CrystalConv):
@@ -793,15 +737,81 @@ class CGCNNModel(Model):
 
 
 
-class NotShrinking(SparseEdgepool):
-    def __init__(self, task, num_classes, embedding_size=52, cgcnn_num=3, cgcnn_num2=3, regularizer='l2', return_s=True, random_seed=0, path='./', k= 2, **kwargs):
 
-        super().__init__(task, num_classes, embedding_size, cgcnn_num, cgcnn_num2, regularizer, return_s,  random_seed=random_seed, path=path, k=k, **kwargs)
+class NotShrinking(Model):
+    def __init__(self, task, num_classes, embedding_size=52, cgcnn_num=3, cgcnn_num2=3, regularizer='l2', softmax_beta=1, return_s=False, random_seed=0, path='./', k= 2, **kwargs):
+
+        super().__init__()
         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
         he_initializer= initializers.he_uniform(seed=random_seed)
 
-        self.pool= NoShrinkDiffPool(k=self.k, return_selection=True)
+        self.embedding_size=embedding_size
+        self.cgcnn_num= cgcnn_num
+        self.cgcnn_num2= cgcnn_num2
+        self.softmax_beta= softmax_beta
+        self.return_s=return_s
+        self.task=task
+        self.num_classes=num_classes
+        self.k= k
+        self.random_seed= random_seed
+
+
+        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
+
+        self.conv_list=[]
+        for i in range(cgcnn_num):
+            conv= CrystalConv(activation= 'softplus', kernel_initializer=he_initializer)#does this l2 have a lambda
+            self.conv_list.append(conv)
+
+        self.pool= NoShrinkDiffPool(k=self.k, beta=softmax_beta, return_selection=True)
         self.disjoint_masker= Masking(mask_value=np.zeros(embedding_size))
+        #self.pool=DiffPool(k=2)
+        self.conv_list2=[]
+        for i in range(cgcnn_num2):
+            conv= CrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+            self.conv_list2.append(conv)
+        self.meanpool= GlobalAvgPool()
+        if self.task=='c':
+            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
+        elif self.task=='r':
+            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
+        #self.saveindex=1
+        #self.savepath=path
+
+
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "task": self.task,
+            'num_classes': self.num_classes,
+            "embedding_size": self.embedding_size,
+            "cgcnn_num": self.cgcnn_num,
+            "cgcnn_num2": self.cgcnn_num2,
+            "softmax_beta": self.softmax_beta,
+            'k': self.k,
+            "random_seed": self.random_seed
+        })
+        return config
+
+
+
+
+
+    def build(self, input_shape):
+
+        self.embedding.build(input_shape[0])
+        conv_shape=[input_shape[0][0], self.embedding_size]
+
+
+        for conv in self.conv_list:
+            conv.build([conv_shape, input_shape[1], input_shape[2]])
+
+        batch_shape=[input_shape[0][0], input_shape[0][0], self.embedding_size]
+        self.pool.build([batch_shape, input_shape[1], input_shape[2]])
+        for conv in self.conv_list2:
+            conv.build([conv_shape, input_shape[1], input_shape[2]])
+
 
     def call(self, inputs):
         x, a, e, i = inputs
@@ -815,17 +825,25 @@ class NotShrinking(SparseEdgepool):
         batch_A= self.disjoint_adjacency_to_batch(a, i)
 
         x_pool, a_pool, i_pool, s= self.pool([batch_X, batch_A, i])
-        x_pool= tf.reshape(x_pool, [x_pool.shape[0]*x_pool.shape[1], x_pool.shape[2]]) #reshape to disjoint form
 
+        x_pool_= tf.reshape(x_pool, [x_pool.shape[0]*x_pool.shape[1], x_pool.shape[2]]) #reshape to disjoint form
 
-        masked_x = self.disjoint_masker(x_pool)
+        masked_x = self.disjoint_masker(x_pool_)
+
         x_pool= tf.ragged.boolean_mask(masked_x, masked_x._keras_mask)
+        #if x_pool.shape != x.shape:
+        #    print('-----')
+        #    print(x.shape)
+        #    print(x)
+        #    print(x_pool.shape)
+        #    print(x_pool_)
 
         for cgcnn2 in self.conv_list2:
             x_pool= cgcnn2([x_pool, a, e])
             x_pool= tf.nn.softplus(x_pool)
 
-        x_pool= tf.math.segment_mean(x_pool, i)
+
+        x_pool= self.meanpool([x_pool, i])
 
         x=self.out_layer(x_pool)
 
@@ -834,38 +852,121 @@ class NotShrinking(SparseEdgepool):
         else:
             return x
 
+    def disjoint_adjacency_to_batch(self, A, I):#sparse version
+            I = tf.cast(I, tf.int64)
+            indices = A.indices
+            values = A.values
+            i_nodes, j_nodes = indices[:, 0], indices[:, 1]
+
+            graph_sizes = tf.math.segment_sum(tf.ones_like(I), I)
+            max_n_nodes = tf.reduce_max(graph_sizes)
+            n_graphs = tf.shape(graph_sizes)[0]
+
+            offset = tf.gather(I, i_nodes)
+            offset = tf.gather(tf.cumsum(graph_sizes, exclusive=True), offset)
+
+            relative_j_nodes = j_nodes - offset
+            relative_i_nodes = i_nodes - offset
+            real_new_indices= tf.stack([tf.gather(I, i_nodes),relative_i_nodes,relative_j_nodes], axis=1)
+
+            batch = tf.sparse.SparseTensor(real_new_indices,values,(n_graphs, max_n_nodes, max_n_nodes))
+
+            return batch
 
 class NoShrink_GAT(Model):
-    def __init__(self, task, embedding_size=32, hidden_size=32, num_layers=2, random_seed=100, **kwargs):
+    def __init__(self, task, embedding_size=32, hidden_size=32, num_layers=2, num_layers_2=2, hidden_size_2=32, random_seed=100, k=2, softmax_beta=1, **kwargs):
         super().__init__()
         self.task= task
-        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
-        he_initializer= initializers.he_uniform(seed=random_seed)
+        self.embedding_size=embedding_size
+        self.hidden_size=hidden_size
+        self.num_layers=num_layers
+        self.hidden_size_2=hidden_size_2
+        self.num_layers_2= num_layers_2
+        self.random_seed= random_seed
+        self.k= k
+        self.softmax_beta=softmax_beta
 
-        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer)
+        self.glorot_initializer= initializers.glorot_uniform(seed=self.random_seed)
+        self.he_initializer= initializers.he_uniform(seed=self.random_seed)
+
+        self.embedding= Dense(embedding_size, kernel_initializer=self.glorot_initializer, kernel_regularizer='l2')
 
         self.conv_list=[]
         for i in range(num_layers):
             conv= GATConv(hidden_size)
             self.conv_list.append(conv)
 
-        self.pool= GlobalAvgPool()
+        self.mask_manager= GraphMasking()
+
+        self.pool=NoShrinkDiffPool(k=self.k, beta=softmax_beta, return_selection=True)
+
+        #self.conv_list2=[]
+        #for i in range(num_layers_2):
+        #    conv= GATConv(hidden_size_2)
+        #    self.conv_list2.append(conv)
+
+        self.sumpool= GlobalSumPool()
 
         if self.task=='c':
-            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
+            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=self.glorot_initializer)
         elif self.task=='r':
-            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
+            self.out_layer= Dense(1, kernel_initializer=self.glorot_initializer)
+
+    def build(self, input_shape):
+        un_masked_shape= [input_shape[0][0], input_shape[0][1], input_shape[0][2]-1]
+        self.embedding.build(un_masked_shape)
+        first_conv_shape=[input_shape[0][0], input_shape[0][1], self.embedding_size]
+        self.conv_list[0].build([first_conv_shape, input_shape[1]])
+
+        if len(self.conv_list)>1:
+            conv_shape=[input_shape[0][0], input_shape[0][1], self.hidden_size]
+
+            for i in range(1,len(self.conv_list)):
+                self.conv_list[i].build([conv_shape, input_shape[1]])
+            #self.conv_list2[0].build([conv_shape, input_shape[1]])
+
+        #if len(self.conv_list2)>1:
+        #    conv_shape=[input_shape[0][0], input_shape[0][1], self.hidden_size_2]
+
+        #    for i in range(1,len(self.conv_list2)):
+        #        self.conv_list2[i].build([conv_shape, input_shape[1]])
+
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "task": self.task,
+            "embedding_size": self.embedding_size,
+            "hidden_size": self.hidden_size,
+            "num_layers": self.num_layers,
+            "random_seed": self.random_seed,
+            'k': self.k,
+            'softmax_beta':self.softmax_beta
+        })
+        return config
 
 
     def call(self, inputs):
-        x, a, e = inputs
+        x_masked, a, e = inputs
+        x= self.mask_manager(x_masked)
+        i= self.mask_manager.compute_mask(x_masked)
         x= self.embedding(x)
-
+        print(x_masked)
+        print(i)
+        print('---')
         for gat in self.conv_list:
-            x= gat([x, a])
+            x= gat([x, a], mask=i)
 
-        x_pool= self.pool(x)
+        #x_pool, a_pool, s_pool= self.pool([x, a], mask=i)
 
-        x= self.out_layer(x_pool)
+        #for gat in self.conv_list2:
+        #    x_pool= gat([x_pool, a], mask=i)
+        x_sum=tf.math.reduce_sum(x, axis=-1)
+        x_sum=tf.math.reduce_sum(x_sum, axis=-1)
+        #x_sum=self.sumpool(x_pool)
+        #i_sum=self.sumpool(i)
+        #x_pool= tf.math.divide(x_sum, i_sum)
 
-        return x, None
+        #x= self.out_layer(x_pool)
+
+        return x_sum

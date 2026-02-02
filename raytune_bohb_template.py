@@ -54,7 +54,7 @@ def train_model(config):
         train_df= all_data[all_data['bin']!=i]
         train_df= train_df.head(5)
         val_df= all_data[all_data['bin']==i]
-        val_df= val_df.head(5)
+    
         train_data= AtomFeaDataset(train_df, args.datadir, 8, 12, args.task)
         val_data= AtomFeaDataset(val_df, args.datadir, 8, 12, args.task)
         load_tr= BatchLoader(train_data, batch_size=config['batch_size'], epochs=epochs)
