@@ -87,6 +87,10 @@ def evaluate(loader,
         
         # Forward pass
         pred, s_tensor = model(inputs, training=False)
+        if step == 1:
+            print("Pred std:", tf.math.reduce_std(pred).numpy())
+            print("Target std:", tf.math.reduce_std(target).numpy())
+
         maes_for_plot = []
         for j in range(len(s_tensor)):
             individual_error = np.abs(target[j] - pred[j])
@@ -110,6 +114,9 @@ def evaluate(loader,
 
             return_dict={'MSE':np.average(output), 'RMSE':np.sqrt(np.average(output)), 'MAE':np.average(maes_for_plot)}
             print("came out here")
+            errors = np.array(maes_for_plot)
+            print("Unique rounded errors:", np.unique(np.round(errors, 4)))
+
             return return_dict
     
 
@@ -447,7 +454,7 @@ if __name__ == '__main__':
     #subpaths=['../noshrink/3pools/train_model_2025/train_model_9e890b85_98/']
     subpaths=['../ray_results/main_workflow_2025-11-16_20-14-29/main_workflow_7212fb87_388_trial_index=0,batch_size=64,cgcnn_num=1,cgcnn_num2=2,embedding_size=8,lr=0.0808,softmax_beta=160336.339_2025-11-19_07-58-01']
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
-    fullpath_of_data_file='./aqsol_test.csv'
+    fullpath_of_data_file='./bench_test_r.csv'
     #fullpath_of_data_file='../Main_fol_Zintl/Zintl_bonding_analysis_new_heuristic.csv'
 
     for pathstring in subpaths:

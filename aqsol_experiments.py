@@ -34,7 +34,7 @@ parser.add_argument('--task', choices=['r', 'c'],
 args = parser.parse_args(sys.argv[1:])
 
 class Dataset_from_json(Dataset):
-    def __init__(self, df, task='r', target='NR-AR'):
+    def __init__(self, df, task='r', target='Solubility'):
         #print(df)
         self.df= df.dropna(subset=[target])
         self.dataframe = df
@@ -57,7 +57,11 @@ class Dataset_from_json(Dataset):
         return graphs
 
     def make_dataset(self, g, target):
-        json_graph= json.loads(g.replace("'", "\""))
+        try:
+            json_graph= json.loads(g.replace("'", "\""))
+        except json.decoder.JSONDecodeError as e:
+            print(g)
+            print(e)
         atoms= json_graph['atoms']
         bonds= json_graph['bonds']
 
@@ -112,7 +116,7 @@ class Dataset_from_json(Dataset):
         return cifs
 
 def main_workflow(config):
-    df= pd.read_csv(args.datadir+'aqsol_val.csv')
+    df= pd.read_csv(args.datadir+'aqsol_test.csv')
     #df= df.head(200)
     cv_scores=[]
     config['task']= 'r'

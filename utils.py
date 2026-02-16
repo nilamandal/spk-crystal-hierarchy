@@ -1,3 +1,5 @@
+import csv
+import json
 import pubchempy as pcp
 import pickle
 import pandas as pd
@@ -17,7 +19,7 @@ def pcp_query_by_smile(formula):
     try:
         d= pcp.get_compounds(formula, namespace='smiles', record_type='2d')
         #temp= d[0].to_dict(properties=['atoms', 'bonds'])
-        print(d)
+        print(d[0].cid)
         if d:
             return d[0].cid
         else:
@@ -27,9 +29,9 @@ def pcp_query_by_smile(formula):
     return 'retry'
 
 def get_bonds_by_pid(pid):
-    #print(pid)
+    #print(int(pid))
     try:
-        d= pcp.Compound.from_cid(pid)
+        d= pcp.Compound.from_cid(int(pid))
         g= d.to_dict(properties=['atoms', 'bonds'])
         print('doing it', g)
         return g
@@ -141,7 +143,7 @@ def scale_dls_only(c):
 
 def train_step(inputs, target, model, loss_fn, optimizer, task='r'):
     with tf.GradientTape() as tape:
-        predictions, s = model(inputs, training=True)
+        predictions = model(inputs, training=True)
         #print(target)
         #print(predictions)
         loss = loss_fn(target, predictions)
@@ -163,7 +165,7 @@ def evaluate(loader, model, loss_fn, test=False, task='r'):
         step += 1
         inputs, target = loader.__next__()
         #x, a, e, i = inputs
-        pred, s = model(inputs, training=False)
+        pred = model(inputs, training=False)
 
         #c_p, r_e= row_e_and_column_p(s, i)
         if task=='c':
@@ -240,8 +242,13 @@ def train_single_model(config, train_data, val_data, epochs=1000, save_path= './
             step = 0
             loss_str="Loss: {}".format(loss / load_train.steps_per_epoch)
 
-            tr_loss, tmse, trmse, tmae = evaluate(load_train_eval, model, loss_fn, task=config['task'])#binary BinaryCrossentropy
-            val_loss, vmse, vrmse, vmae = evaluate(load_val, model, loss_fn, task=config['task'])
+            #tr_loss, tmse, trmse, tmae = evaluate(load_train_eval, model, loss_fn, task=config['task'])#binary BinaryCrossentropy
+            
+            tr_loss, trmse, tmae = evaluate(load_train_eval, model, loss_fn, task=config['task'])
+            #val_loss, vmse, vrmse, vmae = evaluate(load_val, model, loss_fn, task=config['task'])
+            val_loss, vrmse, vmae = evaluate(load_val, model, loss_fn, task=config['task'])
+
+
             val_metric.append(val_loss)
             train_metric.append(tr_loss)
             
@@ -265,15 +272,66 @@ def train_single_model(config, train_data, val_data, epochs=1000, save_path= './
                 epoch+=1
     all_callbacks.on_train_end(logs)
     gen_plots(train_metric, val_metric, save_path)
-    print("here")
     return best_val_loss
 
 
 if __name__ == "__main__":
     
+     
+    #df = pd.read_csv('bench_test_r.csv')
+    #diff = len(set(df['solubility']))
+    #print(df['structure'].info())
+    #print(diff)
+    """
+    with open("val.pickle", 'rb') as file:
+        data = pickle.load(file)
     
-    
+    print(type(data))
+    csv_path = "bench_datav.csv"
+    with open(csv_path, "w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
 
+        # CSV header
+        writer.writerow([
+            "num_nodes",
+            "num_edges",
+            "node_feat",
+            "edge_feat",
+            "edge_index_src",
+            "edge_index_dst",
+            "solubility"
+        ])
+
+        for graph_object in data:
+            node_feat, edge_feat, edge_index, solubility = graph_object
+
+            node_feat = np.asarray(node_feat)
+            edge_feat = np.asarray(edge_feat)
+            edge_index = np.asarray(edge_index)
+
+            writer.writerow([
+                len(node_feat),
+                len(edge_feat),
+                json.dumps(node_feat.tolist()),
+                json.dumps(edge_feat.tolist()),
+                json.dumps(edge_index[0].tolist()),
+                json.dumps(edge_index[1].tolist()),
+                solubility
+            ])
+
+    print(f"Saved CSV: {csv_path}")
+    """
+
+    #code used to get structure json from smiles
+    df = pd.read_csv('bench_test_r.csv')
+    #df['cid'] = df['SMILES'].apply(pcp_query_by_smile)
+    #df['structure'] = df['cid'].apply(get_bonds_by_pid)
+    print(len(df['structure']))
+    df = df[df["structure"] != "retry"]
+    print(len(df['structure']))
+    #print(type(df['structure'][0]))
+    #print(df['structure'][0])
+    df.to_csv("bench_test_r.csv", index=False)
 
     #Code used to split the dataset
     #df = pd.read_csv('aqsol_updated.csv')

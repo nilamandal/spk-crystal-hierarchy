@@ -790,9 +790,142 @@ class CGCNNModel(Model):
         out= self.out_layer(x_crys)
         return out
 
+class NotShrinking(Model):
+    def __init__(self, task, num_classes, embedding_size=52, cgcnn_num=3, cgcnn_num2=3, regularizer='l2', softmax_beta=1, return_s=False, random_seed=0, path='./', k= 2, **kwargs):
+
+        super().__init__()
+        glorot_initializer= initializers.glorot_uniform(seed=random_seed)
+        he_initializer= initializers.he_uniform(seed=random_seed)
+
+        self.embedding_size=embedding_size
+        self.cgcnn_num= cgcnn_num
+        self.cgcnn_num2= cgcnn_num2
+        self.softmax_beta= softmax_beta
+        self.return_s=return_s
+        self.task=task
+        self.num_classes=num_classes
+        self.k= k
+        self.random_seed= random_seed
+
+
+        self.embedding= Dense(embedding_size, kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
+
+        self.conv_list=[]
+        for i in range(cgcnn_num):
+            conv= CrystalConv(activation= 'softplus', kernel_initializer=he_initializer)#does this l2 have a lambda
+            self.conv_list.append(conv)
+
+        self.pool= NoShrinkDiffPool(k=self.k, beta=softmax_beta, return_selection=True)
+        self.disjoint_masker= Masking(mask_value=np.zeros(embedding_size))
+        #self.pool=DiffPool(k=2)
+        self.conv_list2=[]
+        for i in range(cgcnn_num2):
+            conv= CrystalConv(activation= 'softplus', kernel_initializer=he_initializer)
+            self.conv_list2.append(conv)
+        self.meanpool= GlobalAvgPool()
+        if self.task=='c':
+            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=glorot_initializer)
+        elif self.task=='r':
+            self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
+        #self.saveindex=1
+        #self.savepath=path
 
 
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "task": self.task,
+            'num_classes': self.num_classes,
+            "embedding_size": self.embedding_size,
+            "cgcnn_num": self.cgcnn_num,
+            "cgcnn_num2": self.cgcnn_num2,
+            "softmax_beta": self.softmax_beta,
+            'k': self.k,
+            "random_seed": self.random_seed
+        })
+        return config
+
+
+
+
+
+    def build(self, input_shape):
+
+        self.embedding.build(input_shape[0])
+        conv_shape=[input_shape[0][0], self.embedding_size]
+
+
+        for conv in self.conv_list:
+            conv.build([conv_shape, input_shape[1], input_shape[2]])
+
+        batch_shape=[input_shape[0][0], input_shape[0][0], self.embedding_size]
+        self.pool.build([batch_shape, input_shape[1], input_shape[2]])
+        for conv in self.conv_list2:
+            conv.build([conv_shape, input_shape[1], input_shape[2]])
+
+
+    def call(self, inputs):
+        x, a, e, i = inputs
+        x= self.embedding(x)
+
+        for cgcnn in self.conv_list:
+            x= cgcnn([x, a, e])
+            x= tf.nn.softplus(x)
+
+        batch_X = ops.disjoint_signal_to_batch(x, i)
+        batch_A= self.disjoint_adjacency_to_batch(a, i)
+
+        x_pool, a_pool, i_pool, s= self.pool([batch_X, batch_A, i])
+
+        x_pool_= tf.reshape(x_pool, [x_pool.shape[0]*x_pool.shape[1], x_pool.shape[2]]) #reshape to disjoint form
+
+        masked_x = self.disjoint_masker(x_pool_)
+
+        x_pool= tf.ragged.boolean_mask(masked_x, masked_x._keras_mask)
+        #if x_pool.shape != x.shape:
+        #    print('-----')
+        #    print(x.shape)
+        #    print(x)
+        #    print(x_pool.shape)
+        #    print(x_pool_)
+
+        for cgcnn2 in self.conv_list2:
+            x_pool= cgcnn2([x_pool, a, e])
+            x_pool= tf.nn.softplus(x_pool)
+
+
+        x_pool= self.meanpool([x_pool, i])
+
+        x=self.out_layer(x_pool)
+
+        if self.return_s:
+            return x, s
+        else:
+            return x
+
+    def disjoint_adjacency_to_batch(self, A, I):#sparse version
+            I = tf.cast(I, tf.int64)
+            indices = A.indices
+            values = A.values
+            i_nodes, j_nodes = indices[:, 0], indices[:, 1]
+
+            graph_sizes = tf.math.segment_sum(tf.ones_like(I), I)
+            max_n_nodes = tf.reduce_max(graph_sizes)
+            n_graphs = tf.shape(graph_sizes)[0]
+
+            offset = tf.gather(I, i_nodes)
+            offset = tf.gather(tf.cumsum(graph_sizes, exclusive=True), offset)
+
+            relative_j_nodes = j_nodes - offset
+            relative_i_nodes = i_nodes - offset
+            real_new_indices= tf.stack([tf.gather(I, i_nodes),relative_i_nodes,relative_j_nodes], axis=1)
+
+            batch = tf.sparse.SparseTensor(real_new_indices,values,(n_graphs, max_n_nodes, max_n_nodes))
+
+            return batch
+
+"""
 class NotShrinking(SparseEdgepool):
     def __init__(self, task, num_classes, embedding_size=52, cgcnn_num=3, cgcnn_num2=3, regularizer='l2', return_s=True, random_seed=0, path='./', k= 2, **kwargs):
 
@@ -833,7 +966,7 @@ class NotShrinking(SparseEdgepool):
             return x, s
         else:
             return x
-
+"""
 
 class NoShrink_GAT(Model):
     def __init__(self, task, embedding_size=32, hidden_size=32, num_layers=2, random_seed=100, **kwargs):
