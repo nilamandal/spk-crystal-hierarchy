@@ -50,7 +50,7 @@ def gen_plots(train_metric, val_metric, idx):
     min_val= 'val min='+str(np.round(np.min(val_metric), decimals=3))
     plt.plot(epochs, np.log(train_metric), label='training loss')
     plt.plot(epochs, np.log(val_metric), label='val loss')
-
+    
     figtitle=idx+'_result.png'
 
     plt.xlabel('epochs')
@@ -166,7 +166,7 @@ def evaluate(loader, model, loss_fn, test=False, task='r'):
         inputs, target = loader.__next__()
         #x, a, e, i = inputs
         pred = model(inputs, training=False)
-
+        
         #c_p, r_e= row_e_and_column_p(s, i)
         if task=='c':
             outs = (

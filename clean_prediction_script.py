@@ -15,6 +15,7 @@ from spektral_essential_objects import GaussianDistance, MyDataset, SparseEdgepo
 from sklearn import svm
 import pylab as pl
 from tensorflow.keras import backend as K
+import matplotlib.pyplot as plt
 from aqsol_experiments import Dataset_from_json
 #from util_functions import entropy_loss, row_e_and_column_p
 
@@ -79,6 +80,7 @@ def evaluate(loader,
     batch_mses = []   # MSE per batch
     all_abs_errors = []  # per-sample |y - y_hat| for MAE
     output = []
+    y_pred = []
     while step < loader.steps_per_epoch:
         step += 1
 
@@ -86,13 +88,15 @@ def evaluate(loader,
         inputs, target = loader.__next__()   # or: next(loader)
         
         # Forward pass
-        pred, s_tensor = model(inputs, training=False)
+        pred = model(inputs, training=False)
+        """
         if step == 1:
             print("Pred std:", tf.math.reduce_std(pred).numpy())
             print("Target std:", tf.math.reduce_std(target).numpy())
-
+        """
+        y_pred.append(pred)
         maes_for_plot = []
-        for j in range(len(s_tensor)):
+        for j in range(len(pred)):
             individual_error = np.abs(target[j] - pred[j])
             maes_for_plot.append(individual_error)
         # --- MSE per batch ---
@@ -112,7 +116,7 @@ def evaluate(loader,
         if step == loader.steps_per_epoch:
             output = np.array(output)
 
-            return_dict={'MSE':np.average(output), 'RMSE':np.sqrt(np.average(output)), 'MAE':np.average(maes_for_plot)}
+            return_dict={'MSE':np.average(output), 'RMSE':np.sqrt(np.average(output)), 'MAE':np.average(maes_for_plot), 'y_pred': y_pred}
             print("came out here")
             errors = np.array(maes_for_plot)
             print("Unique rounded errors:", np.unique(np.round(errors, 4)))
@@ -444,6 +448,7 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath)
     model.load_weights(latest)
     if not os.path.exists(write_output_path):
         os.makedirs(write_output_path)
+        print(write_output_path)
     result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
 
     return result_dict
@@ -451,11 +456,12 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath)
 
 if __name__ == '__main__':
 
-    #subpaths=['../noshrink/3pools/train_model_2025/train_model_9e890b85_98/']
+    
     subpaths=['../ray_results/main_workflow_2025-11-16_20-14-29/main_workflow_7212fb87_388_trial_index=0,batch_size=64,cgcnn_num=1,cgcnn_num2=2,embedding_size=8,lr=0.0808,softmax_beta=160336.339_2025-11-19_07-58-01']
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
-    fullpath_of_data_file='./bench_test_r.csv'
-    #fullpath_of_data_file='../Main_fol_Zintl/Zintl_bonding_analysis_new_heuristic.csv'
+    fullpath_of_data_file='./aqsol_test.csv'
+    y_true = pd.read_csv('./aqsol_test.csv')
+    y_true = y_true['Solubility']
 
     for pathstring in subpaths:
         pathstring= str(pathstring)
@@ -465,7 +471,22 @@ if __name__ == '__main__':
 
         #write output path is the DIRECTORY where you want the output files to be saved.
         #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
-        write_output_path=fullpath_of_model+'test_set/'
+        write_output_path=fullpath_of_model+'test_set1/'
 
         result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath_for_model)
-        print(result_dict)
+        y_pred = result_dict['y_pred']
+        y_pred = y_pred[0].numpy().flatten()
+        
+        y_true_vals = y_true.to_numpy().flatten()
+        y_pred_vals = np.array(y_pred).flatten()
+
+        plt.figure()
+        plt.scatter(y_true, y_pred)
+        plt.plot([y_true_vals.min(), y_true_vals.max()], [y_true_vals.min(), y_true_vals.max()])
+
+        plt.xlabel("actual solubility")
+        plt.ylabel("predicted solubility")
+        plt.title("Test set: predicted vs actual")
+        plt.savefig(write_output_path + "pred")
+
+        #print(result_dict)

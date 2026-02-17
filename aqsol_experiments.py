@@ -116,7 +116,7 @@ class Dataset_from_json(Dataset):
         return cifs
 
 def main_workflow(config):
-    df= pd.read_csv(args.datadir+'aqsol_test.csv')
+    df= pd.read_csv(args.datadir+'aqsol_train.csv')
     #df= df.head(200)
     cv_scores=[]
     config['task']= 'r'
@@ -127,7 +127,7 @@ def main_workflow(config):
         val= df[df['fold']==i]
         val= Dataset_from_json(val)
         save_path= './'+str(i)
-        score= train_single_model(config, train, val, epochs=100, save_path=save_path)
+        score= train_single_model(config, train, val, epochs=1000, save_path=save_path)
         cv_scores.append(score)
 
 
