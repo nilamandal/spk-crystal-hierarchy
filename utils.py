@@ -1,3 +1,5 @@
+from rdkit import Chem
+from rdkit.Chem import AllChem
 import csv
 import json
 import pubchempy as pcp
@@ -37,6 +39,84 @@ def get_bonds_by_pid(pid):
         return g
     except:
         print(pid, 'retry')
+        return 'retry'
+
+def rdk_smiles_to_mol(formula):
+    try: 
+
+        mol = Chem.MolFromSmiles(formula)
+        atoms = mol.GetAtoms()
+        AllChem.Compute2DCoords(mol)
+
+        conf = mol.GetConformer()
+
+        structure = {
+            "atoms": [],
+            "bonds": []
+        }
+
+        for atom in atoms:
+            idx = atom.GetIdx()
+            pos = conf.GetAtomPosition(idx)
+
+            if atom.GetSymbol() == '*':
+                continue
+
+            structure["atoms"].append({
+                "aid": idx + 1,                      # 1-indexed
+                "number": atom.GetAtomicNum(),
+                "element": atom.GetSymbol(),
+                "x": round(pos.x, 4),
+                "y": round(pos.y, 4)
+            })
+            last = atom
+    
+        for bond in mol.GetBonds():
+            a1 = bond.GetBeginAtomIdx() + 1
+            a2 = bond.GetEndAtomIdx() + 1
+
+            # bond order
+            order = int(bond.GetBondTypeAsDouble())
+
+            bond_entry = {
+                "aid1": a1,
+                "aid2": a2,
+                "order": order
+            }
+
+            # optional aromatic styling (matches example style=8)
+            if bond.GetIsAromatic():
+                bond_entry["style"] = 8
+
+            structure["bonds"].append(bond_entry)
+        
+        ring_bond = [a for a in atoms if a.GetAtomicNum() == 0]
+
+        if len(ring_bond) == 2:
+
+            a1, a2 = ring_bond
+            n1 = a1.GetNeighbors()[0]
+            n2 = a2.GetNeighbors()[0]
+        
+            aid1 = n1.GetIdx() + 1
+            aid2 = n2.GetIdx() + 1
+
+            bond1 = a1.GetBonds()[0]
+            order = int(bond1.GetBondTypeAsDouble())
+
+            ring = {
+                "aid1": n1.GetIdx() + 1,
+                "aid2": n2.GetIdx() + 1,
+                "order": order
+            }
+            print(formula)
+            print(ring)
+            structure["bonds"].append(ring)
+        print(structure)        
+        return structure
+
+    except Exception as e:
+        print(formula, 'retry', e)
         return 'retry'
 
 def gen_plots(train_metric, val_metric, idx):
@@ -323,15 +403,16 @@ if __name__ == "__main__":
     """
 
     #code used to get structure json from smiles
-    df = pd.read_csv('bench_test_r.csv')
+    df = pd.read_csv('bandgap_chain.csv')
     #df['cid'] = df['SMILES'].apply(pcp_query_by_smile)
     #df['structure'] = df['cid'].apply(get_bonds_by_pid)
+    df['structure'] = df['smiles'].apply(rdk_smiles_to_mol)
     print(len(df['structure']))
     df = df[df["structure"] != "retry"]
     print(len(df['structure']))
     #print(type(df['structure'][0]))
     #print(df['structure'][0])
-    df.to_csv("bench_test_r.csv", index=False)
+    df.to_csv("bandgap_updated.csv", index=False)
 
     #Code used to split the dataset
     #df = pd.read_csv('aqsol_updated.csv')
