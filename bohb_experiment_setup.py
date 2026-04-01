@@ -3,7 +3,7 @@ import sys
 import json
 import resource
 import os
-
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -18,14 +18,14 @@ from ray.tune.schedulers.hb_bohb import HyperBandForBOHB
 from ray.tune.search.bohb import TuneBOHB
 import ConfigSpace
 #from hpbandster.optimizers.config_generators.bohb import BOHB
-
+from CorrectedRepeater import BOHBRepeater
 from spektral.data import DisjointLoader, BatchLoader
-from spektral_essential_objects import MyDataset, SparseEdgepool, AtomFeaDataset, NoShrink_GAT
+from spektral_essential_objects import MyDataset, SparseEdgepool, AtomFeaDataset, NoShrink_GAT, NotShrinking
 from utils import train_step, evaluate
 
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='/Users/nilamandal/desktop/Main_fol_Zintl')#/home/nim18004/Main_fol_Zintl
+        help='Directory where dataset is located', default='/home/nim18004/Main_fol_Zintl')
 
 parser.add_argument('--task', choices=['r', 'c'],
                     default='r', help='complete a regression or classification task (default: regression)')
@@ -36,38 +36,45 @@ def train_model(config):
     print('BEGUN INDIVIDUAL TRAINING')
 
 
-    epochs = 10
+    epochs = 1000
     if epochs<1000:
         print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
 
     # Load data and train model code here...
 
-    all_data = pd.read_csv(os.path.join(args.datadir,'crossval.csv'))
+    train_df = pd.read_csv(os.path.join(args.datadir,'train_by_fam_ternary.csv'))
+    val_df = pd.read_csv(os.path.join(args.datadir,'val_by_fam_ternary.csv'))
     #print(all_data)
-    cv_scores=[]
+    #cv_scores=[]
 
-    for i in range(5):
-        train_df= all_data[all_data['bin']!=i]
-        train_df= train_df.head(5)
-        val_df= all_data[all_data['bin']==i]
-        val_df= val_df.head(5)
-        train_data= AtomFeaDataset(train_df, args.datadir, 8, 12, args.task)
-        val_data= AtomFeaDataset(val_df, args.datadir, 8, 12, args.task)
-        load_tr= BatchLoader(train_data, batch_size=config['batch_size'], epochs=epochs)
-        load_tr_eval= BatchLoader(train_data, batch_size=len(train_data))
-        load_va= BatchLoader(val_data, batch_size=len(val_data))
+    #for i in range(5):
+    #    train_df= all_data[all_data['bin']!=i]
+        #train_df= train_df.head(5)
+    #    val_df= all_data[all_data['bin']==i]
+        #val_df= val_df.head(5)
+    train_data= AtomFeaDataset(train_df, args.datadir, 8, 12, args.task)
+    val_data= AtomFeaDataset(val_df, args.datadir, 8, 12, args.task)
+        #load_tr= BatchLoader(train_data, batch_size=config['batch_size'], epochs=epochs)
+        #load_tr_eval= BatchLoader(train_data, batch_size=len(train_data))
+        #load_va= BatchLoader(val_data, batch_size=len(val_data))
 
-        model= NoShrink_GAT(args.task, 8, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
-        optim=Adam(config['lr'])
+    load_tr= DisjointLoader(train_data, batch_size=config['batch_size'], epochs=epochs)
+    load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
+    load_va= DisjointLoader(val_data, batch_size=len(val_data))
 
-        trial_score= train_one_loop(model, load_tr, load_tr_eval, load_va, optim, i)
 
-        cv_scores.append(trial_score)
+    model= NotShrinking(args.task, 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
+        #model= NoShrink_GAT(args.task, 8, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
+    optim=Adam(config['lr'], clipnorm=config['clipnorm'])
+
+    trial_score= train_one_loop(model, load_tr, load_tr_eval, load_va, optim)
+
+    #cv_scores.append(trial_score)
 
     #
-    return {"score": np.mean(cv_scores)}
+    return {"score": trial_score}
 
-def train_one_loop(model, load_tr, load_tr_eval, load_va, optim, i):
+def train_one_loop(model, load_tr, load_tr_eval, load_va, optim, i=0):
     checkpoint_path='./'+str(i)+'goodmodel.ckpt'
     csv_log = CSVLogger("./"+str(i)+"callback_results.csv")
 
@@ -158,36 +165,37 @@ def gen_plots(train_metric, val_metric):
 
 
 if __name__ == "__main__":
-      NUM_MODELS = 2
+      NUM_MODELS = 500
 
       trial_space = {
             'embedding_size': tune.choice([4,8,16,32,64]),
-            'cgcnn_num': tune.choice([4,5,6,7,8]),
+            'cgcnn_num': tune.choice([1,2,3]),
             'cgcnn_num2': tune.choice([1,2,3]),
             #'cgcnn_p': tune.choice([1,2,3]),
             'batch_size': tune.choice([4,8,16,32,64]),
             'softmax_beta': tune.loguniform(1, 1e8),
-            'lr': tune.loguniform(1e-8, 1e-1)
+            'lr': tune.loguniform(1e-8, 1e-1),
+            'clipnorm': tune.loguniform(1, 1e4)
         }
 
-      print('no problems yet')
+      #print('no problems yet')
 
-      # bohb_hyperband = HyperBandForBOHB(
-      #   time_attr="training_iteration",
-      #   max_t=81,
-      #   reduction_factor=3,
-      #   stop_last_trials=False,
-      # )
+      bohb_hyperband = HyperBandForBOHB(
+         time_attr="training_iteration",
+         max_t=81,
+         reduction_factor=3,
+         stop_last_trials=False,
+      )
       #
-      # bohb = BOHBRepeater(metric='score', mode='min', repeat=1, max_concurrent=1)
-      # train_model_object = tune.with_resources(train_model, {"cpu": 1})
-      # tuner = tune.Tuner(train_model_object, tune_config=tune.TuneConfig(
-      #   search_alg=bohb,
-      #   scheduler=bohb_hyperband,
-      #   metric='score',
-      #   mode='min',
-      #   num_samples=NUM_MODELS), param_space=trial_space)
-      # print('CREATED all TUNING OBJECTS')
-      # results = tuner.fit()
-      # print(results)
+      bohb = BOHBRepeater(metric='score', mode='min', repeat=1, max_concurrent=60)
+      train_model_object = tune.with_resources(train_model, {"cpu": 1})
+      tuner = tune.Tuner(train_model_object, tune_config=tune.TuneConfig(
+         search_alg=bohb,
+         scheduler=bohb_hyperband,
+         metric='score',
+         mode='min',
+         num_samples=NUM_MODELS), param_space=trial_space)
+      print('CREATED all TUNING OBJECTS')
+      results = tuner.fit()
+      print(results)
       #

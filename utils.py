@@ -1,15 +1,18 @@
 #import pubchempy as pcp
 import pandas as pd
 import tensorflow as tf
-from tensorflow.keras.metrics import sparse_categorical_accuracy, categorical_accuracy
+#from tensorflow.keras.metrics import sparse_categorical_accuracy, categorical_accuracy
 import numpy as np
+import json
+import os
 from spektral.data import Graph, Dataset, DisjointLoader
 from tensorflow.keras.callbacks import CallbackList, CSVLogger
-from spektral_essential_objects import NotShrinking
+#from spektral_essential_objects import NotShrinking
+from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import BinaryCrossentropy
 import matplotlib.pyplot as plt
-
+from spektral_essential_objects import MyDataset, SparseEdgepool, AtomFeaDataset, NotShrinking, CGCNNModel
 # def pcp_query_by_smile(formula):
 #     try:
 #         d= pcp.get_compounds(formula, namespace='smiles', record_type='2d')
@@ -183,92 +186,117 @@ def evaluate(loader, model, loss_fn, test=False, task='r'):
             output = np.array(output)
             return np.average(output[:, :-1], 0, weights=output[:, -1])
 
-def train_single_model(config, train_data, val_data, epochs=1000, save_path= './'):
+def train_single_model(model, load_tr, load_tr_eval, load_va, optim, trial, path_i):
     print('BEGUN INDIVIDUAL TRAINING')
 
-    checkpoint_path=save_path+'goodmodel.ckpt'
-
-    if epochs<1000:
-        print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
-    #
-    # embedding_size= config['embedding_size']
-    # batch_size= config['batch_size']
-    # entropy_lambda= config['entropy_lambda']
-    # softmax_beta= config['softmax_beta']
-    # lr= config['lr']
-
-    load_train= DisjointLoader(train_data, batch_size=int(config['batch_size']), epochs=epochs)
-    load_train_eval= DisjointLoader(train_data, batch_size=len(train_data))
-    load_val= DisjointLoader(val_data, batch_size=len(val_data))
-    csv_log = CSVLogger(save_path+"_callback_results.csv")
-
-    model= NotShrinking(config['task'], 2, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
+    checkpoint_path=path_i+'goodmodel.keras'
+    csv_log = CSVLogger(path_i+"callback_results.csv")
+    #print('loop entered')
     all_callbacks= CallbackList([csv_log], add_history=True, model=model)
-    #
-    optim=Adam(config['lr'])
-    loss_fn= BinaryCrossentropy()
+
+
+    loss_fn= MeanSquaredError()
+    #else:
+    #    loss_fn= CategoricalCrossentropy()
+
+
+    train_metric=[]
+    val_metric_list=[]
     early_stop_counter= 0
-    patience= 100
+    patience= 50
     epoch = step = 0
+
+    best_val_loss = np.inf
     logs = {}
     all_callbacks.on_train_begin(logs=logs)
-    train_metric=[]
-    val_metric=[]
-    best_val_loss= np.inf
 
-    for batch in load_train:
-        #print(batch)
+    for batch in load_tr:
+        #print(epoch, step)
         if step==0:
             all_callbacks.on_epoch_begin(epoch, logs=logs)
         step += 1
+        #print(epoch, step)
 
         all_callbacks.on_train_batch_begin(step)
-        loss, metric = train_step(*batch, model, loss_fn, optim, config['task'])
+        loss, metric = train_step(*batch, model, loss_fn, optim)
         all_callbacks.on_train_batch_end(step, logs)
-
+        #print('---')
         if tf.math.is_nan(loss):
+            print('nan occurred')
             all_callbacks.on_train_end(logs)
             if epoch>1:
-                gen_plots(train_metric, val_metric, save_path)
-            return {"score": np.inf}
+                gen_plots(train_metric, val_metric_list, path_i)
+            return np.inf
 
-        if step == load_train.steps_per_epoch:
+        if step == load_tr.steps_per_epoch:
             step = 0
-            loss_str="Loss: {}".format(loss / load_train.steps_per_epoch)
-
-            tr_loss= evaluate(load_train_eval, model, loss_fn, task=config['task'])#binary BinaryCrossentropy
-            val_loss = evaluate(load_val, model, loss_fn, task=config['task'])
-            val_metric.append(val_loss)
+            loss_str="Loss: {}".format(loss / load_tr.steps_per_epoch)
+            tr_loss, tr_rmse, tr_mae= evaluate(load_tr_eval, model, loss_fn)
+            val_loss, val_rmse, val_mae= evaluate(load_va, model, loss_fn)
+            val_metric_list.append(val_loss)
             train_metric.append(tr_loss)
-
+            #total_val_loss= val_loss
+            print(val_loss)
             if epoch>0:
                 if val_loss<best_val_loss:
                     early_stop_counter=0
-                    model.save_weights(checkpoint_path)
+                    model.save(checkpoint_path)
                     best_val_loss= val_loss
 
                 else:
                     early_stop_counter+=1
-
-            all_callbacks.on_epoch_end(epoch, {'train_loss':tr_loss, 'val_loss':val_loss})
-
+                #if epoch%50==0:
+                   #trial.report(val_loss,epoch)
+                   #print(trial)
+                   #if trial.should_prune():
+                   #    print(trial)
+                   #    raise optuna.TrialPruned()
+            #if args.task=='r':
+            all_callbacks.on_epoch_end(epoch, {'train_mse':tr_loss, 'train_rmse':tr_rmse, 'train_mae':tr_mae, 'val_mse':val_loss, 'val_rmse:':val_rmse, 'val_mae':val_mae})
+            #else:
+            #    all_callbacks.on_epoch_end(epoch, {'train_loss':tr_loss, 'val_loss:':val_loss})
             if early_stop_counter==patience:
                 all_callbacks.on_train_end(logs)
-                gen_plots(train_metric, val_metric, save_path)
-                return {"score": best_val_loss}
+                gen_plots(train_metric, val_metric_list, path_i)
+                return best_val_loss
             else:
                 epoch+=1
+
     all_callbacks.on_train_end(logs)
-    gen_plots(train_metric, val_metric, save_path)
+    gen_plots(train_metric, val_metric_list, path_i)
 
     return best_val_loss
 
 
 if __name__ == "__main__":
     check_env_versions()
-    #df= pd.read_csv('tox21_updated.csv')
-    #df= df[df['pid']>0]
-    #mol_list= df['smiles'].tolist()
+    parampath= './800_cgcnn/143/'
+    datadir= '/home/nim18004/Main_fol_Zintl/'
+    trial_name= './800_cgcnn/final/'
 
-    #df['structure']= df['pid'].apply(get_bonds_by_pid)
-    #df.to_csv('tox21_updated_2.csv')
+    config= json.load(open(parampath+'params.json'))
+
+    train_csv= pd.read_csv(datadir+'train_by_fam_ternary.csv')
+    val_csv= pd.read_csv(datadir+'val_by_fam_ternary.csv')
+
+    epochs = 1000
+    if epochs<1000:
+        print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
+
+    train_data= AtomFeaDataset(train_csv, datadir, 8, 12, 'r')
+    val_data= AtomFeaDataset(val_csv, datadir, 8, 12, 'r')
+    load_tr= DisjointLoader(train_data, batch_size=config['batch_size'], epochs=epochs)
+    load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
+    load_va= DisjointLoader(val_data, batch_size=len(val_data))
+
+    #model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
+    model= CGCNNModel(config['embedding_size'], config['hidden_size'], config['num_layers'])
+    optim=Adam(config['lr'], clipnorm=config['clipnorm'])
+
+    if not os.path.exists(trial_name):
+        os.makedirs(trial_name)
+    print(trial_name)
+    with open(trial_name+'params.json', 'w') as to_file:
+        json.dump(config, to_file)
+    trial_score= train_single_model(model, load_tr, load_tr_eval, load_va, optim, 'final', trial_name)
+#(model, load_tr, load_tr_eval, load_va, optim, trial, path_i

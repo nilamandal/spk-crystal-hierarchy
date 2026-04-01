@@ -4,7 +4,7 @@ from tensorflow.keras import Model
 from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.losses import MeanSquaredError, SparseCategoricalCrossentropy
-from tensorflow.keras.metrics import sparse_categorical_accuracy, mean_squared_error
+#from tensorflow.keras.metrics import sparse_categorical_accuracy, mean_squared_error
 import numpy as np
 import pandas as pd
 import os
@@ -16,6 +16,10 @@ from sklearn import svm
 import pylab as pl
 from tensorflow.keras import backend as K
 #from util_functions import entropy_loss, row_e_and_column_p
+
+def mean_squared_error(real, pred):
+   return np.mean((real-pred)**2)
+
 
 #This function handles all evaluation of the data. It computes the model's prediction for each crystal,
 #the error for each crystal, and the poolings for each crystal. The prediction, error value, and a performance
@@ -327,11 +331,26 @@ def eval_for_3_pools(loader, model, cifs, df, fullpath_of_model, fullpath_of_dat
                 outfile.write(line)
             outfile.close()
 
+def eval_cgcnn(loader, model, write_path):
+   step = 0
+   while step < loader.steps_per_epoch:
+        step += 1
+        inputs, target = loader.__next__()
 
+        #outfile_main=open(write_output_path+'/pooling_eval.csv','w+')
+        #outfile_main.write('name,pred,target,abs_error,pool_margin,perfect,avg_acc,row_entropy,neg_col_entropy,num_unique \n')
+
+        pred = model(inputs, training=False)
+        df= pd.DataFrame(
+             data=list(zip(pred, target)),
+             columns=["pred", "target"]
+        )
+        df.to_csv(write_path+'predictions.csv')
+   return mean_squared_error(target, pred)
 
 def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath):
 
-    checkpoint_path = fullpath_of_model+"goodmodel.ckpt.index"
+    checkpoint_path = fullpath_of_model+"goodmodel.keras"
 
     checkpoint_dir = os.path.dirname(checkpoint_path)
 
@@ -340,25 +359,28 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath)
 
     val_df = pd.read_csv(fullpath_of_data_file, header=0)
 
-    data= AtomFeaDataset(val_df, data_dir, 8, 5, 'r')
+    data= AtomFeaDataset(val_df, data_dir, 8, 12, 'r')
     loader_va= DisjointLoader(data, shuffle=False, batch_size=len(val_df))
     cifs=data.get_cifs()
 
-    model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'], k=3)
-    latest = tf.train.latest_checkpoint(checkpoint_dir)
-    model.load_weights(latest)
+    #model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'], k=3)
+    #model= CGCNNModel(config['embedding_size'], config['hidden_size'], config['num_layers'])
+    model= tf.keras.models.load_model(checkpoint_path)
+    #model.return_s= True
+    #latest = tf.train.latest_checkpoint(checkpoint_dir)
+    #model.load_weights(latest)
     if not os.path.exists(write_output_path):
         os.makedirs(write_output_path)
-    result_dict=eval_for_3_pools(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
-
+    #result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
+    result_dict= eval_cgcnn(loader_va, model, write_output_path)
     return result_dict
 
 
 if __name__ == '__main__':
 
-    subpaths=['../noshrink/3pools/train_model_2025/train_model_9e890b85_98/']
+    subpaths=['./100_cgcnn/final/']
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
-    fullpath_of_data_file='../Main_fol_Zintl/test_by_fam_heuristics.csv'
+    fullpath_of_data_file='../Main_fol_Zintl/test_by_fam_ternary.csv'
     #fullpath_of_data_file='../Main_fol_Zintl/Zintl_bonding_analysis_new_heuristic.csv'
 
     for pathstring in subpaths:
@@ -369,6 +391,6 @@ if __name__ == '__main__':
 
         #write output path is the DIRECTORY where you want the output files to be saved.
         #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
-        write_output_path=fullpath_of_model+'test_set/'
+        write_output_path=fullpath_of_model+'test_set_debug_version/'
 
         result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath_for_model)

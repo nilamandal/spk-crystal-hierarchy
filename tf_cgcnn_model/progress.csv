@@ -1,2 +1,0 @@
-score,time_this_iter_s,done,training_iteration,trial_id,date,timestamp,time_total_s,pid,hostname,node_ip,time_since_restore,iterations_since_restore
-0.0025562788359820843,4468.617758512497,False,1,33fb884f,2025-02-20_20-17-52,1740100672,4468.617758512497,367428,scimlab.engr.uconn.edu,137.99.227.5,4468.617758512497,1
