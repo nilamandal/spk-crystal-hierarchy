@@ -1,0 +1,2 @@
+name,pred,target,abs_error,pool_margin,perfect,avg_acc,row_entropy,neg_col_entropy,num_unique 
+./UBEM_stable_relaxed/CONTCAR/CONTCAR_a4b3d3_52_As4Ga3K3_icsd_040206_K_As_Al,-3938774016.0,-3.884025745,[3.938774e+09],0.6125219047532712,1,0.8,nan,nan,3

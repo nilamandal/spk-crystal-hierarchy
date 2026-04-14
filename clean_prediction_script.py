@@ -59,6 +59,9 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
 
         for j in range(len(s_tensor)):
                 assign= s_tensor[j]
+                print(target[j])
+                print(pred[j])
+                print(np.abs(target[j]-pred[j]))
                 individual_error= np.abs(target[j]-pred[j])
                 maes_for_plot.append(individual_error)
                 crystal= Structure.from_file(os.path.join(fullpath_of_data_file,cifs[i]))
@@ -95,8 +98,10 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
                 pl.ylabel('P2 assignment')
                 pl.title(tempcifname)
                 pl.savefig(savepath+'/'+tempcifname+'coloredbytarget.png')
-
-                C, score, margin, svc_pred= evaluate_pool(binary_feats, binary_targets)
+                #try:
+                ##    C, score, margin, svc_pred= evaluate_pool(binary_feats, binary_targets)
+                #except:
+                C, score, margin, svc_pred= np.nan, np.nan, np.nan, np.nan
                 #column_entropy, row_entropy= row_e_and_column_p(np.array(binary_feats))
                 column_entropy, row_entropy= np.nan, np.nan
                 specieslist=[]
@@ -109,7 +114,7 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
                     else:
                         truth_val= 0
 
-                    line="{},{},{},{},{},{},{},{},{} \n".format(k, crystal[k].specie, crystal[k].a, crystal[k].b, crystal[k].c, assign[k,0], assign[k,1], truth_val, svc_pred[k])
+                    line="{},{},{},{},{},{},{},{},{} \n".format(k, crystal[k].specie, crystal[k].a, crystal[k].b, crystal[k].c, assign[k,0], assign[k,1], truth_val, np.nan)#svc_pred[k])
                     outfile.write(line)
 
                 pl.figure()
@@ -145,13 +150,13 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
                 #    mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',0,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+','+str(len(np.unique(np.around(binary_feats, 3), axis=0)))+'\n'
                 else:
                     num_perfect+=1
-                mainline= cifs[i]+','+str(float(pred[j]))+','+str(float(target[j]))+','+str(individual_error)+','+str(margin)+',1,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+','+str(len(np.unique(np.around(binary_feats, 3), axis=0)))+'\n'
+                mainline= cifs[i]+','+str(float(pred[j]))+','+str(float(target[j]))+','+str(np.nan)+','+str(margin)+',1,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+','+str(len(np.unique(np.around(binary_feats, 3), axis=0)))+'\n'
                 outfile_main.write(mainline)
                 line= 'pool accuracy='+str(score)+'C='+str(C)+'\n'
                 outfile.write(line)
 
-                line= '\n absolute error = '+str(float(individual_error))
-                outfile.write(line)
+                #line= '\n absolute error = '+str(float(individual_error))
+                #outfile.write(line)
                 line= '\n '+ fullpath_of_data_file+','+cifs[i]
                 outfile.close()
                 if score==1:
@@ -241,44 +246,44 @@ def pool_db_plots(binary_feats, binary_targets, clf):
     pl.show()
 
 
-def evaluate_pool(binary_feats, binary_targets):
-    binary_feats= np.array(binary_feats)
-    print(binary_targets)
-    scores= {}
-    margins= {}
-    preds= {}
-    if len(np.unique(binary_feats, axis=0))==1:
-        #print('ITS ALL 1')
-        return np.nan, 0, 0, [0]*len(binary_feats)
-    if len(np.unique(binary_targets, axis=0))==1:
-        #print('ITS ALL 1')
-        return np.nan, 0, 0, [0]*len(binary_feats)
-    else:
-
-        for C_param in range(-5,8):
-            C= 10**C_param
-            clf = svm.SVC(C=C, kernel='linear', max_iter=10000)
-            clf.fit(binary_feats, binary_targets)
-            score= clf.score(binary_feats, binary_targets)
-            pred= clf.predict(binary_feats)
-
-            w =  clf.coef_[0]
-            a = -w[0]/w[1]
-            xx = np.linspace(-5, 5)
-            yy = a*xx - (clf.intercept_[0])/w[1]
-            margin = 1/np.sqrt(np.sum(clf.coef_**2))
-            scores[C]= score
-            margins[C]= margin
-            preds[C]= pred
-            if score==1:
-                return C, score, margin, pred
-
-
-        best_score= max(scores.values())
-        best_C= max(scores, key=scores.get)
-        best_margin= margins[best_C]
-        best_pred= preds[best_C]
-        return best_C, best_score, best_margin, best_pred
+# def evaluate_pool(binary_feats, binary_targets):
+#     binary_feats= np.array(binary_feats)
+#     print(binary_targets)
+#     scores= {}
+#     margins= {}
+#     preds= {}
+#     if len(np.unique(binary_feats, axis=0))==1:
+#         #print('ITS ALL 1')
+#         return np.nan, 0, 0, [0]*len(binary_feats)
+#     if len(np.unique(binary_targets, axis=0))==1:
+#         #print('ITS ALL 1')
+#         return np.nan, 0, 0, [0]*len(binary_feats)
+#     else:
+#
+#         for C_param in range(-5,8):
+#             C= 10**C_param
+#             clf = svm.SVC(C=C, kernel='linear', max_iter=10000)
+#             clf.fit(binary_feats, binary_targets)
+#             score= clf.score(binary_feats, binary_targets)
+#             pred= clf.predict(binary_feats)
+#
+#             w =  clf.coef_[0]
+#             a = -w[0]/w[1]
+#             xx = np.linspace(-5, 5)
+#             yy = a*xx - (clf.intercept_[0])/w[1]
+#             margin = 1/np.sqrt(np.sum(clf.coef_**2))
+#             scores[C]= score
+#             margins[C]= margin
+#             preds[C]= pred
+#             if score==1:
+#                 return C, score, margin, pred
+#
+#
+#         best_score= max(scores.values())
+#         best_C= max(scores, key=scores.get)
+#         best_margin= margins[best_C]
+#         best_pred= preds[best_C]
+#         return best_C, best_score, best_margin, best_pred
 
 
 def eval_for_3_pools(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, write_output_path):
@@ -308,6 +313,7 @@ def eval_for_3_pools(loader, model, cifs, df, fullpath_of_model, fullpath_of_dat
 
         for j in range(len(s_tensor)):
             assign= s_tensor[j]
+            print(target[j],pred[j],np.abs(target[j]-pred[j]))
             individual_error= np.abs(target[j]-pred[j])
             crystal= Structure.from_file(os.path.join(fullpath_of_data_file,cifs[j]))
             crystal_size.append(len(crystal))
@@ -359,25 +365,34 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath)
 
     val_df = pd.read_csv(fullpath_of_data_file, header=0)
 
+    mini= val_df.head(2)
+    minidata= AtomFeaDataset(mini, data_dir, 8, 12, 'r')
+    miniloader= DisjointLoader(minidata, shuffle=False, batch_size=len(val_df))
+
     data= AtomFeaDataset(val_df, data_dir, 8, 12, 'r')
     loader_va= DisjointLoader(data, shuffle=False, batch_size=len(val_df))
     cifs=data.get_cifs()
 
     if not os.path.exists(write_output_path):
         os.makedirs(write_output_path)
-    #model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'], k=3)
-    model= CGCNNModel(config['embedding_size'], config['hidden_size'], config['num_layers'])
+    model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'], k=2)
+    model.return_s= True
+    mini_input, mini_target= miniloader.__next__()
+    pred, s_tensor = model(mini_input, training=False)
+    #model= CGCNNModel(config['embedding_size'], config['hidden_size'], config['num_layers'])
     #model= tf.keras.models.load_model(checkpoint_path, custom_objects={'CGCNN': CGCNNModel})
     model.summary()
-    result_dict= eval_cgcnn(loader_va, model, write_output_path)
-
     model.load_weights(fullpath_of_model+'goodmodel.weights.h5')
-    #model.return_s= True
+    #result_dict= eval_cgcnn(loader_va, model, write_output_path)
+    #result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), './dummy/')
+
+
+
     model.summary()
     #latest = tf.train.latest_checkpoint(checkpoint_dir)
     #model.load_weights(latest)
-    result_dict= eval_cgcnn(loader_va, model, write_output_path)
-    #result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
+    #result_dict= eval_cgcnn(loader_va, model, write_output_path)
+    result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
 
     model.summary()
     print(result_dict)
@@ -386,7 +401,7 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath)
 
 if __name__ == '__main__':
 
-    subpaths=['./debugc/1/']
+    subpaths=['./debugn/6/']
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
     fullpath_of_data_file='../Main_fol_Zintl/val_by_fam_ternary.csv'
     #fullpath_of_data_file='../Main_fol_Zintl/Zintl_bonding_analysis_new_heuristic.csv'

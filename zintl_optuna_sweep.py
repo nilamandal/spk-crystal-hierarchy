@@ -49,7 +49,7 @@ def objective(trial):
     val_csv= pd.read_csv(os.path.join(args.datadir,'val_by_fam_ternary.csv'))
     cv_scores=[]
 
-    epochs = 5
+    epochs = 200
     if epochs<1000:
         print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
 
@@ -281,7 +281,7 @@ if __name__ == "__main__":
     storage_name = JournalStorage(JournalFileBackend("debugn.log"))
     study = optuna.create_study(pruner=optuna.pruners.HyperbandPruner(), study_name='debugn', storage=storage_name, load_if_exists=True)
     #study = optuna.create_study(study_name='out', storage=storage_name)
-    study.optimize(objective, n_trials=2, n_jobs=2)
+    study.optimize(objective, n_trials=2, n_jobs=1)
     df = study.trials_dataframe(attrs=("number", "value", "params", "state"))
     print(df)
     df.to_csv(args.out_dir+'results.csv')

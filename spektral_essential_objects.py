@@ -28,8 +28,8 @@ import keras
 
 from spektral.data import Graph, Dataset, DisjointLoader
 from spektral.data.utils import to_batch
-from spektral.utils import reorder, sp_matrix_to_sp_tensor
-from spektral.layers import DiffPool, ops, GlobalSumPool, GlobalAvgPool, Disjoint2Batch, GraphMasking, GATConv, CrystalConv, GCNConv
+from spektral.utils import reorder, sp_matrix_to_sp_tensor, gcn_filter
+from spektral.layers import DiffPool, ops, GlobalSumPool, GlobalAvgPool, Disjoint2Batch, GraphMasking, CrystalConv, GCNConv
 from spektral.layers.ops.scatter import deserialize_scatter
 #from torch_compatible_objects import AtomInitializer, AtomCustomJSONInitializer, GaussianDistance
 #from CrystalConv import CrystalConv
@@ -510,61 +510,6 @@ class NoShrinkDiffPool(RegularizedDiffPool):
 
 
 
-#
-
-class MPCgcnn(CrystalConv):
-    def __init__(self, activation= None, kernel_initializer= None, transfer_weights=[], idx=0, **kwargs):
-        super().__init__(self, activation=activation, kernel_initializer=kernel_initializer, **kwargs)
-
-        self.transfer_weights=transfer_weights
-        self.transfer_idx=str(idx)
-
-    def build(self, input_shape):
-        assert len(input_shape) >= 2
-        layer_kwargs = dict(
-            kernel_initializer=initializers.constant(self.transfer_weights['fc_full_weight_'+self.transfer_idx]),
-            bias_initializer=initializers.constant(self.transfer_weights['fc_full_bias_'+self.transfer_idx]),
-            kernel_regularizer=self.kernel_regularizer,
-            bias_regularizer=self.bias_regularizer,
-            kernel_constraint=self.kernel_constraint,
-            bias_constraint=self.bias_constraint,
-            dtype=self.dtype,
-        )
-        channels = input_shape[0][-1] * 2
-
-        self.dense_fc = Dense(channels, activation=self.activation, **layer_kwargs)
-        #self.dense_s = Dense(channels, activation=self.activation, **layer_kwargs)
-
-        bn1_w= 'bn1_weight_'+self.transfer_idx
-        bn1_b= 'bn1_bias_'+self.transfer_idx
-        bn2_w= 'bn2_weight_'+self.transfer_idx
-        bn2_b= 'bn2_bias_'+self.transfer_idx
-        #initializers.constant(self.transfer_weights[bn1_w])
-        self.agg = deserialize_scatter('sum')
-        self.bn1= BatchNormalization(beta_initializer=initializers.constant(self.transfer_weights[bn1_w]) ,gamma_initializer=initializers.constant(self.transfer_weights[bn1_b]))
-        self.bn2= BatchNormalization(beta_initializer=initializers.constant(self.transfer_weights[bn2_w]) ,gamma_initializer=initializers.constant(self.transfer_weights[bn2_b]))
-        self.built = True
-
-    def message(self, x, e=None):
-       x_i = self.get_targets(x)
-       x_j = self.get_sources(x)
-
-       to_concat = [x_i, x_j]
-       if e is not None:
-           to_concat += [e]
-       z = K.concatenate(to_concat, axis=-1)
-       z= self.dense_fc(z)
-       z= self.bn1(z)
-
-       nbr_filter, nbr_core= tf.split(z, 2, axis=1)
-       nbr_filter= tf.sigmoid(nbr_filter)
-       nbr_core= tf.keras.activations.softplus(nbr_core)
-       nbr_sumed=nbr_filter * nbr_core
-       output= tf.keras.activations.softplus(tf.math.add(x_i, self.bn2(nbr_sumed)))
-       return output
-#
-
-
 
 
 @keras.saving.register_keras_serializable()
@@ -864,34 +809,26 @@ class NotShrinking(Model):
         x, a, i = inputs
         x= self.embedding(x)
 
-        #boolcheck= tf.math.is_nan(x)
-        #if tf.reduce_any(boolcheck):
-        #   return np.inf
-        print('conv1list')
         for cgcnn in self.conv_list:
-            #x= cgcnn([x, a, e])
             x= cgcnn([x,a])
-
-            print(len(cgcnn.trainable_variables))
             x= tf.nn.softplus(x)
             #print(x)
         batch_X = ops.disjoint_signal_to_batch(x, i)
         batch_A= self.disjoint_adjacency_to_batch(a, i)
 
         x_pool, a_pool, i_pool, s= self.pool([batch_X, batch_A, i])
-        #print(x_pool)
+
         x_pool_= tf.reshape(x_pool, [x_pool.shape[0]*x_pool.shape[1], x_pool.shape[2]]) #reshape to disjoint form
 
         masked_x = self.disjoint_masker(x_pool_)
 
         x_pool= tf.ragged.boolean_mask(masked_x, masked_x._keras_mask)
-        print(type(x_pool))
-        print('conv2list')
+        #print(type(x_pool))
+        #print('conv2list')
         for cgcnn2 in self.conv_list2:
             #x_pool= cgcnn2([x_pool, a, e])
-            x_pool= cgcnn([x_pool, a])
+            x_pool= cgcnn2([x_pool, a])
 
-            print(len(cgcnn.trainable_variables))
             x_pool= tf.nn.softplus(x_pool)
 
 
@@ -924,106 +861,3 @@ class NotShrinking(Model):
             batch = tf.sparse.SparseTensor(real_new_indices,values,(n_graphs, max_n_nodes, max_n_nodes))
 
             return batch
-
-class NoShrink_GAT(Model):
-    def __init__(self, task, embedding_size=32, hidden_size=32, num_layers=2, num_layers_2=2, hidden_size_2=32, random_seed=100, k=2, softmax_beta=1, **kwargs):
-        super().__init__()
-        self.task= task
-        self.embedding_size=embedding_size
-        self.hidden_size=hidden_size
-        self.num_layers=num_layers
-        self.hidden_size_2=hidden_size_2
-        self.num_layers_2= num_layers_2
-        self.random_seed= random_seed
-        self.k= k
-        self.softmax_beta=softmax_beta
-
-        self.glorot_initializer= initializers.glorot_uniform(seed=self.random_seed)
-        self.he_initializer= initializers.he_uniform(seed=self.random_seed)
-
-        self.embedding= Dense(embedding_size, kernel_initializer=self.glorot_initializer, kernel_regularizer='l2')
-
-        self.conv_list=[]
-        for i in range(num_layers):
-            conv= GATConv(hidden_size)
-            self.conv_list.append(conv)
-
-        self.mask_manager= GraphMasking()
-
-        self.pool=NoShrinkDiffPool(k=self.k, beta=softmax_beta, return_selection=True)
-
-        self.conv_list2=[]
-        for i in range(num_layers_2):
-            conv= GATConv(hidden_size_2)
-            self.conv_list2.append(conv)
-
-        self.sumpool= GlobalSumPool()
-
-        if self.task=='c':
-            self.out_layer= Dense(self.num_classes, activation='softmax', kernel_initializer=self.glorot_initializer)
-        elif self.task=='r':
-            self.out_layer= Dense(1, kernel_initializer=self.glorot_initializer)
-
-    def build(self, input_shape):
-        un_masked_shape= [input_shape[0][0], input_shape[0][1], input_shape[0][2]-1]
-        self.embedding.build(un_masked_shape)
-        first_conv_shape=[input_shape[0][0], input_shape[0][1], self.embedding_size]
-        self.conv_list[0].build([first_conv_shape, input_shape[1]])
-
-        if len(self.conv_list)>1:
-            conv_shape=[input_shape[0][0], input_shape[0][1], self.hidden_size]
-
-            for i in range(1,len(self.conv_list)):
-                self.conv_list[i].build([conv_shape, input_shape[1]])
-            self.conv_list2[0].build([conv_shape, input_shape[1]])
-
-        if len(self.conv_list2)>1:
-            conv_shape=[input_shape[0][0], input_shape[0][1], self.hidden_size_2]
-
-            for i in range(1,len(self.conv_list2)):
-                self.conv_list2[i].build([conv_shape, input_shape[1]])
-
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({
-            "task": self.task,
-            "embedding_size": self.embedding_size,
-            "hidden_size": self.hidden_size,
-            "num_layers": self.num_layers,
-            "random_seed": self.random_seed,
-            'k': self.k,
-            'softmax_beta':self.softmax_beta,
-            'num_layers_2':self.num_layers_2,
-            'hidden_size_2':self.hidden_size_2
-        })
-        return config
-
-
-    def call(self, inputs):
-        x_masked, a, e = inputs
-        x= self.mask_manager(x_masked)
-        i= self.mask_manager.compute_mask(x_masked)
-        x= self.embedding(x)
-        #print('in call!!!')
-        #print(x_masked)
-        #print(i)
-        #print(x)
-        for gat in self.conv_list:
-            x= gat([x, a], mask=i)
-        #print('gat over!!!')
-        x_pool, a_pool, s_pool= self.pool([x, a], mask=i)
-
-        for gat in self.conv_list2:
-            x_pool= gat([x_pool, a], mask=i)
-
-        x_sum=self.sumpool(x_pool)
-        #print(x_sum.shape)
-
-        i_sum=self.sumpool(i)
-        #print(i_sum.shape)
-        x_pool= tf.math.divide(x_sum, i_sum)
-
-        x= self.out_layer(x_pool)
-
-        return x
