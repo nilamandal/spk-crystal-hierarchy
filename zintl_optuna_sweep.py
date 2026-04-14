@@ -9,15 +9,15 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
-import pymysql
-pymysql.install_as_MySQLdb()
+#import pymysql
+#pymysql.install_as_MySQLdb()
 from optuna.storages import JournalStorage
 from optuna.storages.journal import JournalFileBackend
 
 import sklearn.datasets
 import sklearn.linear_model
 import sklearn.model_selection
-
+import keras
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import MeanSquaredError, CategoricalCrossentropy
@@ -25,15 +25,15 @@ from tensorflow.keras.callbacks import CallbackList, CSVLogger
 
 from spektral.data import DisjointLoader, BatchLoader
 from spektral_essential_objects import MyDataset, SparseEdgepool, AtomFeaDataset, NotShrinking, CGCNNModel
-from utils import train_step, evaluate
+from utils import train_step, evaluate, target_v_pred_plot
 
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 parser.add_argument('--datadir', dest='datadir',
-        help='Directory where dataset is located', default='/home/nim18004/Main_fol_Zintl')
+        help='Directory where dataset is located', default='../Main_fol_Zintl')
 
 parser.add_argument('--task', choices=['r', 'c'],
                     default='r', help='complete a regression or classification task (default: regression)')
-parser.add_argument('--out_dir', default='./debug_save/', help='directory where output is saved')
+parser.add_argument('--out_dir', default='./debugn/', help='directory where output is saved')
 args = parser.parse_args(sys.argv[1:])
 if not os.path.exists(args.out_dir):
     os.makedirs(args.out_dir)
@@ -49,14 +49,14 @@ def objective(trial):
     val_csv= pd.read_csv(os.path.join(args.datadir,'val_by_fam_ternary.csv'))
     cv_scores=[]
 
-    epochs = 10
+    epochs = 5
     if epochs<1000:
         print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
 
     config= {}
     config['trial']= trial.number
     config['embedding_size']=trial.suggest_int('embedding_size', 4, 128, step=4, log=False)
-    config['cgcnn_num']= trial.suggest_int('cgcnn_num', 1, 5, step=1, log=False)
+    config['cgcnn_num']= trial.suggest_int('cgcnn_num', 2, 5, step=1, log=False)
     config['cgcnn_num2']= trial.suggest_int('cgcnn_num2', 1, 5, step=1, log=False)
     #config['hidden_size']=trial.suggest_int('hidden_size', 4, 128, step=4, log=False)
     #config['num_layers']= trial.suggest_int('num_layers', 1, 3, step=1, log=False)
@@ -95,10 +95,10 @@ def objective(trial):
     model= NotShrinking(args.task, 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
     #model= CGCNNModel(config['embedding_size'], config['hidden_size'], config['num_layers'])
     optim=Adam(config['lr'], clipnorm=config['clipnorm'])
-    try:
-       trial_score= train_one_loop(model, load_tr, load_tr_eval, load_va, optim, trial, trial_name)
-    except:
-       trial_score= np.inf
+    #try:
+    trial_score= train_one_loop(model, load_tr, load_tr_eval, load_va, optim, trial, trial_name)
+    #except:
+    #   trial_score= np.inf
 
     #if trial.should_prune():
     print(trial_name+'done')
@@ -110,7 +110,8 @@ def objective(trial):
 
 
 def train_one_loop(model, load_tr, load_tr_eval, load_va, optim, trial, path_i):
-    checkpoint_path=path_i+'goodmodel.keras'
+    checkpoint_path=path_i+'goodmodel'
+    weights_path= path_i+'goodmodel.weights.h5'
     csv_log = CSVLogger(path_i+"callback_results.csv")
     #print('loop entered')
     all_callbacks= CallbackList([csv_log], add_history=True, model=model)
@@ -122,7 +123,7 @@ def train_one_loop(model, load_tr, load_tr_eval, load_va, optim, trial, path_i):
     train_metric=[]
     val_metric_list=[]
     early_stop_counter= 0
-    patience= 50
+    patience= 5000
     epoch = step = 0
 
     best_val_loss = np.inf
@@ -159,31 +160,88 @@ def train_one_loop(model, load_tr, load_tr_eval, load_va, optim, trial, path_i):
             if epoch>0:
                 if val_loss<best_val_loss:
                     early_stop_counter=0
-                    model.save(checkpoint_path)
+                    #model.save(checkpoint_path, zipped=False)
+                    model.save_weights(weights_path)
+                    #model.save(checkpoint_path)
                     best_val_loss= val_loss
-
+                    model.summary()
                 else:
                     early_stop_counter+=1
                 if epoch%50==0:
                    trial.report(val_loss,epoch)
-                   print(trial)
+                   #print(trial)
                    if trial.should_prune():
                        print(trial)
+                       gen_plots(train_metric, val_metric_list, path_i)
+                       val_input, val_target= load_va.__next__()
+                       val_pred= model(val_input, training=False)
+                       df= pd.DataFrame(
+                              data=list(zip(val_pred, val_target)),
+                              columns=["pred", "target"]
+                       )
+                       df.to_csv(path_i+'val_predictions.csv')
+                       target_v_pred_plot(df, path_i+'val')
+
+                       tr_input, tr_target= load_tr_eval.__next__()
+                       tr_pred= model(tr_input, training=False)
+                       df= pd.DataFrame(
+                              data=list(zip(tr_pred, tr_target)),
+                              columns=["pred", "target"]
+                       )
+                       df.to_csv(path_i+'train_predictions.csv')
+                       target_v_pred_plot(df, path_i+'train')
+                       print('prune out')
                        raise optuna.TrialPruned()
             if args.task=='r':
                 all_callbacks.on_epoch_end(epoch, {'train_mse':tr_loss, 'train_rmse':tr_rmse, 'train_mae':tr_mae, 'val_mse':val_loss, 'val_rmse:':val_rmse, 'val_mae':val_mae})
             else:
                 all_callbacks.on_epoch_end(epoch, {'train_loss':tr_loss, 'val_loss:':val_loss})
             if early_stop_counter==patience:
+                print('patience out')
                 all_callbacks.on_train_end(logs)
                 gen_plots(train_metric, val_metric_list, path_i)
+                val_input, val_target= load_va.__next__()
+                val_pred= model(val_input, training=False)
+                df= pd.DataFrame(
+                       data=list(zip(val_pred, val_target)),
+                       columns=["pred", "target"]
+                )
+                df.to_csv(path_i+'val_predictions.csv')
+                target_v_pred_plot(df, path_i+'val')
+
+                tr_input, tr_target= load_tr_eval.__next__()
+                tr_pred= model(tr_input, training=False)
+                df= pd.DataFrame(
+                       data=list(zip(tr_pred, tr_target)),
+                       columns=["pred", "target"]
+                )
+                df.to_csv(path_i+'train_predictions.csv')
+                target_v_pred_plot(df, path_i+'train')
                 return best_val_loss
             else:
                 epoch+=1
 
     all_callbacks.on_train_end(logs)
+    model.summary()
     gen_plots(train_metric, val_metric_list, path_i)
+    val_input, val_target= load_va.__next__()
+    val_pred= model(val_input, training=False)
+    df= pd.DataFrame(
+           data=list(zip(val_pred, val_target)),
+           columns=["pred", "target"]
+    )
+    df.to_csv(path_i+'val_predictions.csv')
+    target_v_pred_plot(df, path_i+'val')
 
+    tr_input, tr_target= load_tr_eval.__next__()
+    tr_pred= model(tr_input, training=False)
+    df= pd.DataFrame(
+           data=list(zip(tr_pred, tr_target)),
+           columns=["pred", "target"]
+    )
+    df.to_csv(path_i+'train_predictions.csv')
+    target_v_pred_plot(df, path_i+'train')
+    print('return out')
     return best_val_loss
 
 
@@ -220,8 +278,8 @@ if __name__ == "__main__":
 
     #storage_name = "sqlite:///{}out.db".format(args.out_dir)
     #storage_name="mysql://nila:scimlab2@localhost/example"
-    storage_name = JournalStorage(JournalFileBackend("debug.log"))
-    study = optuna.create_study(pruner=optuna.pruners.HyperbandPruner(), study_name='debug', storage=storage_name, load_if_exists=True)
+    storage_name = JournalStorage(JournalFileBackend("debugn.log"))
+    study = optuna.create_study(pruner=optuna.pruners.HyperbandPruner(), study_name='debugn', storage=storage_name, load_if_exists=True)
     #study = optuna.create_study(study_name='out', storage=storage_name)
     study.optimize(objective, n_trials=2, n_jobs=2)
     df = study.trials_dataframe(attrs=("number", "value", "params", "state"))

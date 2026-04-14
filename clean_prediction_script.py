@@ -363,24 +363,32 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath)
     loader_va= DisjointLoader(data, shuffle=False, batch_size=len(val_df))
     cifs=data.get_cifs()
 
-    #model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'], k=3)
-    #model= CGCNNModel(config['embedding_size'], config['hidden_size'], config['num_layers'])
-    model= tf.keras.models.load_model(checkpoint_path)
-    #model.return_s= True
-    #latest = tf.train.latest_checkpoint(checkpoint_dir)
-    #model.load_weights(latest)
     if not os.path.exists(write_output_path):
         os.makedirs(write_output_path)
-    #result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
+    #model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'], k=3)
+    model= CGCNNModel(config['embedding_size'], config['hidden_size'], config['num_layers'])
+    #model= tf.keras.models.load_model(checkpoint_path, custom_objects={'CGCNN': CGCNNModel})
+    model.summary()
     result_dict= eval_cgcnn(loader_va, model, write_output_path)
+
+    model.load_weights(fullpath_of_model+'goodmodel.weights.h5')
+    #model.return_s= True
+    model.summary()
+    #latest = tf.train.latest_checkpoint(checkpoint_dir)
+    #model.load_weights(latest)
+    result_dict= eval_cgcnn(loader_va, model, write_output_path)
+    #result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
+
+    model.summary()
+    print(result_dict)
     return result_dict
 
 
 if __name__ == '__main__':
 
-    subpaths=['./100_cgcnn/final/']
+    subpaths=['./debugc/1/']
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
-    fullpath_of_data_file='../Main_fol_Zintl/test_by_fam_ternary.csv'
+    fullpath_of_data_file='../Main_fol_Zintl/val_by_fam_ternary.csv'
     #fullpath_of_data_file='../Main_fol_Zintl/Zintl_bonding_analysis_new_heuristic.csv'
 
     for pathstring in subpaths:
@@ -391,6 +399,6 @@ if __name__ == '__main__':
 
         #write output path is the DIRECTORY where you want the output files to be saved.
         #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
-        write_output_path=fullpath_of_model+'test_set_debug_version/'
+        write_output_path=fullpath_of_model+'val_set_debug_version/'
 
         result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath_for_model)

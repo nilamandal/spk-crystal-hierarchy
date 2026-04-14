@@ -1,0 +1,1 @@
+{"trial": 58, "embedding_size": 72, "cgcnn_num": 3, "cgcnn_num2": 4, "batch_size": 48, "softmax_beta": 280.7778819453658, "lr": 0.0004521219111176121, "clipnorm": 71.33002659039005}

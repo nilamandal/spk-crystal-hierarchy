@@ -268,35 +268,50 @@ def train_single_model(model, load_tr, load_tr_eval, load_va, optim, trial, path
     return best_val_loss
 
 
+def target_v_pred_plot(df, path='./'):
+    plt.figure()
+    plt.scatter(df['target'],df['pred'])
+    x = np.arange(-5, 0, 5)
+    y = x
+    plt.plot(x,y)
+    plt.xlabel('target')
+    plt.ylabel('pred')
+    plt.savefig(path+'target_v_pred.png')
+
+
 if __name__ == "__main__":
     check_env_versions()
-    parampath= './800_cgcnn/143/'
-    datadir= '/home/nim18004/Main_fol_Zintl/'
-    trial_name= './800_cgcnn/final/'
-
-    config= json.load(open(parampath+'params.json'))
-
-    train_csv= pd.read_csv(datadir+'train_by_fam_ternary.csv')
-    val_csv= pd.read_csv(datadir+'val_by_fam_ternary.csv')
-
-    epochs = 1000
-    if epochs<1000:
-        print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
-
-    train_data= AtomFeaDataset(train_csv, datadir, 8, 12, 'r')
-    val_data= AtomFeaDataset(val_csv, datadir, 8, 12, 'r')
-    load_tr= DisjointLoader(train_data, batch_size=config['batch_size'], epochs=epochs)
-    load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
-    load_va= DisjointLoader(val_data, batch_size=len(val_data))
-
-    #model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
-    model= CGCNNModel(config['embedding_size'], config['hidden_size'], config['num_layers'])
-    optim=Adam(config['lr'], clipnorm=config['clipnorm'])
-
-    if not os.path.exists(trial_name):
-        os.makedirs(trial_name)
-    print(trial_name)
-    with open(trial_name+'params.json', 'w') as to_file:
-        json.dump(config, to_file)
-    trial_score= train_single_model(model, load_tr, load_tr_eval, load_va, optim, 'final', trial_name)
-#(model, load_tr, load_tr_eval, load_va, optim, trial, path_i
+    df=pd.read_csv('./debug_save_and_load/14/train_set_debug_version/pooling_eval.csv')
+    target_v_pred_plot(df)
+    df=pd.read_csv('./debug_save_and_load/14/val_set_debug_version/pooling_eval.csv')
+    target_v_pred_plot(df)
+#     parampath= './800_cgcnn/143/'
+#     datadir= '/home/nim18004/Main_fol_Zintl/'
+#     trial_name= './800_cgcnn/final/'
+#
+#     config= json.load(open(parampath+'params.json'))
+#
+#     train_csv= pd.read_csv(datadir+'train_by_fam_ternary.csv')
+#     val_csv= pd.read_csv(datadir+'val_by_fam_ternary.csv')
+#
+#     epochs = 1000
+#     if epochs<1000:
+#         print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
+#
+#     train_data= AtomFeaDataset(train_csv, datadir, 8, 12, 'r')
+#     val_data= AtomFeaDataset(val_csv, datadir, 8, 12, 'r')
+#     load_tr= DisjointLoader(train_data, batch_size=config['batch_size'], epochs=epochs)
+#     load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
+#     load_va= DisjointLoader(val_data, batch_size=len(val_data))
+#
+#     #model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
+#     model= CGCNNModel(config['embedding_size'], config['hidden_size'], config['num_layers'])
+#     optim=Adam(config['lr'], clipnorm=config['clipnorm'])
+#
+#     if not os.path.exists(trial_name):
+#         os.makedirs(trial_name)
+#     print(trial_name)
+#     with open(trial_name+'params.json', 'w') as to_file:
+#         json.dump(config, to_file)
+#     trial_score= train_single_model(model, load_tr, load_tr_eval, load_va, optim, 'final', trial_name)
+# #(model, load_tr, load_tr_eval, load_va, optim, trial, path_i

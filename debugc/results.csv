@@ -1,0 +1,3 @@
+,number,value,params_batch_size,params_clipnorm,params_embedding_size,params_hidden_size,params_lr,params_num_layers,state
+0,0,0.7667922973632812,8,1.7542297695767863,120,4,0.00016150149374897347,1,COMPLETE
+1,1,1.482170820236206,20,17.775746418466994,124,4,0.00016033374584896806,1,COMPLETE
