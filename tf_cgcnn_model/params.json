@@ -1,8 +1,0 @@
-{
-  "__trial_index__": 0,
-  "batch_size": 8,
-  "embedding_size": 32,
-  "hidden_fea_size": 16,
-  "lr": 0.0010072628611696127,
-  "num_nbrs": 5
-}

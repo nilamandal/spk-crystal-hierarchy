@@ -142,16 +142,16 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
                 Cs.append(C)
                 class_accuracies_for_plot.append(score)
 
-                if np.isnan(score):
-                    num_imperfect+=1
+                #if np.isnan(score):
+                #    num_imperfect+=1
                 #    mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',0,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+','+str(len(np.unique(np.around(binary_feats, 3), axis=0)))+'\n'
-                elif score<1:
-                    num_imperfect+=1
+                #elif score<1:
+                #    num_imperfect+=1
                 #    mainline= cifs[i]+','+str(individual_error)+','+str(margin)+',0,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+','+str(len(np.unique(np.around(binary_feats, 3), axis=0)))+'\n'
-                else:
-                    num_perfect+=1
-                mainline= cifs[i]+','+str(float(pred[j]))+','+str(float(target[j]))+','+str(np.nan)+','+str(margin)+',1,'+str(score)+','+str(row_entropy)+','+str(column_entropy)+','+str(len(np.unique(np.around(binary_feats, 3), axis=0)))+'\n'
-                outfile_main.write(mainline)
+                #else:
+                #    num_perfect+=1
+                #mainline= cifs[i]+','+str(float(pred[j]))+','+str(float(target[j]))+','+str(np.nan)+','+str(margin)+',1,'+str(score)+','+str(row_entropy)++str(len(np.unique(np.around(binary_feats, 3), axis=0)))+'\n'
+                #outfile_main.write(mainline)
                 line= 'pool accuracy='+str(score)+'C='+str(C)+'\n'
                 outfile.write(line)
 
@@ -159,15 +159,33 @@ def evaluate(loader, model, cifs, df, fullpath_of_model, fullpath_of_data_file, 
                 #outfile.write(line)
                 line= '\n '+ fullpath_of_data_file+','+cifs[i]
                 outfile.close()
-                if score==1:
-                    poolfile= savepath+'/'+tempcifname+'pool.csv'
-                    df_pool= pd.read_csv(poolfile)
-                    an_mean=np.mean(df_pool[df_pool['ground_truth_P1']==1.0]['P1'])
-                    cat_mean=np.mean(df_pool[df_pool['ground_truth_P1']==0.0]['P1'])
-                    if an_mean>cat_mean:
-                        an_greater+=1
-                    else:
-                        cat_greater+=1
+                poolfile= savepath+'/'+tempcifname+'pool.csv'
+                df_pool= pd.read_csv(poolfile)
+                df_pool=df_pool.dropna()
+                #print(df_pool['P1'])
+                #print(df_pool['ground_truth_P1'])
+
+                df_pool['hc']= df_pool['P1']==df_pool['ground_truth_P1']
+                df_pool.to_csv(poolfile)
+                print(cifs[i])
+                print(df_pool['hc'])
+                print(df_pool['hc'].all())
+                print('---')
+                perfect=0
+                if df_pool['hc'].all():
+                    perfect=1
+                    print('inside if')
+                    num_perfect+=1
+                else:
+                    num_imperfect+=1
+                mainline= cifs[i]+','+str(float(pred[j]))+','+str(float(target[j]))+','+str(np.nan)+','+str(margin)+','+str(perfect)+','+str(score)+','+str(row_entropy)+','+str(column_entropy)+','+str(len(np.unique(np.around(binary_feats, 3), axis=0)))+'\n'
+                outfile_main.write(mainline)
+                #    an_mean=np.mean(df_pool[df_pool['ground_truth_P1']==1.0]['P1'])
+                #    cat_mean=np.mean(df_pool[df_pool['ground_truth_P1']==0.0]['P1'])
+                #    if an_mean>cat_mean:
+                #        an_greater+=1
+                #    else:
+                #        cat_greater+=1
 
                 i+=1
 
@@ -400,10 +418,13 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath)
 
 
 if __name__ == '__main__':
-
-    subpaths=['./debugn/6/']
+    subpaths=[]
+    for i in range(200):
+        sp= './400_ternary/'+str(i)+'/'
+        subpaths.append(sp)
+    #subpaths=['./200_ternary/28/']
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
-    fullpath_of_data_file='../Main_fol_Zintl/val_by_fam_ternary.csv'
+    fullpath_of_data_file='../Main_fol_Zintl/test_by_fam_ternary.csv'
     #fullpath_of_data_file='../Main_fol_Zintl/Zintl_bonding_analysis_new_heuristic.csv'
 
     for pathstring in subpaths:
@@ -414,6 +435,6 @@ if __name__ == '__main__':
 
         #write output path is the DIRECTORY where you want the output files to be saved.
         #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
-        write_output_path=fullpath_of_model+'val_set_debug_version/'
+        write_output_path=fullpath_of_model+'test_set/'
 
         result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath_for_model)
