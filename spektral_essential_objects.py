@@ -894,9 +894,14 @@ class NotShrinking(Model):
             x_pool= cgcnn2([x_pool, a, e])
             x_pool= tf.nn.softplus(x_pool)
 
+        # tf check if tensor contains nans
+        check = tf.math.is_nan(x_pool)
+        if tf.math.reduce_any(check):
+            return np.inf
 
         x_pool= self.meanpool([x_pool, i])
-
+        
+        
         x=self.out_layer(x_pool)
 
         if self.return_s:

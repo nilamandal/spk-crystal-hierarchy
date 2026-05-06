@@ -148,8 +148,20 @@ def train_step(inputs, target, model, loss_fn, optimizer, task='r'):
         #print(predictions)
         loss = loss_fn(target, predictions)
 
+    if tf.math.is_nan(loss) or tf.math.is_inf(loss):
+        return loss, tf.constant(np.inf)
+
     gradients = tape.gradient(loss, model.trainable_variables)
-    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+    
+    grads_and_vars = [
+        (g, v) for g, v in zip(gradients, model.trainable_variables)
+        if g is not None
+    ]
+    
+    if len(grads_and_vars) == 0:
+        return loss, tf.constant(np.inf)
+
+    optimizer.apply_gradients(grads_and_vars)
     if task=='r':
         mse = tf.reduce_mean((target-predictions)**2)
 
@@ -176,7 +188,7 @@ def evaluate(loader, model, loss_fn, test=False, task='r'):
             )
         elif task=='r':
             mse = loss_fn(target, pred) #ASSUMES REGRESSION LOSS IS MSE
-            rmse= np.sqrt(mse)
+            rmse= tf.sqrt(mse)
             mae= tf.reduce_mean(np.abs(target-pred))
             outs = (
                 mse,
@@ -214,7 +226,7 @@ def train_single_model(config, train_data, val_data, epochs=1000, save_path= './
     optim=Adam(config['lr'])
     loss_fn= MeanSquaredError()
     early_stop_counter= 0
-    patience= 100
+    patience= 50
     epoch = step = 0
     logs = {}
     all_callbacks.on_train_begin(logs=logs)
@@ -267,7 +279,7 @@ def train_single_model(config, train_data, val_data, epochs=1000, save_path= './
             if early_stop_counter==patience:
                 all_callbacks.on_train_end(logs)
                 gen_plots(train_metric, val_metric, save_path)
-                return {"score": best_val_loss}
+                return best_val_loss
             else:
                 epoch+=1
     all_callbacks.on_train_end(logs)
@@ -323,15 +335,21 @@ if __name__ == "__main__":
     """
 
     #code used to get structure json from smiles
-    df = pd.read_csv('bench_test_r.csv')
+    #df = pd.read_csv('bench_val_r.csv')
     #df['cid'] = df['SMILES'].apply(pcp_query_by_smile)
+    #print("finished cid")
+    #print(len(df['cid']))
     #df['structure'] = df['cid'].apply(get_bonds_by_pid)
-    print(len(df['structure']))
-    df = df[df["structure"] != "retry"]
-    print(len(df['structure']))
+    #print(len(df['structure']))
+    #df = df[df["structure"] != "retry"]
+    #print(len(df['structure']))
     #print(type(df['structure'][0]))
     #print(df['structure'][0])
-    df.to_csv("bench_test_r.csv", index=False)
+    #df.to_csv("bench_val_r.csv", index=False)
+
+    df = pd.read_csv('aqsol_updated.csv')
+    print(len(df))
+
 
     #Code used to split the dataset
     #df = pd.read_csv('aqsol_updated.csv')

@@ -46,4 +46,4 @@ for sub in subs:
             all_dicts.append(params_dict)
 
 df= pd.DataFrame(all_dicts)
-df.to_csv('evaluated_results_timestamps2.csv')
+df.to_csv('evaluated_results_timestamps.csv')

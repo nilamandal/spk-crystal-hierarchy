@@ -24,7 +24,7 @@ from CorrectedRepeater import BOHBRepeater
 
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 parser.add_argument('--datadir', dest='datadir',
-                    help='Directory where dataset is located', default='/home/jaa21031/spk-crystal-hierarchy/')
+                    help='Directory where dataset is located', default='/home/jaa21031/spk-crystal-hierarchy-a/')
 #parser.add_argument('--num-nbrs', dest='num_nbrs', type=int,
 #                    help='num neighbors per atom', default=12)
 #parser.add_argument('--radius-angstroms', dest='radius_angstroms', type=int,
@@ -116,7 +116,7 @@ class Dataset_from_json(Dataset):
         return cifs
 
 def main_workflow(config):
-    df= pd.read_csv(args.datadir+'aqsol_train.csv')
+    df= pd.read_csv(args.datadir+'bench_train.csv')
     #df= df.head(200)
     cv_scores=[]
     config['task']= 'r'
@@ -129,6 +129,7 @@ def main_workflow(config):
         save_path= './'+str(i)
         score= train_single_model(config, train, val, epochs=1000, save_path=save_path)
         cv_scores.append(score)
+        print(type(score))
 
 
     return {"score": np.mean(cv_scores)}
@@ -154,7 +155,7 @@ if __name__ == "__main__":
        stop_last_trials=False,
      )
 
-     bohb = BOHBRepeater(metric='score', mode='min', repeat=1, max_concurrent=100)
+     bohb = BOHBRepeater(metric='score', mode='min', repeat=1, max_concurrent=10)
      train_model_object = tune.with_resources(main_workflow, {"cpu": 1})
      tuner = tune.Tuner(train_model_object, tune_config=tune.TuneConfig(
        search_alg=bohb,
