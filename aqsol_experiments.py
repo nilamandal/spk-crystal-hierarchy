@@ -94,11 +94,10 @@ class Dataset_from_json(Dataset):
             e[idx_v, idx_u, 0]= dist
         #print(e)
         adj=sp.csr_matrix(adj)
-        if target==0:
-            onehot_target= [1,0]
-        else:
-            onehot_target= [0,1]
-        MG=Graph(x=atom_fea, a=adj, e=e, y=onehot_target)
+        
+        target = np.array([target], dtype=np.float32)
+
+        MG=Graph(x=atom_fea, a=adj, e=e, y=target)
         return MG
 
     def get_cifs(self):       
@@ -116,7 +115,7 @@ class Dataset_from_json(Dataset):
         return cifs
 
 def main_workflow(config):
-    df= pd.read_csv(args.datadir+'bench_train.csv')
+    df= pd.read_csv(args.datadir+'aqsol_train.csv')
     #df= df.head(200)
     cv_scores=[]
     config['task']= 'r'

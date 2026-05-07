@@ -456,11 +456,11 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath)
 
 if __name__ == '__main__':
 
-    
-    subpaths=['../ray_results/main_workflow_2025-11-16_20-14-29/main_workflow_7212fb87_388_trial_index=0,batch_size=64,cgcnn_num=1,cgcnn_num2=2,embedding_size=8,lr=0.0808,softmax_beta=160336.339_2025-11-19_07-58-01']
+    subpaths=["../ray_results/main_workflow_2026-05-06_16-22-11/main_workflow_a5cdec59_7_trial_index=0,batch_size=32,cgcnn_num=3,cgcnn_num2=2,embedding_size=32,lr=0.0030,softmax_beta=392.4304_2026-05-06_16-22-16"]  
+    #subpaths=['../ray_results/main_workflow_2026-04-29_18-28-07/main_workflow_bc7c8006_1_trial_index=0,batch_size=64,cgcnn_num=2,cgcnn_num2=2,embedding_size=4,lr=0.0166,softmax_beta=119574.7390_2026-04-29_18-28-10']
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
-    fullpath_of_data_file='./aqsol_test.csv'
-    y_true = pd.read_csv('./aqsol_test.csv')
+    fullpath_of_data_file='./bench_test.csv'
+    y_true = pd.read_csv('./bench_test.csv')
     y_true = y_true['Solubility']
 
     for pathstring in subpaths:
@@ -476,7 +476,7 @@ if __name__ == '__main__':
         result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath_for_model)
         y_pred = result_dict['y_pred']
         y_pred = y_pred[0].numpy().flatten()
-        
+        print(y_pred)    
         y_true_vals = y_true.to_numpy().flatten()
         y_pred_vals = np.array(y_pred).flatten()
 
