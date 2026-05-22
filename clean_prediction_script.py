@@ -361,9 +361,6 @@ def eval_cgcnn(loader, model, write_path):
         step += 1
         inputs, target = loader.__next__()
 
-        #outfile_main=open(write_output_path+'/pooling_eval.csv','w+')
-        #outfile_main.write('name,pred,target,abs_error,pool_margin,perfect,avg_acc,row_entropy,neg_col_entropy,num_unique \n')
-
         pred = model(inputs, training=False)
         df= pd.DataFrame(
              data=list(zip(pred, target)),
@@ -395,20 +392,13 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath)
         os.makedirs(write_output_path)
     model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'], k=2)
     model.return_s= True
+    #model= CGCNNModel(config['embedding_size'], config['hidden_size'], config['num_layers'])
+
     mini_input, mini_target= miniloader.__next__()
     pred, s_tensor = model(mini_input, training=False)
-    #model= CGCNNModel(config['embedding_size'], config['hidden_size'], config['num_layers'])
-    #model= tf.keras.models.load_model(checkpoint_path, custom_objects={'CGCNN': CGCNNModel})
     model.summary()
     model.load_weights(fullpath_of_model+'goodmodel.weights.h5')
-    #result_dict= eval_cgcnn(loader_va, model, write_output_path)
-    #result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), './dummy/')
 
-
-
-    model.summary()
-    #latest = tf.train.latest_checkpoint(checkpoint_dir)
-    #model.load_weights(latest)
     #result_dict= eval_cgcnn(loader_va, model, write_output_path)
     result_dict=evaluate(loader_va, model, cifs, val_df, fullpath_of_model, os.path.dirname(fullpath_of_data_file), write_output_path)
 
@@ -418,13 +408,13 @@ def main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath)
 
 
 if __name__ == '__main__':
-    subpaths=[]
-    for i in range(200):
-        sp= './400_ternary/'+str(i)+'/'
-        subpaths.append(sp)
-    #subpaths=['./200_ternary/28/']
+    subpaths=['../100_ternary/58/']
+    #for i in range(200):
+    #    sp= './400_ternary/'+str(i)+'/'
+    #    subpaths.append(sp)
+
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
-    fullpath_of_data_file='../Main_fol_Zintl/test_by_fam_ternary.csv'
+    fullpath_of_data_file='../Main_fol_Zintl/train_100_ternary.csv'
     #fullpath_of_data_file='../Main_fol_Zintl/Zintl_bonding_analysis_new_heuristic.csv'
 
     for pathstring in subpaths:
@@ -435,6 +425,6 @@ if __name__ == '__main__':
 
         #write output path is the DIRECTORY where you want the output files to be saved.
         #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
-        write_output_path=fullpath_of_model+'test_set/'
+        write_output_path=fullpath_of_model+'train_set/'
 
         result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath_for_model)

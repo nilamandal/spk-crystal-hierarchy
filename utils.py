@@ -12,7 +12,7 @@ from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import BinaryCrossentropy
 import matplotlib.pyplot as plt
-from spektral_essential_objects import MyDataset, SparseEdgepool, AtomFeaDataset, NotShrinking, CGCNNModel
+#from spektral_essential_objects import MyDataset, SparseEdgepool, AtomFeaDataset, NotShrinking, CGCNNModel
 
 
 electronegativity_lookup= {'Cs':0.79, 'K':0.82, 'Rb':0.82, 'Ba':0.89, 'Na':0.93, 'Sr':0.95, 'Li':0.98,
@@ -315,39 +315,38 @@ def target_v_pred_plot(df, path='./'):
     plt.savefig(path+'target_v_pred.png')
 
 
+def evaluate_pools_from_disk(model_num):
+    poolings= '../400_ternary_all/'+str(model_num)+'/val_set/pooling_eval.csv'
+    df= pd.read_csv(poolings)
+    return np.sum(df['perfect'])
+    #print()
+
+
+main_dir= 'p25_id250'
+
+def evaluate_pools_any_separation(name):
+    df=pd.read_csv('../full_tern_varied_patience/'+main_dir+'/binary_set/'+name+'pool.csv')
+    #print(df['P1'].equals(df['ground_truth_P1']))
+    #print(df['P1'])
+    #print(df['ground_truth_P1'])
+    if df['P1'].equals(df['ground_truth_P1'].astype('float64')):
+        #print('1')
+        return 1
+    elif df['P2'].equals(df['ground_truth_P1'].astype('float64')):
+        #print('2')
+        return 1
+    else:
+        #print('3')
+        return 0
+
 if __name__ == "__main__":
-    check_env_versions()
-    df=pd.read_csv('./debug_save_and_load/14/train_set_debug_version/pooling_eval.csv')
-    target_v_pred_plot(df)
-    df=pd.read_csv('./debug_save_and_load/14/val_set_debug_version/pooling_eval.csv')
-    target_v_pred_plot(df)
-#     parampath= './800_cgcnn/143/'
-#     datadir= '/home/nim18004/Main_fol_Zintl/'
-#     trial_name= './800_cgcnn/final/'
-#
-#     config= json.load(open(parampath+'params.json'))
-#
-#     train_csv= pd.read_csv(datadir+'train_by_fam_ternary.csv')
-#     val_csv= pd.read_csv(datadir+'val_by_fam_ternary.csv')
-#
-#     epochs = 1000
-#     if epochs<1000:
-#         print('WARNING: CURRENTLY RUNNING IN DEBUG MODE WITH '+str(epochs)+' EPOCHS')
-#
-#     train_data= AtomFeaDataset(train_csv, datadir, 8, 12, 'r')
-#     val_data= AtomFeaDataset(val_csv, datadir, 8, 12, 'r')
-#     load_tr= DisjointLoader(train_data, batch_size=config['batch_size'], epochs=epochs)
-#     load_tr_eval= DisjointLoader(train_data, batch_size=len(train_data))
-#     load_va= DisjointLoader(val_data, batch_size=len(val_data))
-#
-#     #model= NotShrinking('r', 1, config['embedding_size'], config['cgcnn_num'], config['cgcnn_num2'], softmax_beta=config['softmax_beta'])
-#     model= CGCNNModel(config['embedding_size'], config['hidden_size'], config['num_layers'])
-#     optim=Adam(config['lr'], clipnorm=config['clipnorm'])
-#
-#     if not os.path.exists(trial_name):
-#         os.makedirs(trial_name)
-#     print(trial_name)
-#     with open(trial_name+'params.json', 'w') as to_file:
-#         json.dump(config, to_file)
-#     trial_score= train_single_model(model, load_tr, load_tr_eval, load_va, optim, 'final', trial_name)
-# #(model, load_tr, load_tr_eval, load_va, optim, trial, path_i
+    #search_dir= '../full_tern_varied_patience/'
+    #df_main=pd.read_csv(search_dir+'pooling_eval_recheck.csv')
+    #df_main['perfect_pools']= df_main['number'].apply(evaluate_pools_from_disk)
+    #df_main.to_csv(search_dir+'results.csv')
+    df= pd.read_csv('../full_tern_varied_patience/'+main_dir+'/binary_set/pooling_eval.csv')
+    #print(df)
+    #df= df[df['perfect']==1]
+    #print(df)
+    df['doublecheck_perfect']= df['name'].apply(evaluate_pools_any_separation)
+    df.to_csv('../full_tern_varied_patience/'+main_dir+'/binary_set/pooling_eval_recheck.csv')
