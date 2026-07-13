@@ -135,8 +135,6 @@ class MyDataset(Dataset, Sequence):
         df = self.dataframe.sample(frac=1).reset_index(drop=True)
         allgraphs=[]
         cifs=list(df['id'])
-        #num_symmetric=0
-        #num_asymmetric=0
         self.cifs=cifs
         all_atomic_numbers=[]
         for c in cifs:

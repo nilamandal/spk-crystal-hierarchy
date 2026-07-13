@@ -1,19 +1,15 @@
-#import pubchempy as pcp
 import pandas as pd
 import tensorflow as tf
-#from tensorflow.keras.metrics import sparse_categorical_accuracy, categorical_accuracy
 import numpy as np
 import json
 import os
 from spektral.data import Graph, Dataset, DisjointLoader
 from tensorflow.keras.callbacks import CallbackList, CSVLogger
-#from spektral_essential_objects import NotShrinking
+
 from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import BinaryCrossentropy
 import matplotlib.pyplot as plt
-#from spektral_essential_objects import MyDataset, SparseEdgepool, AtomFeaDataset, NotShrinking, CGCNNModel
-
 
 electronegativity_lookup= {'Cs':0.79, 'K':0.82, 'Rb':0.82, 'Ba':0.89, 'Na':0.93, 'Sr':0.95, 'Li':0.98,
     'Ca':1, 'Yb':1.1, 'Mg':1.31, 'Mn':1.55, 'Be':1.57, 'Al':1.61, 'Tl':1.62, 'Zn':1.65, 'Cd':1.69, 'In':1.69,
@@ -46,8 +42,6 @@ def does_it_match(p1, p2):
             return 0
     return -1
 
-            #check if a. everything in p1 is less than everything in p2
-            #b. check if everything in p2 is less than p1
 
 # def pcp_query_by_smile(formula):
 #     try:
@@ -127,20 +121,15 @@ def row_e_and_column_p(s, i):
 
     return -1*column_prod_sum, row_entropy_sum
 
-
-
 def get_available(filename):
     try:
         crystal= Structure.from_file('../Main_fol_Zintl/'+filename)
         ana= SpacegroupAnalyzer(crystal)
-        #print(ana)
         sym_crystal= ana.get_symmetrized_structure()
-        #print(len(sym_crystal.equivalent_indices))
         return len(sym_crystal.equivalent_indices)
-
     except:
         print(filename)
-        #return False
+
 
 def scale_by_pred_vol(structure, site_bias, dls_vol_predictor):
     #global count
@@ -154,7 +143,6 @@ def scale_by_pred_vol(structure, site_bias, dls_vol_predictor):
         structure.scale_lattice(linear_pred)
     except:
         pass
-        #count+=1
     # then apply Pymatgen's DLS predictor
     pred_volume = dls_vol_predictor.predict(structure)
     structure.scale_lattice(pred_volume)
