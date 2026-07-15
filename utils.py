@@ -16,7 +16,6 @@ electronegativity_lookup= {'Cs':0.79, 'K':0.82, 'Rb':0.82, 'Ba':0.89, 'Na':0.93,
     'Ga':1.81, 'Si':1.9, 'Sn':1.96, 'Hg':2, 'Ge':2.01, 'Bi':2.02, 'Sb':2.05, 'As':2.18, 'P':2.19, 'H':2.2,
     'Pb':2.33}
 
-
 def cleanse(pstr):
     pstr= pstr.split(',')
     for i in range(len(pstr)):
@@ -42,7 +41,6 @@ def does_it_match(p1, p2):
             return 0
     return -1
 
-
 # def pcp_query_by_smile(formula):
 #     try:
 #         d= pcp.get_compounds(formula, namespace='smiles', record_type='2d')
@@ -66,7 +64,6 @@ def does_it_match(p1, p2):
 
 def gen_plots(train_metric, val_metric, idx):
     plt.switch_backend('Agg')
-
     plt.figure()
 
     epochs=list(range(len(train_metric)))
@@ -76,7 +73,6 @@ def gen_plots(train_metric, val_metric, idx):
     plt.plot(epochs, np.log(val_metric), label='val loss')
 
     figtitle=idx+'_result.png'
-
     plt.xlabel('epochs')
     plt.legend()
     plt.ylabel('log of mean square error ')
@@ -89,37 +85,32 @@ def check_env_versions():
     print(spektral.__version__)
     import numpy
     print(numpy.__version__)
-    #import ray
-    #print(ray.__version__)
-    #import ConfigSpace
-    #print(ConfigSpace.__version__)
     import optuna
     print(optuna.__version__)
 
-
-def entropy_loss(s):
-    entr = tf.negative(
-        tf.reduce_sum(tf.multiply(s, tf.math.log(s + 10**-30)), axis=-1)
-    )
-    entr_loss = tf.reduce_mean(entr, axis=-1)
-    return entr_loss
-
-def row_e_and_column_p(s, i):
-    batch_size= s.shape[0]
-    column_prod_sum=0
-    row_entropy_sum=0
-
-    for g in range(batch_size):
-        count= np.count_nonzero(i==g)
-        s_g=s[g,:count]
-        #---
-        row= entropy_loss(s_g)
-        row_entropy_sum+=row
-
-        column_product= tf.math.reduce_prod(tf.divide(tf.reduce_sum(s_g, axis=0),s_g.shape[0]))
-        column_prod_sum+= column_product
-
-    return -1*column_prod_sum, row_entropy_sum
+# def entropy_loss(s):
+#     entr = tf.negative(
+#         tf.reduce_sum(tf.multiply(s, tf.math.log(s + 10**-30)), axis=-1)
+#     )
+#     entr_loss = tf.reduce_mean(entr, axis=-1)
+#     return entr_loss
+#
+# def row_e_and_column_p(s, i):
+#     batch_size= s.shape[0]
+#     column_prod_sum=0
+#     row_entropy_sum=0
+#
+#     for g in range(batch_size):
+#         count= np.count_nonzero(i==g)
+#         s_g=s[g,:count]
+#         #---
+#         row= entropy_loss(s_g)
+#         row_entropy_sum+=row
+#
+#         column_product= tf.math.reduce_prod(tf.divide(tf.reduce_sum(s_g, axis=0),s_g.shape[0]))
+#         column_prod_sum+= column_product
+#
+#     return -1*column_prod_sum, row_entropy_sum
 
 def get_available(filename):
     try:
@@ -130,9 +121,7 @@ def get_available(filename):
     except:
         print(filename)
 
-
 def scale_by_pred_vol(structure, site_bias, dls_vol_predictor):
-    #global count
     # first predict the volume using the average volume per element (from ICSD)
     site_counts = pd.Series(Counter(
         str(site.specie) for site in structure.sites)).fillna(0)
@@ -160,12 +149,9 @@ def scale_dls_only(c):
     structure.to(filename=newpath)
     return newpath
 
-
 def train_step(inputs, target, model, loss_fn, optimizer, task='r'):
     with tf.GradientTape() as tape:
         predictions = model(inputs, training=True)
-        #print(target)
-        #print(predictions)
         loss = loss_fn(target, predictions)
 
     gradients = tape.gradient(loss, model.trainable_variables)
@@ -184,15 +170,11 @@ def evaluate(loader, model, loss_fn, test=False, task='r'):
     while step < loader.steps_per_epoch:
         step += 1
         inputs, target = loader.__next__()
-        #x, a, e, i = inputs
-        #pred, s = model(inputs, training=False)
         pred = model(inputs, training=False)
 
-        #c_p, r_e= row_e_and_column_p(s, i)
         if task=='c':
             outs = (
                 loss_fn(target, pred),
-                #tf.reduce_mean(categorical_accuracy(target, pred)),
                 len(target),  # Keep track of batch size
             )
         elif task=='r':
@@ -215,14 +197,9 @@ def train_single_model(model, load_tr, load_tr_eval, load_va, optim, trial, path
 
     checkpoint_path=path_i+'goodmodel.keras'
     csv_log = CSVLogger(path_i+"callback_results.csv")
-    #print('loop entered')
     all_callbacks= CallbackList([csv_log], add_history=True, model=model)
 
-
     loss_fn= MeanSquaredError()
-    #else:
-    #    loss_fn= CategoricalCrossentropy()
-
 
     train_metric=[]
     val_metric_list=[]
@@ -235,16 +212,14 @@ def train_single_model(model, load_tr, load_tr_eval, load_va, optim, trial, path
     all_callbacks.on_train_begin(logs=logs)
 
     for batch in load_tr:
-        #print(epoch, step)
         if step==0:
             all_callbacks.on_epoch_begin(epoch, logs=logs)
         step += 1
-        #print(epoch, step)
 
         all_callbacks.on_train_batch_begin(step)
         loss, metric = train_step(*batch, model, loss_fn, optim)
         all_callbacks.on_train_batch_end(step, logs)
-        #print('---')
+
         if tf.math.is_nan(loss):
             print('nan occurred')
             all_callbacks.on_train_end(logs)
@@ -259,26 +234,17 @@ def train_single_model(model, load_tr, load_tr_eval, load_va, optim, trial, path
             val_loss, val_rmse, val_mae= evaluate(load_va, model, loss_fn)
             val_metric_list.append(val_loss)
             train_metric.append(tr_loss)
-            #total_val_loss= val_loss
-            print(val_loss)
+
             if epoch>0:
                 if val_loss<best_val_loss:
                     early_stop_counter=0
                     model.save(checkpoint_path)
                     best_val_loss= val_loss
-
                 else:
                     early_stop_counter+=1
-                #if epoch%50==0:
-                   #trial.report(val_loss,epoch)
-                   #print(trial)
-                   #if trial.should_prune():
-                   #    print(trial)
-                   #    raise optuna.TrialPruned()
-            #if args.task=='r':
+
             all_callbacks.on_epoch_end(epoch, {'train_mse':tr_loss, 'train_rmse':tr_rmse, 'train_mae':tr_mae, 'val_mse':val_loss, 'val_rmse:':val_rmse, 'val_mae':val_mae})
-            #else:
-            #    all_callbacks.on_epoch_end(epoch, {'train_loss':tr_loss, 'val_loss:':val_loss})
+
             if early_stop_counter==patience:
                 all_callbacks.on_train_end(logs)
                 gen_plots(train_metric, val_metric_list, path_i)
@@ -288,9 +254,7 @@ def train_single_model(model, load_tr, load_tr_eval, load_va, optim, trial, path
 
     all_callbacks.on_train_end(logs)
     gen_plots(train_metric, val_metric_list, path_i)
-
     return best_val_loss
-
 
 def target_v_pred_plot(df, path='./'):
     plt.figure()
@@ -302,39 +266,25 @@ def target_v_pred_plot(df, path='./'):
     plt.ylabel('pred')
     plt.savefig(path+'target_v_pred.png')
 
-
 def evaluate_pools_from_disk(model_num):
     poolings= '../400_ternary_all/'+str(model_num)+'/val_set/pooling_eval.csv'
     df= pd.read_csv(poolings)
     return np.sum(df['perfect'])
-    #print()
-
 
 main_dir= 'p25_id250'
 
 def evaluate_pools_any_separation(name):
     df=pd.read_csv('../full_tern_varied_patience/'+main_dir+'/binary_set/'+name+'pool.csv')
-    #print(df['P1'].equals(df['ground_truth_P1']))
-    #print(df['P1'])
-    #print(df['ground_truth_P1'])
     if df['P1'].equals(df['ground_truth_P1'].astype('float64')):
-        #print('1')
         return 1
     elif df['P2'].equals(df['ground_truth_P1'].astype('float64')):
-        #print('2')
         return 1
     else:
-        #print('3')
         return 0
 
 if __name__ == "__main__":
-    #search_dir= '../full_tern_varied_patience/'
-    #df_main=pd.read_csv(search_dir+'pooling_eval_recheck.csv')
-    #df_main['perfect_pools']= df_main['number'].apply(evaluate_pools_from_disk)
+    check_env_versions()
     #df_main.to_csv(search_dir+'results.csv')
-    df= pd.read_csv('../full_tern_varied_patience/'+main_dir+'/binary_set/pooling_eval.csv')
-    #print(df)
-    #df= df[df['perfect']==1]
-    #print(df)
-    df['doublecheck_perfect']= df['name'].apply(evaluate_pools_any_separation)
-    df.to_csv('../full_tern_varied_patience/'+main_dir+'/binary_set/pooling_eval_recheck.csv')
+    #df= pd.read_csv('../full_tern_varied_patience/'+main_dir+'/binary_set/pooling_eval.csv')
+    #df['doublecheck_perfect']= df['name'].apply(evaluate_pools_any_separation)
+    #df.to_csv('../full_tern_varied_patience/'+main_dir+'/binary_set/pooling_eval_recheck.csv')

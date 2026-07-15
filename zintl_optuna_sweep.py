@@ -1,3 +1,4 @@
+#This script uses optuna to run a hyperparameter sweep. This was used for hyperparameter tuning for both the NoShrink models and CGCNN models.
 import optuna
 import json
 import resource
@@ -12,9 +13,6 @@ import argparse
 from optuna.storages import JournalStorage
 from optuna.storages.journal import JournalFileBackend
 
-import sklearn.datasets
-import sklearn.linear_model
-import sklearn.model_selection
 import keras
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
@@ -28,7 +26,6 @@ from utils import train_step, evaluate, target_v_pred_plot
 parser = argparse.ArgumentParser(description='crystal hierarchy arguments.')
 parser.add_argument('--datadir', dest='datadir',
         help='Directory where dataset is located', default='../Main_fol_Zintl')
-
 parser.add_argument('--task', choices=['r', 'c'],
                     default='r', help='complete a regression or classification task (default: regression)')
 parser.add_argument('--out_dir', default='./debugn/', help='directory where output is saved')

@@ -1,5 +1,16 @@
 # spk-crystal-hierarchy
 
+Version requirements:
+
+Python 3.10.18
+Tensorflow 2.16.2
+Spektral 1.3.1
+Numpy 1.26.4
+Optuna 4.6.0
+
+
+Files:
+
 ExampleContcars contains examples of the data formats used in this work.
 
 spektral_essential_objects.py contains all customized objects and architectures required for our experiments, including AtomFeaDataset, NoShrinkDiffPool, and NotShrinking architecture.

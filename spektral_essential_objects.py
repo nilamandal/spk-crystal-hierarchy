@@ -31,9 +31,7 @@ from spektral.data.utils import to_batch
 from spektral.utils import reorder, sp_matrix_to_sp_tensor, gcn_filter
 from spektral.layers import DiffPool, ops, GlobalSumPool, GlobalAvgPool, Disjoint2Batch, GraphMasking, CrystalConv, GCNConv
 from spektral.layers.ops.scatter import deserialize_scatter
-#from torch_compatible_objects import AtomInitializer, AtomCustomJSONInitializer, GaussianDistance
-#from CrystalConv import CrystalConv
-#
+
 class AtomInitializer(object):
     """
     Base class for intializing the vector representation for atoms.
