@@ -262,6 +262,7 @@ class AtomFeaDataset(MyDataset):
                     nbr_fea.append(list(map(lambda x: x[1],
                                             nbr[:self.num_nbrs])))
             df_MG=df[df['id'].astype(str)==c]
+
             gdf = GaussianDistance(dmin=0, dmax=8, step=0.2)
             nbr_fea = gdf.expand(np.array(nbr_fea))
             adj = np.zeros((num_atoms, num_atoms))
@@ -337,10 +338,7 @@ class RegularizedDiffPool(DiffPool):
         super(DiffPool, self).build(input_shape)
 
     def call(self, inputs, mask=None):
-
         x, a, i = self.get_inputs(inputs)
-
-
         # Graph filter for GNNs
         if K.is_sparse(a):
             #i_n = tf.sparse.eye(self.n_nodes, dtype=a.dtype)
@@ -356,12 +354,8 @@ class RegularizedDiffPool(DiffPool):
         return output
 
     def select(self, x, a, i, fltr=None, mask=None):
-        #print('inside select')
         x = ops.modal_dot(fltr, x)
         s = self.assignment_fc(x)
-        #print(x)
-        #print(s)
-
         masked_s = self.masker(s)
 
         masked_tensor= tf.ragged.boolean_mask(masked_s, masked_s._keras_mask)
@@ -381,7 +375,7 @@ class RegularizedDiffPool(DiffPool):
 
         if mask is not None:
             s *= mask
-        #print('select over')
+
         return s
 
     def reduce(self, x, s, fltr=None):
@@ -399,7 +393,6 @@ class NoShrinkDiffPool(RegularizedDiffPool):
         super().__init__(k, beta=beta, channels=channels, return_selection=return_selection, activation=activation,
                 kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer, kernel_constraint=kernel_constraint,
                 **kwargs)
-        #self.n_nodes=None
 
     def get_config(self):
         config = super().get_config()
@@ -407,7 +400,6 @@ class NoShrinkDiffPool(RegularizedDiffPool):
 
     def call(self, inputs, mask=None):
         x, a, i = self.get_inputs(inputs)
-
 
         # Graph filter for GNNs
         if K.is_sparse(a):
@@ -466,9 +458,7 @@ class NoShrinkDiffPool(RegularizedDiffPool):
         else:
 
             mask_concat= tf.concat([mask, mask], -1)
-            #print(mask_concat)
             mask_bool= np.ma.make_mask(mask_concat)
-            #print(mask_bool)
             masked_s= s * mask_concat
 
             masked_tensor= tf.ragged.boolean_mask(masked_s, mask_bool)
@@ -500,11 +490,6 @@ class NoShrinkDiffPool(RegularizedDiffPool):
 
     def connect(self, a, s, **kwargs):
         return a
-
-
-
-
-
 
 
 
@@ -662,7 +647,7 @@ class SparseEdgepool(Model):
 
 @keras.saving.register_keras_serializable(package="MyLayers", name="CGCNN")
 class CGCNNModel(Model):
-    def __init__(self, embedding_size=64, hidden_fea_size=128, num_layers=3, regularizer='l2', random_seed=0, edge_fea=False, **kwargs):
+    def __init__(self, embedding_size=64, hidden_fea_size=128, num_layers=3, regularizer='l2', random_seed=0, edge_fea=False, return_embedding=False, **kwargs):
         super().__init__()
         glorot_initializer= initializers.glorot_uniform(seed=random_seed)
         he_initializer= initializers.he_uniform(seed=random_seed)
@@ -677,7 +662,7 @@ class CGCNNModel(Model):
         for i in range(num_layers):
             conv= CrystalConv(activation= 'softplus', kernel_initializer=he_initializer, kernel_regularizer=regularizer)
             self.conv_list.append(conv)
-
+        self.return_embedding= return_embedding
         self.meanpool= GlobalAvgPool()
 
         self.conv_to_fc = Dense(hidden_fea_size, activation= 'softplus', kernel_initializer=glorot_initializer, kernel_regularizer=regularizer)
@@ -712,11 +697,14 @@ class CGCNNModel(Model):
         for cgcnn in self.conv_list:
             x= cgcnn([x, a])
             x= tf.nn.softplus(x)
-
+        #self.accessible_feat_embedding= x
         x_crys= self.meanpool([x, i])
         x_crys= self.conv_to_fc(x_crys)
         out= self.out_layer(x_crys)
-        return out
+        if self.return_embedding:
+            return x
+        else:
+            return out
 
 
 
@@ -764,6 +752,7 @@ class NotShrinking(Model):
             self.out_layer= Dense(1, kernel_initializer=glorot_initializer)
         #self.saveindex=1
         #self.savepath=path
+
 
 
 

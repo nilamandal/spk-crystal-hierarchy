@@ -10,6 +10,7 @@ from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import BinaryCrossentropy
 import matplotlib.pyplot as plt
+from spektral_essential_objects import AtomFeaDataset, GaussianDistance
 
 electronegativity_lookup= {'Cs':0.79, 'K':0.82, 'Rb':0.82, 'Ba':0.89, 'Na':0.93, 'Sr':0.95, 'Li':0.98,
     'Ca':1, 'Yb':1.1, 'Mg':1.31, 'Mn':1.55, 'Be':1.57, 'Al':1.61, 'Tl':1.62, 'Zn':1.65, 'Cd':1.69, 'In':1.69,
@@ -41,27 +42,6 @@ def does_it_match(p1, p2):
             return 0
     return -1
 
-# def pcp_query_by_smile(formula):
-#     try:
-#         d= pcp.get_compounds(formula, namespace='smiles', record_type='2d')
-#         #temp= d[0].to_dict(properties=['atoms', 'bonds'])
-#         print(d)
-#         return d
-#     except:
-#         return 'retry'
-#     return 'retry'
-#
-# def get_bonds_by_pid(pid):
-#     #print(pid)
-#     try:
-#         d= pcp.Compound.from_cid(pid)
-#         g= d.to_dict(properties=['atoms', 'bonds'])
-#         print(pid)
-#         return g
-#     except:
-#         print(pid, 'retry')
-#         return 'retry'
-
 def gen_plots(train_metric, val_metric, idx):
     plt.switch_backend('Agg')
     plt.figure()
@@ -87,30 +67,6 @@ def check_env_versions():
     print(numpy.__version__)
     import optuna
     print(optuna.__version__)
-
-# def entropy_loss(s):
-#     entr = tf.negative(
-#         tf.reduce_sum(tf.multiply(s, tf.math.log(s + 10**-30)), axis=-1)
-#     )
-#     entr_loss = tf.reduce_mean(entr, axis=-1)
-#     return entr_loss
-#
-# def row_e_and_column_p(s, i):
-#     batch_size= s.shape[0]
-#     column_prod_sum=0
-#     row_entropy_sum=0
-#
-#     for g in range(batch_size):
-#         count= np.count_nonzero(i==g)
-#         s_g=s[g,:count]
-#         #---
-#         row= entropy_loss(s_g)
-#         row_entropy_sum+=row
-#
-#         column_product= tf.math.reduce_prod(tf.divide(tf.reduce_sum(s_g, axis=0),s_g.shape[0]))
-#         column_prod_sum+= column_product
-#
-#     return -1*column_prod_sum, row_entropy_sum
 
 def get_available(filename):
     try:
@@ -244,7 +200,6 @@ def train_single_model(model, load_tr, load_tr_eval, load_va, optim, trial, path
                     early_stop_counter+=1
 
             all_callbacks.on_epoch_end(epoch, {'train_mse':tr_loss, 'train_rmse':tr_rmse, 'train_mae':tr_mae, 'val_mse':val_loss, 'val_rmse:':val_rmse, 'val_mae':val_mae})
-
             if early_stop_counter==patience:
                 all_callbacks.on_train_end(logs)
                 gen_plots(train_metric, val_metric_list, path_i)
@@ -271,10 +226,10 @@ def evaluate_pools_from_disk(model_num):
     df= pd.read_csv(poolings)
     return np.sum(df['perfect'])
 
-main_dir= 'p25_id250'
+main_dir= 'p50_id143/old_heuristic_redo'
 
 def evaluate_pools_any_separation(name):
-    df=pd.read_csv('../full_tern_varied_patience/'+main_dir+'/binary_set/'+name+'pool.csv')
+    df=pd.read_csv('../full_tern_varied_patience/'+main_dir+'/'+name+'pool.csv')
     if df['P1'].equals(df['ground_truth_P1'].astype('float64')):
         return 1
     elif df['P2'].equals(df['ground_truth_P1'].astype('float64')):
@@ -282,9 +237,135 @@ def evaluate_pools_any_separation(name):
     else:
         return 0
 
+def assign_by_atom(contcar_path, p1):
+   from pymatgen.core.structure import Structure
+   import random
+   crystal= Structure.from_file(os.path.join('../Main_fol_Zintl/',contcar_path))
+   s= random.choices([0,1], k=len(crystal))
+   correct_list=[]
+   for i in range(len(crystal)):
+      if str(crystal[i].specie) in p1:
+          correct_list.append(1)
+      else:
+          correct_list.append(0)
+
+   correctcount=0
+   for i in range(len(crystal)):
+      if s[i]==correct_list[i]:
+          correctcount+=1
+
+   if correctcount==0:
+      return True
+   elif correctcount==len(crystal):
+      return True
+   else:
+      return False
+
+def assign_by_Wyckoff(contcarpath, p1):
+   from pymatgen.core.structure import Structure
+   from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+   import random
+   crystal= Structure.from_file(os.path.join('../Main_fol_Zintl/',contcarpath))
+   correct_list=[]
+   for i in range(len(crystal)):
+      if str(crystal[i].specie) in p1:
+          correct_list.append(1)
+      else:
+          correct_list.append(0)
+
+   sga= SpacegroupAnalyzer(crystal)
+   all_equiv =sga.get_symmetry_dataset()['equivalent_atoms']
+   unique_equiv= np.unique(all_equiv)
+   s= random.choices([0,1], k=len(unique_equiv))
+   if np.sum(s)==0:
+     return -1
+   elif np.sum(s)==len(unique_equiv):
+     return -1
+
+   full_s= list(range(len(all_equiv)))
+   for i in range(len(unique_equiv)):
+      for j in range(len(all_equiv)):
+          if unique_equiv[i]==all_equiv[j]:
+              full_s[j]= s[i]
+
+   correctcount=0
+   for i in range(len(crystal)):
+      if full_s[i]==correct_list[i]:
+          correctcount+=1
+   if correctcount==0:
+      return 0
+   elif correctcount==len(crystal):
+      return 0
+   else:
+      return 1
+
+def assign_by_element(contcarpath, p1):
+   from pymatgen.core.structure import Structure
+   import random
+   crystal= Structure.from_file(os.path.join('../Main_fol_Zintl/',contcarpath))
+   correct_list=[]
+   species_list=[]
+   for i in range(len(crystal)):
+      species_list.append(str(crystal[i].specie))
+   unique_species= np.unique(species_list)
+   s= random.choices([0,1], k=len(unique_species))
+   list_p1= p1.split(',')
+   for e in unique_species:
+      if e in list_p1:
+         correct_list.append(0)
+      else:
+         correct_list.append(1)
+
+   correctcount=0
+   for i in range(len(unique_species)):
+      if s[i]==correct_list[i]:
+         correctcount+=1
+   if correctcount==0:
+      return True
+   elif correctcount==len(unique_species):
+      return True
+   else:
+      return False
+
 if __name__ == "__main__":
-    check_env_versions()
-    #df_main.to_csv(search_dir+'results.csv')
-    #df= pd.read_csv('../full_tern_varied_patience/'+main_dir+'/binary_set/pooling_eval.csv')
-    #df['doublecheck_perfect']= df['name'].apply(evaluate_pools_any_separation)
-    #df.to_csv('../full_tern_varied_patience/'+main_dir+'/binary_set/pooling_eval_recheck.csv')
+    df= pd.read_csv('../full_tern_varied_patience/'+main_dir+'/pooling_eval2.csv')
+
+    df_binary= pd.read_csv('../full_tern_varied_patience/p50_id143/binary_set/pooling_eval_recheck.csv')
+    df_quat= pd.read_csv('../full_tern_varied_patience/p50_id143/quaternary_set/pooling_eval_recheck.csv')
+    df_tern=pd.read_csv('../full_tern_varied_patience/p50_id143/test_set/pooling_eval_recheck.csv')
+    # print(df.dtypes)
+    # print(df_binary.dtypes)
+    df_binary_joined= pd.merge(df, df_binary, on=['name'], how='inner', suffixes=['_electronegativity','_Rinku'])
+    df_binary_joined.to_csv('binary_old_heuristic.csv')
+    #
+    df_ternary_joined= pd.merge(df, df_tern, on=['name'], how='inner', suffixes=['_electronegativity','_Rinku'])
+    df_ternary_joined.to_csv('ternary_old_heuristic.csv')
+    # # trialpath= 'trial0'
+    df_quat_joined= pd.merge(df, df_quat, on=['name'], how='inner', suffixes=['_electronegativity','_Rinku'])
+    df_quat_joined.to_csv('quat_old_heuristic.csv')
+    # #os.mkdir(trialpath)
+    # df= pd.read_csv('../Main_fol_Zintl/binary_test_all.csv')
+    # #df2= pd.read_csv('../Main_fol_Zintl/val_by_fam_ternary.csv')
+    # #df3= pd.read_csv('../Main_fol_Zintl/test_by_fam_ternary.csv')
+    # #df= pd.concat([df1,df2,df3])
+    # #df= df.head(5)
+    # print(df)
+    # crystal_list= df['id'].tolist()
+    # p1_list= df['P1'].tolist()
+    # file_out='assign_two_wyckoff_binary_again.csv'
+    # out= open(file_out, 'w+')
+    # out.write('trial#, hc_val \n')
+    # for trial in range(1000):
+    #   count_hc= 0
+    #   num_crystals= len(crystal_list)
+    #   for i in range(len(crystal_list)):
+    #       result= assign_by_Wyckoff(crystal_list[i], p1_list[i])
+    #       if result==-1:
+    #          num_crystals= num_crystals-1
+    #       elif result==0:
+    #          #print(crystal_list[i])
+    #          count_hc+=1
+    #   print(count_hc, num_crystals)
+    #   str_out= str(trial)+','+str(count_hc/num_crystals)+'\n'
+    #   out.write(str_out)
+    # out.close()
