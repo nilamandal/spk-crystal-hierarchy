@@ -5,7 +5,7 @@ import json
 import os
 from spektral.data import Graph, Dataset, DisjointLoader
 from tensorflow.keras.callbacks import CallbackList, CSVLogger
-
+from pymatgen.core.structure import Structure
 from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import BinaryCrossentropy
@@ -226,7 +226,6 @@ def evaluate_pools_from_disk(model_num):
     df= pd.read_csv(poolings)
     return np.sum(df['perfect'])
 
-main_dir= 'p50_id143/old_heuristic_redo'
 
 def evaluate_pools_any_separation(name):
     df=pd.read_csv('../full_tern_varied_patience/'+main_dir+'/'+name+'pool.csv')
@@ -327,45 +326,46 @@ def assign_by_element(contcarpath, p1):
    else:
       return False
 
-if __name__ == "__main__":
-    df= pd.read_csv('../full_tern_varied_patience/'+main_dir+'/pooling_eval2.csv')
+def electronegativity_heuristic(name):
+    crystal= Structure.from_file(os.path.join('../Main_fol_Zintl/',name))
+    species_list=[]
+    for i in range(len(crystal)):
+        species_list.append(str(crystal[i].specie))
+    unique_species= np.unique(species_list).tolist()
+    #print(unique_species)
+    elc= []
+    for i in range(len(unique_species)):
+        #print(unique_species[i])
+        elc.append(electronegativity_lookup[unique_species[i]])
 
-    df_binary= pd.read_csv('../full_tern_varied_patience/p50_id143/binary_set/pooling_eval_recheck.csv')
-    df_quat= pd.read_csv('../full_tern_varied_patience/p50_id143/quaternary_set/pooling_eval_recheck.csv')
-    df_tern=pd.read_csv('../full_tern_varied_patience/p50_id143/test_set/pooling_eval_recheck.csv')
-    # print(df.dtypes)
-    # print(df_binary.dtypes)
-    df_binary_joined= pd.merge(df, df_binary, on=['name'], how='inner', suffixes=['_electronegativity','_Rinku'])
-    df_binary_joined.to_csv('binary_old_heuristic.csv')
+    cation= unique_species.pop(np.argmin(elc))
+
+    return str(cation), str(unique_species)
+
+
+def electronegativity_quaternary_heuristic(name):
+    crystal= Structure.from_file(os.path.join('../Main_fol_Zintl/',name))
+    species_list=[]
+    for i in range(len(crystal)):
+        species_list.append(str(crystal[i].specie))
+    unique_species= np.unique(species_list).tolist()
+    #print(unique_species)
+    elc= []
+    for i in range(len(unique_species)):
+        #print(unique_species[i])
+        elc.append(electronegativity_lookup[unique_species[i]])
+
+    cation= []
+    cation.append(unique_species.pop(np.argmin(elc)))
+    elc.remove(min(elc))
+    cation.append(unique_species.pop(np.argmin(elc)))
+    return str(cation), str(unique_species)
+
+main_dir= 'p50_id143/quaternary_2electro'
+
+if __name__ == "__main__":
     #
-    df_ternary_joined= pd.merge(df, df_tern, on=['name'], how='inner', suffixes=['_electronegativity','_Rinku'])
-    df_ternary_joined.to_csv('ternary_old_heuristic.csv')
-    # # trialpath= 'trial0'
-    df_quat_joined= pd.merge(df, df_quat, on=['name'], how='inner', suffixes=['_electronegativity','_Rinku'])
-    df_quat_joined.to_csv('quat_old_heuristic.csv')
-    # #os.mkdir(trialpath)
-    # df= pd.read_csv('../Main_fol_Zintl/binary_test_all.csv')
-    # #df2= pd.read_csv('../Main_fol_Zintl/val_by_fam_ternary.csv')
-    # #df3= pd.read_csv('../Main_fol_Zintl/test_by_fam_ternary.csv')
-    # #df= pd.concat([df1,df2,df3])
-    # #df= df.head(5)
-    # print(df)
-    # crystal_list= df['id'].tolist()
-    # p1_list= df['P1'].tolist()
-    # file_out='assign_two_wyckoff_binary_again.csv'
-    # out= open(file_out, 'w+')
-    # out.write('trial#, hc_val \n')
-    # for trial in range(1000):
-    #   count_hc= 0
-    #   num_crystals= len(crystal_list)
-    #   for i in range(len(crystal_list)):
-    #       result= assign_by_Wyckoff(crystal_list[i], p1_list[i])
-    #       if result==-1:
-    #          num_crystals= num_crystals-1
-    #       elif result==0:
-    #          #print(crystal_list[i])
-    #          count_hc+=1
-    #   print(count_hc, num_crystals)
-    #   str_out= str(trial)+','+str(count_hc/num_crystals)+'\n'
-    #   out.write(str_out)
-    # out.close()
+    df= pd.read_csv('../full_tern_varied_patience/'+main_dir+'/pooling_eval.csv')
+
+    df['heuristic_match']=df['name'].apply(evaluate_pools_any_separation)
+    df.to_csv('../full_tern_varied_patience/'+main_dir+'/pooling_eval.csv')

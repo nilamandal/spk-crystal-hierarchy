@@ -261,7 +261,7 @@ if __name__ == '__main__':
     subpaths=['../full_tern_varied_patience/p50_id143/']
 
     #fullpath of data file is the path to the CSV FILE where the list of crystals and target values is stored.
-    fullpath_of_data_file='../Main_fol_Zintl/all_crystals_old_heuristic.csv'
+    fullpath_of_data_file='../Main_fol_Zintl/quat_2_cat.csv'
     #fullpath_of_data_file='../Main_fol_Zintl/Zintl_bonding_analysis_new_heuristic.csv'
 
     for pathstring in subpaths:
@@ -272,6 +272,6 @@ if __name__ == '__main__':
 
         #write output path is the DIRECTORY where you want the output files to be saved.
         #Best practice is to use a new directory every time you run this script, to avoid past results being overwritten.
-        write_output_path=fullpath_of_model+'old_heuristic_redo/'
+        write_output_path=fullpath_of_model+'quaternary_2electro/'
 
         result_dict= main(fullpath_of_model, fullpath_of_data_file, write_output_path, parampath_for_model)
